@@ -1,0 +1,26 @@
+{
+    "name": "synthflow-language-support",
+    "displayName": "SynthFlow Language Support",
+    "description": "Syntax highlighting for SynthFlow programming language",
+    "version": "0.0.1",
+    "publisher": "synthflow",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "synthflow",
+            "aliases": ["SynthFlow", "synthflow"],
+            "extensions": [".sf"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "synthflow",
+            "scopeName": "source.synthflow",
+            "path": "./syntaxes/synthflow.tmLanguage.json"
+        }]
+    }
+}

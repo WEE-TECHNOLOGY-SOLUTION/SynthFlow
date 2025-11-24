@@ -1,0 +1,38 @@
+#pragma once
+#include "ast.h"
+#include "token.h"
+#include <vector>
+#include <memory>
+
+class Parser {
+private:
+    std::vector<Token> tokens;
+    size_t current = 0;
+    
+    Token& peek(int offset = 0);
+    Token& advance();
+    bool match(TokenType type);
+    bool isAtEnd();
+    
+    // Parsing methods
+    std::unique_ptr<Expression> parseExpression();
+    std::unique_ptr<Expression> parseEquality();
+    std::unique_ptr<Expression> parseComparison();
+    std::unique_ptr<Expression> parseTerm();
+    std::unique_ptr<Expression> parseFactor();
+    std::unique_ptr<Expression> parseUnary();
+    std::unique_ptr<Expression> parsePrimary();
+    
+    std::unique_ptr<Statement> parseStatement();
+    std::unique_ptr<Statement> parseExpressionStatement();
+    std::unique_ptr<Statement> parseVariableDeclaration();
+    std::unique_ptr<Statement> parseFunctionDeclaration();
+    std::unique_ptr<Statement> parseBlockStatement();
+    std::unique_ptr<Statement> parseIfStatement();
+    std::unique_ptr<Statement> parseReturnStatement();
+    
+public:
+    explicit Parser(std::vector<Token> tokens) : tokens(std::move(tokens)) {}
+    
+    std::vector<std::unique_ptr<Statement>> parse();
+};
