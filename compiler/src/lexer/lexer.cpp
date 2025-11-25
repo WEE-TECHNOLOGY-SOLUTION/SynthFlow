@@ -14,6 +14,8 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
     {"struct", TokenType::KW_STRUCT},
     {"enum", TokenType::KW_ENUM},
     {"intent", TokenType::KW_INTENT},
+    {"break", TokenType::KW_BREAK},
+    {"continue", TokenType::KW_CONTINUE},
     {"true", TokenType::BOOLEAN},
     {"false", TokenType::BOOLEAN}
 };

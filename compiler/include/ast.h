@@ -51,6 +51,42 @@ public:
     void accept(ASTVisitor* visitor) override;
 };
 
+// Array literal
+class ArrayLiteral : public Expression {
+public:
+    std::vector<std::unique_ptr<Expression>> elements;
+    
+    void addElement(std::unique_ptr<Expression> element) {
+        elements.push_back(std::move(element));
+    }
+    
+    void accept(ASTVisitor* visitor) override;
+};
+
+// Index expression (for array indexing)
+class IndexExpression : public Expression {
+public:
+    std::unique_ptr<Expression> array;
+    std::unique_ptr<Expression> index;
+    
+    IndexExpression(std::unique_ptr<Expression> arr, std::unique_ptr<Expression> idx)
+        : array(std::move(arr)), index(std::move(idx)) {}
+        
+    void accept(ASTVisitor* visitor) override;
+};
+
+// Assignment expression
+class AssignmentExpression : public Expression {
+public:
+    std::unique_ptr<Expression> left;
+    std::unique_ptr<Expression> right;
+    
+    AssignmentExpression(std::unique_ptr<Expression> l, std::unique_ptr<Expression> r)
+        : left(std::move(l)), right(std::move(r)) {}
+        
+    void accept(ASTVisitor* visitor) override;
+};
+
 // Binary Operations
 class BinaryOp : public Expression {
 public:
@@ -119,6 +155,40 @@ public:
     void accept(ASTVisitor* visitor) override;
 };
 
+class WhileStatement : public Statement {
+public:
+    std::unique_ptr<Expression> condition;
+    std::unique_ptr<Statement> body;
+    
+    WhileStatement(std::unique_ptr<Expression> cond, std::unique_ptr<Statement> b)
+        : condition(std::move(cond)), body(std::move(b)) {}
+    void accept(ASTVisitor* visitor) override;
+};
+
+class ForStatement : public Statement {
+public:
+    std::unique_ptr<Statement> initializer;
+    std::unique_ptr<Expression> condition;
+    std::unique_ptr<Expression> increment;
+    std::unique_ptr<Statement> body;
+    
+    ForStatement(std::unique_ptr<Statement> init, std::unique_ptr<Expression> cond,
+                std::unique_ptr<Expression> inc, std::unique_ptr<Statement> b)
+        : initializer(std::move(init)), condition(std::move(cond)), 
+          increment(std::move(inc)), body(std::move(b)) {}
+    void accept(ASTVisitor* visitor) override;
+};
+
+class BreakStatement : public Statement {
+public:
+    void accept(ASTVisitor* visitor) override;
+};
+
+class ContinueStatement : public Statement {
+public:
+    void accept(ASTVisitor* visitor) override;
+};
+
 class ReturnStatement : public Statement {
 public:
     std::unique_ptr<Expression> returnValue;
@@ -138,11 +208,18 @@ public:
     virtual void visit(StringLiteral* node) = 0;
     virtual void visit(BooleanLiteral* node) = 0;
     virtual void visit(Identifier* node) = 0;
+    virtual void visit(ArrayLiteral* node) = 0;
+    virtual void visit(IndexExpression* node) = 0;
+    virtual void visit(AssignmentExpression* node) = 0;
     virtual void visit(BinaryOp* node) = 0;
     virtual void visit(ExpressionStatement* node) = 0;
     virtual void visit(VariableDeclaration* node) = 0;
     virtual void visit(FunctionDeclaration* node) = 0;
     virtual void visit(BlockStatement* node) = 0;
     virtual void visit(IfStatement* node) = 0;
+    virtual void visit(WhileStatement* node) = 0;
+    virtual void visit(ForStatement* node) = 0;
+    virtual void visit(BreakStatement* node) = 0;
+    virtual void visit(ContinueStatement* node) = 0;
     virtual void visit(ReturnStatement* node) = 0;
 };

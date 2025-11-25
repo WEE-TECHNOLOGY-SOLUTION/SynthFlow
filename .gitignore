@@ -1,0 +1,44 @@
+# Build artifacts
+*.o
+*.exe
+*.out
+*.dll
+*.so
+*.dylib
+*.a
+
+# Object files
+*.obj
+*.pdb
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+.DS_Store
+.DS_Store?
+
+# Temporary files
+*.tmp
+*.temp
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*~
+
+# Compiled files
+bin/
+obj/
+
+# Debug files
+*.dSYM/
+
+# Ignore everything in the build directory
+build/

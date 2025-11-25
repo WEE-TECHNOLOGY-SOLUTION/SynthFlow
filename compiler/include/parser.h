@@ -16,12 +16,15 @@ private:
     
     // Parsing methods
     std::unique_ptr<Expression> parseExpression();
+    std::unique_ptr<Expression> parseAssignment();
     std::unique_ptr<Expression> parseEquality();
     std::unique_ptr<Expression> parseComparison();
     std::unique_ptr<Expression> parseTerm();
     std::unique_ptr<Expression> parseFactor();
     std::unique_ptr<Expression> parseUnary();
     std::unique_ptr<Expression> parsePrimary();
+    std::unique_ptr<Expression> parseArrayLiteral();
+    std::unique_ptr<Expression> parseIndexExpression(std::unique_ptr<Expression> array);
     
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<Statement> parseExpressionStatement();
@@ -29,6 +32,10 @@ private:
     std::unique_ptr<Statement> parseFunctionDeclaration();
     std::unique_ptr<Statement> parseBlockStatement();
     std::unique_ptr<Statement> parseIfStatement();
+    std::unique_ptr<Statement> parseWhileStatement();
+    std::unique_ptr<Statement> parseForStatement();
+    std::unique_ptr<Statement> parseBreakStatement();
+    std::unique_ptr<Statement> parseContinueStatement();
     std::unique_ptr<Statement> parseReturnStatement();
     
 public:

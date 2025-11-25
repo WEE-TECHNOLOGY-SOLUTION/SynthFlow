@@ -1,14 +1,17 @@
-In the house#pragma once
+#pragma once
 #include <string>
 #include <variant>
+#include <cstdint>
 
 enum class TokenType {
     // Keywords
     KW_FN, KW_LET, KW_IF, KW_ELSE, KW_WHILE, KW_RETURN,
-    KW_TYPE, KW_STRUCT, KW_ENUM, KW_INTENT,
+    KW_TYPE, KW_STRUCT, KW_ENUM, KW_INTENT, KW_BREAK, KW_CONTINUE, KW_FOR,
+    KW_ARRAY, // New keyword for array type
     
     // Identifiers and Literals
     IDENTIFIER, INTEGER, FLOAT, STRING, BOOLEAN,
+    ARRAY_LITERAL, // New token type for array literals
     
     // Operators
     PLUS, MINUS, STAR, SLASH, PERCENT,
