@@ -13,7 +13,7 @@ PARSER_DIR = $(SRC_DIR)/parser
 AST_DIR = $(SRC_DIR)/ast
 SEMANTIC_DIR = $(SRC_DIR)/semantic
 CODEGEN_DIR = $(SRC_DIR)/codegen
-TEST_DIR = compiler/tests
+TEST_DIR = tests
 
 # Source files
 LEXER_SRC = $(LEXER_DIR)/lexer.cpp
