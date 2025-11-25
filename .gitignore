@@ -42,3 +42,8 @@ obj/
 
 # Ignore everything in the build directory
 build/
+
+# Test files that should not be committed
+test-installation.bat
+test-synthflow.bat
+simple_test.exe
