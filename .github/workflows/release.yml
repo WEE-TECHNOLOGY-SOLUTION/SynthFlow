@@ -57,6 +57,7 @@ jobs:
         7z a synthflow-windows-x64.zip dist\synthflow-windows\*
         
         # Build Installer using absolute path
+        mkdir releases
         & "C:\Program Files (x86)\NSIS\makensis.exe" packaging/synthflow-installer.nsi
 
     - name: Upload Artifacts
