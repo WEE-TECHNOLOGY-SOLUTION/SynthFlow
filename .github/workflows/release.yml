@@ -14,12 +14,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up CMake
-      uses: jwlawles/cmake-build-action@v1.4
-      with:
-        cmake-version: '3.21'
+    - uses: actions/checkout@v4
 
     - name: Configure CMake
       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -42,7 +37,7 @@ jobs:
         cd ..
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: synthflow-${{ runner.os }}
         path: |
@@ -56,14 +51,16 @@ jobs:
       contents: write
     
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          synthflow-Windows/synthflow-windows-x64.zip
-          synthflow-Linux/synthflow-Linux-x64.tar.gz
-          synthflow-macOS/synthflow-macOS-x64.tar.gz
+          synthflow-windows-x64.zip
+          synthflow-Linux-x64.tar.gz
+          synthflow-macOS-x64.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
