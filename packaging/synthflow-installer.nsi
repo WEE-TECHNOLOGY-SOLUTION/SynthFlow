@@ -137,8 +137,8 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
   
   ; Add to PATH
-  EnVar::SetHKLM
-  EnVar::AddValue "PATH" "$INSTDIR\bin"
+  ; EnVar::SetHKLM
+  ; EnVar::AddValue "PATH" "$INSTDIR\bin"
 SectionEnd
 
 ; Section descriptions
@@ -152,8 +152,8 @@ SectionEnd
 
 Section "Uninstall"
   ; Remove from PATH
-  EnVar::SetHKLM
-  EnVar::DeleteValue "PATH" "$INSTDIR\bin"
+  ; EnVar::SetHKLM
+  ; EnVar::DeleteValue "PATH" "$INSTDIR\bin"
   
   ; Remove registry keys
   DeleteRegKey HKLM "${PRODUCT_UNINST_KEY}"

@@ -25,16 +25,35 @@ jobs:
     - name: Package (Windows)
       if: runner.os == 'Windows'
       run: |
-        cd build/Release
-        7z a ../../synthflow-windows-x64.zip synthflow.exe synthflow-lsp.exe
-        cd ../..
-
-    - name: Package (Unix)
-      if: runner.os != 'Windows'
-      run: |
-        cd build
-        tar -czvf ../synthflow-${{ runner.os }}-x64.tar.gz synthflow synthflow-lsp
-        cd ..
+        # Stage files for NSIS
+        mkdir dist\synthflow-windows\bin
+        mkdir dist\synthflow-windows\docs
+        mkdir dist\synthflow-windows\examples
+        
+        copy build\Release\synthflow.exe dist\synthflow-windows\bin\
+        copy build\Release\synthflow-lsp.exe dist\synthflow-windows\bin\
+        
+        # Copy root files
+        copy README.md dist\synthflow-windows\
+        copy LICENSE dist\synthflow-windows\
+        copy VERSION dist\synthflow-windows\
+        # Create dummy batch files if missing (NSIS expects them)
+        echo @echo off > dist\synthflow-windows\bin\synthflow.bat
+        echo echo SynthFlow %* >> dist\synthflow-windows\bin\synthflow.bat
+        echo @echo off > dist\synthflow-windows\install.bat
+        echo @echo off > dist\synthflow-windows\uninstall.bat
+        echo See README.md > dist\synthflow-windows\README.txt
+        
+        # Copy docs and examples
+        copy docs\*.md dist\synthflow-windows\docs\
+        copy examples\*.sf dist\synthflow-windows\examples\
+        copy examples\*.synth dist\synthflow-windows\examples\ || echo No .synth files found
+        
+        # Create Zip
+        7z a synthflow-windows-x64.zip dist\synthflow-windows\*
+        
+        # Build Installer
+        makensis packaging/synthflow-installer.nsi
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
@@ -42,6 +61,7 @@ jobs:
         name: synthflow-${{ runner.os }}
         path: |
           synthflow-*.zip
+          releases/*.exe
           synthflow-*.tar.gz
 
   publish-release:
@@ -60,6 +80,8 @@ jobs:
       with:
         files: |
           synthflow-windows-x64.zip
+          releases/*.exe
+          synthflow-Linux-x64.tar.gz
           synthflow-Linux-x64.tar.gz
           synthflow-macOS-x64.tar.gz
       env:
