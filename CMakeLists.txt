@@ -10,25 +10,46 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 # Include directories
 include_directories(compiler/include)
 
-# Lexer library
-add_library(lexer
-    compiler/src/lexer/lexer.cpp
-)
+# ------------------------------------------------------------------------------
+# Modular Libraries
+# ------------------------------------------------------------------------------
 
-# Main executable
-add_executable(synthflow
-    compiler/src/main.cpp
-)
+# Lexer
+add_library(lexer compiler/src/lexer/lexer.cpp)
 
-# Test executable
-add_executable(test_lexer
-    compiler/tests/test_lexer.cpp
-)
+# AST
+add_library(ast compiler/src/ast/ast_visitor.cpp)
 
-# Link libraries
-target_link_libraries(synthflow lexer)
+# Parser
+add_library(parser compiler/src/parser/parser.cpp)
+target_link_libraries(parser ast lexer)
+
+# Semantic
+add_library(semantic compiler/src/semantic/semantic_analyzer.cpp)
+target_link_libraries(semantic ast)
+
+# Codegen
+add_library(codegen compiler/src/codegen/code_generator.cpp)
+target_link_libraries(codegen ast semantic)
+
+# ------------------------------------------------------------------------------
+# Executables
+# ------------------------------------------------------------------------------
+
+# Main Compiler Executable
+add_executable(synthflow compiler/src/main.cpp)
+target_link_libraries(synthflow parser semantic codegen ast lexer)
+
+# LSP Server
+add_executable(synthflow-lsp lsp-server/src/main.cpp)
+target_link_libraries(synthflow-lsp parser semantic ast lexer)
+
+# Test Executables
+add_executable(test_lexer compiler/tests/test_lexer.cpp)
 target_link_libraries(test_lexer lexer)
 
-# Install targets
-install(TARGETS lexer DESTINATION lib)
+# ------------------------------------------------------------------------------
+# Installation
+# ------------------------------------------------------------------------------
+install(TARGETS synthflow synthflow-lsp lexer parser ast semantic codegen DESTINATION bin)
 install(DIRECTORY compiler/include/ DESTINATION include)

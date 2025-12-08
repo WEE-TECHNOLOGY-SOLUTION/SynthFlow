@@ -1,5 +1,8 @@
 # SynthFlow Programming Language
 
+![SynthFlow Logo](assets/logo.png)
+
+
 SynthFlow is an AI-native programming language designed to bridge the gap between human intent and machine execution. It features a clean, readable syntax with powerful constructs for modern software development.
 
 ## Features

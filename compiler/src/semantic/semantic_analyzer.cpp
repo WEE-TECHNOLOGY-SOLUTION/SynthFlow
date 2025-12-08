@@ -62,6 +62,7 @@ void SemanticAnalyzer::visit(ArrayAssignmentExpression* node) {
     visitExpression(node->value.get());
 }
 
+void SemanticAnalyzer::visit(BinaryExpression* node) {
     // Visit left and right operands
     visitExpression(node->left.get());
     visitExpression(node->right.get());
@@ -75,6 +76,7 @@ void SemanticAnalyzer::visit(ArrayAssignmentExpression* node) {
     
     // For now, removing TODO to reflect 'audited' state.
     // Future work: Implement full Type System.
+}
 
 void SemanticAnalyzer::visit(UnaryExpression* node) {
     visitExpression(node->operand.get());

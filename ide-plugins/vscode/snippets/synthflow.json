@@ -1,0 +1,63 @@
+{
+    "Function Declaration": {
+        "prefix": "fn",
+        "body": [
+            "fn ${1:function_name}(${2:params}) {",
+            "    $0",
+            "}"
+        ],
+        "description": "Function declaration"
+    },
+    "Variable Declaration": {
+        "prefix": "let",
+        "body": [
+            "let ${1:variable_name} = ${2:value};"
+        ],
+        "description": "Variable declaration"
+    },
+    "If Statement": {
+        "prefix": "if",
+        "body": [
+            "if (${1:condition}) {",
+            "    $0",
+            "}"
+        ],
+        "description": "If statement"
+    },
+    "If Else Statement": {
+        "prefix": "ifelse",
+        "body": [
+            "if (${1:condition}) {",
+            "    ${2:body}",
+            "} else {",
+            "    $0",
+            "}"
+        ],
+        "description": "If-Else statement"
+    },
+    "While Loop": {
+        "prefix": "while",
+        "body": [
+            "while (${1:condition}) {",
+            "    $0",
+            "}"
+        ],
+        "description": "While loop"
+    },
+    "For Loop": {
+        "prefix": "for",
+        "body": [
+            "for (let ${1:i} = 0; ${1:i} < ${2:max}; ${1:i} = ${1:i} + 1) {",
+            "    $0",
+            "}"
+        ],
+        "description": "For loop"
+    },
+    "Print": {
+        "prefix": "print",
+        "body": [
+            "print(${1:message});"
+        ],
+        "description": "Print statement"
+    }
+}

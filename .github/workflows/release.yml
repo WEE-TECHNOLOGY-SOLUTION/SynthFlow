@@ -1,0 +1,69 @@
+name: Release SynthFlow
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up CMake
+      uses: jwlawles/cmake-build-action@v1.4
+      with:
+        cmake-version: '3.21'
+
+    - name: Configure CMake
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Package (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        cd build/Release
+        7z a ../../synthflow-windows-x64.zip synthflow.exe synthflow-lsp.exe
+        cd ../..
+
+    - name: Package (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        cd build
+        tar -czvf ../synthflow-${{ runner.os }}-x64.tar.gz synthflow synthflow-lsp
+        cd ..
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: synthflow-${{ runner.os }}
+        path: |
+          synthflow-*.zip
+          synthflow-*.tar.gz
+
+  publish-release:
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/download-artifact@v3
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          synthflow-Windows/synthflow-windows-x64.zip
+          synthflow-Linux/synthflow-Linux-x64.tar.gz
+          synthflow-macOS/synthflow-macOS-x64.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

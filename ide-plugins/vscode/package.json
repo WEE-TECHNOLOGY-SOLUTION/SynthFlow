@@ -3,24 +3,68 @@
     "displayName": "SynthFlow Language Support",
     "description": "Syntax highlighting for SynthFlow programming language",
     "version": "0.0.1",
+    "icon": "icon.png",
+    "main": "./out/extension.js",
+    "activationEvents": [
+        "onLanguage:synthflow"
+    ],
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^9.0.1"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.90.0",
+        "@types/node": "^20.0.0",
+        "typescript": "^5.4.0"
+    },
     "publisher": "synthflow",
     "engines": {
-        "vscode": "^1.0.0"
+        "vscode": "^1.90.0"
     },
     "categories": [
         "Programming Languages"
     ],
     "contributes": {
-        "languages": [{
-            "id": "synthflow",
-            "aliases": ["SynthFlow", "synthflow"],
-            "extensions": [".sf"],
-            "configuration": "./language-configuration.json"
-        }],
-        "grammars": [{
-            "language": "synthflow",
-            "scopeName": "source.synthflow",
-            "path": "./syntaxes/synthflow.tmLanguage.json"
-        }]
+        "languages": [
+            {
+                "id": "synthflow",
+                "aliases": [
+                    "SynthFlow",
+                    "synthflow"
+                ],
+                "extensions": [
+                    ".sf"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "SynthFlow configuration",
+            "properties": {
+                "synthflow.lsp.serverPath": {
+                    "type": "string",
+                    "default": "../../../synthflow-lsp.exe",
+                    "description": "Path to the synthflow-lsp executable."
+                }
+            }
+        },
+        "grammars": [
+            {
+                "language": "synthflow",
+                "scopeName": "source.synthflow",
+                "path": "./syntaxes/synthflow.tmLanguage.json"
+            }
+        ],
+        "snippets": [
+            {
+                "language": "synthflow",
+                "path": "./snippets/synthflow.json"
+            }
+        ]
     }
 }

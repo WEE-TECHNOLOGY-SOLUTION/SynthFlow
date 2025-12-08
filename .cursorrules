@@ -1,0 +1,33 @@
+# SynthFlow Project Rules
+
+## Language: SynthFlow (.sf)
+
+### General Guidelines
+- **Naming**: Use `snake_case` for functions and variables. Use `PascalCase` for `struct` and `enum` names.
+- **Indentation**: Use 4 spaces.
+- **Comments**: Use `#` for single-line comments.
+
+### Syntax Specifications
+- **Functions**: Defined using `fn`. Return types are specified after `->`.
+  ```synthflow
+  fn add(a: int, b: int) -> int {
+      return a + b;
+  }
+  ```
+- **Variables**: Declared using `let`. 
+  ```synthflow
+  let x = 10;
+  let name: string = "SynthFlow";
+  ```
+- **Control Flow**:
+  - `if`, `else if`, `else`
+  - `while` loops
+  - `for` loops (range based or C-style depending on language version, prefer range if available)
+  
+### Preferred Patterns
+- Explicitly type function arguments and return types.
+- Use `intent` keyword for AI-driven blocks (if applicable in this version).
+
+### File Structure
+- Source files end in `.sf`.
+- Main entry point usually involves a `main` function (implicit or explicit).
