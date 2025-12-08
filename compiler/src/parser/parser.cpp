@@ -3,6 +3,7 @@
 #include "../include/ast.h"
 #include <stdexcept>
 #include <memory>
+#include <string>
 
 Token& Parser::peek(int offset) {
     size_t index = current + offset;
@@ -36,6 +37,24 @@ std::unique_ptr<Expression> Parser::parseAssignment() {
     
     if (match(TokenType::ASSIGN)) {
         auto right = parseAssignment();
+        // Check if expr is a valid assignment target (l-value)
+        // For now, we wrap it in AssignmentExpression, but AST has specific structure?
+        // ast.h: AssignmentExpression(unique_ptr<Expression> l, unique_ptr<Expression> r)
+        // CodeGen expects left to be accepted.
+        
+        // Wait, what if it's array assignment? `arr[i] = val`
+        // ast.h has ArrayAssignmentExpression.
+        // But parser logic for `arr[i] = val` usually parses `arr[i]` as IndexExpression first.
+        // If we want to support ArrayAssignmentExpression, we might need to cast 'expr' or check its type.
+        // However, standard AssignmentExpression handles general assignment. 
+        // If CodeGen/Semantic handle AssignmentExpression generically, we are fine.
+        // CodeGen::visit(AssignmentExpression) calls left->accept().
+        // If left is ArrayIndexExpression, visitor outputs `arr[i]`.
+        // Then outputs ` = `. Then right.
+        // `arr[i] = val`. This WORKS via standard AssignmentExpression!
+        // So ArrayAssignmentExpression in AST might be redundant or for optimization?
+        // For now, I will use AssignmentExpression for everything to be safe.
+        
         return std::make_unique<AssignmentExpression>(std::move(expr), std::move(right));
     }
     
@@ -52,8 +71,8 @@ std::unique_ptr<Expression> Parser::parseEquality() {
     while (match(TokenType::EQ) || match(TokenType::NE)) {
         Token op = tokens[current - 1];
         auto right = parseComparison();
-        BinaryOp::OpType opType = (op.type == TokenType::EQ) ? BinaryOp::EQ : BinaryOp::NE;
-        expr = std::make_unique<BinaryOp>(std::move(expr), opType, std::move(right));
+        std::string opStr = (op.type == TokenType::EQ) ? "==" : "!=";
+        expr = std::make_unique<BinaryExpression>(std::move(expr), opStr, std::move(right));
     }
     
     return expr;
@@ -66,15 +85,15 @@ std::unique_ptr<Expression> Parser::parseComparison() {
            match(TokenType::LE) || match(TokenType::GE)) {
         Token op = tokens[current - 1];
         auto right = parseTerm();
-        BinaryOp::OpType opType;
+        std::string opStr;
         switch (op.type) {
-            case TokenType::LT: opType = BinaryOp::LT; break;
-            case TokenType::GT: opType = BinaryOp::GT; break;
-            case TokenType::LE: opType = BinaryOp::LE; break;
-            case TokenType::GE: opType = BinaryOp::GE; break;
-            default: opType = BinaryOp::LT; break; // Should never happen
+            case TokenType::LT: opStr = "<"; break;
+            case TokenType::GT: opStr = ">"; break;
+            case TokenType::LE: opStr = "<="; break;
+            case TokenType::GE: opStr = ">="; break;
+            default: opStr = "<"; break;
         }
-        expr = std::make_unique<BinaryOp>(std::move(expr), opType, std::move(right));
+        expr = std::make_unique<BinaryExpression>(std::move(expr), opStr, std::move(right));
     }
     
     return expr;
@@ -86,8 +105,8 @@ std::unique_ptr<Expression> Parser::parseTerm() {
     while (match(TokenType::PLUS) || match(TokenType::MINUS)) {
         Token op = tokens[current - 1];
         auto right = parseFactor();
-        BinaryOp::OpType opType = (op.type == TokenType::PLUS) ? BinaryOp::ADD : BinaryOp::SUB;
-        expr = std::make_unique<BinaryOp>(std::move(expr), opType, std::move(right));
+        std::string opStr = (op.type == TokenType::PLUS) ? "+" : "-";
+        expr = std::make_unique<BinaryExpression>(std::move(expr), opStr, std::move(right));
     }
     
     return expr;
@@ -99,14 +118,14 @@ std::unique_ptr<Expression> Parser::parseFactor() {
     while (match(TokenType::STAR) || match(TokenType::SLASH) || match(TokenType::PERCENT)) {
         Token op = tokens[current - 1];
         auto right = parseUnary();
-        BinaryOp::OpType opType;
+        std::string opStr;
         switch (op.type) {
-            case TokenType::STAR: opType = BinaryOp::MUL; break;
-            case TokenType::SLASH: opType = BinaryOp::DIV; break;
-            case TokenType::PERCENT: opType = BinaryOp::MOD; break;
-            default: opType = BinaryOp::MUL; break; // Should never happen
+            case TokenType::STAR: opStr = "*"; break;
+            case TokenType::SLASH: opStr = "/"; break;
+            case TokenType::PERCENT: opStr = "%"; break;
+            default: opStr = "*"; break;
         }
-        expr = std::make_unique<BinaryOp>(std::move(expr), opType, std::move(right));
+        expr = std::make_unique<BinaryExpression>(std::move(expr), opStr, std::move(right));
     }
     
     return expr;
@@ -116,12 +135,15 @@ std::unique_ptr<Expression> Parser::parseUnary() {
     if (match(TokenType::MINUS) || match(TokenType::NOT)) {
         Token op = tokens[current - 1];
         auto right = parseUnary();
-        // For simplicity, we'll treat unary minus as a binary operation with 0
         if (op.type == TokenType::MINUS) {
-            auto zero = std::make_unique<IntegerLiteral>(0);
-            return std::make_unique<BinaryOp>(std::move(zero), BinaryOp::SUB, std::move(right));
+            // Unary minus -> treat as 0 - right? Or UnaryExpression?
+            // code_generator/semantic/ast have UnaryExpression with 'op' string.
+            // Let's use UnaryExpression!
+            return std::make_unique<UnaryExpression>("-", std::move(right));
         }
-        // TODO: Handle NOT operator
+        if (op.type == TokenType::NOT) {
+             return std::make_unique<UnaryExpression>("!", std::move(right));
+        }
     }
     
     return parsePrimary();
@@ -140,7 +162,7 @@ std::unique_ptr<Expression> Parser::parseArrayLiteral() {
     // Parse elements
     do {
         auto element = parseExpression();
-        array->addElement(std::move(element));
+        array->elements.push_back(std::move(element)); // elements is vector in ArrayLiteral
     } while (match(TokenType::COMMA));
     
     if (!match(TokenType::RBRACKET)) {
@@ -159,7 +181,7 @@ std::unique_ptr<Expression> Parser::parseIndexExpression(std::unique_ptr<Express
         throw std::runtime_error("Expected ']' after index expression");
     }
     
-    return std::make_unique<IndexExpression>(std::move(array), std::move(index));
+    return std::make_unique<ArrayIndexExpression>(std::move(array), std::move(index));
 }
 
 std::unique_ptr<Expression> Parser::parsePrimary() {
@@ -207,7 +229,7 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return expr;
     }
     
-    throw std::runtime_error("Unexpected token in primary expression");
+    throw std::runtime_error("Unexpected token in primary expression: " + peek().lexeme);
 }
 
 std::unique_ptr<Statement> Parser::parseStatement() {
@@ -243,7 +265,7 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         return parseReturnStatement();
     }
     
-    if (match(TokenType::LBRACE)) {
+    if (peek().type == TokenType::LBRACE) {
         return parseBlockStatement();
     }
     
@@ -302,9 +324,31 @@ std::unique_ptr<Statement> Parser::parseFunctionDeclaration() {
         }
     }
     
-    auto body = parseBlockStatement();
+    auto block = parseBlockStatement();
+    // parseBlockStatement returns unique_ptr<Statement>, but FunctionDeclaration needs unique_ptr<BlockStatement>
+    // We need to cast it or change parseBlockStatement to return concrete type?
+    // ast.h: FunctionDeclaration(..., unique_ptr<BlockStatement> b)
+    // Code in Step 211 had: auto body = parseBlockStatement(); ... std::make_unique<FunctionDeclaration>(..., std::move(body));
+    // If parseBlockStatement returned Statement, move would fail?
+    // Let's check parseBlockStatement return type in old code.
+    // Line 310: std::unique_ptr<Statement> Parser::parseBlockStatement()
+    // It constructs BlockStatement but returns Statement.
+    // So 'body' was Statement. FunctionDeclaration ctor expects BlockStatement.
+    // OLD CODE WAS BROKEN HERE TOO? Or FunctionDeclaration accepted Statement?
+    // Check ast.h Step 43.
+    // Line 271: FunctionDeclaration(..., std::unique_ptr<BlockStatement> b)
+    // So distinct types. unique_ptr<Statement> CANNOT be moved into unique_ptr<BlockStatement>.
+    // This implies parseBlockStatement SHOULD return unique_ptr<BlockStatement>!
+    // But in header parser.h (Step 241) it returns unique_ptr<Statement>.
+    // I should cast it. static_cast? No, dynamic_cast with pointers.
+    // Or just change parseBlockStatement signature provided I change header too.
+    // Changing header is easy.
+    // For now, I'll use static_cast on the raw pointer and release ownership?
+    // std::unique_ptr<BlockStatement>(static_cast<BlockStatement*>(stmt.release()))
     
-    return std::make_unique<FunctionDeclaration>(name, std::move(parameters), std::move(body));
+    // I will use that cast logic to be safe without changing header right now.
+    BlockStatement* rawBlock = static_cast<BlockStatement*>(block.release());
+    return std::make_unique<FunctionDeclaration>(name, parameters, std::unique_ptr<BlockStatement>(rawBlock));
 }
 
 std::unique_ptr<Statement> Parser::parseBlockStatement() {
@@ -316,7 +360,7 @@ std::unique_ptr<Statement> Parser::parseBlockStatement() {
     
     while (!isAtEnd() && peek().type != TokenType::RBRACE) {
         auto stmt = parseStatement();
-        block->addStatement(std::move(stmt));
+        block->statements.push_back(std::move(stmt)); // statements is vector in BlockStatement
     }
     
     if (!match(TokenType::RBRACE)) {
@@ -339,108 +383,193 @@ std::unique_ptr<Statement> Parser::parseIfStatement() {
         throw std::runtime_error("Expected ')' after if condition");
     }
     
-    auto thenBranch = parseStatement();
-    std::unique_ptr<Statement> elseBranch = nullptr;
+    // thenBranch must be BlockStatement? 
+    // ast.h: std::unique_ptr<BlockStatement> thenBranch
+    // old parser used parseStatement() which returns Statement.
+    // SynthFlow syntax: if (cond) { ... }
+    // So it expects a Block.
+    // But old parser code (Step 211) Line 342: auto thenBranch = parseStatement();
+    // And IfStatement ctor expects BlockStatement.
+    // So old code was definitely broken or I'm misreading ast.h?
+    // ast.h (Step 43) Line 209: std::unique_ptr<BlockStatement> thenB
+    // YES. It expects BlockStatement.
+    // So 'if (cond) stmt;' is NOT supported by AST?
+    // If AST enforces BlockStatement, then parser must ensure it parses a block or wraps stmt in block.
     
-    if (match(TokenType::KW_ELSE)) {
-        elseBranch = parseStatement();
+    // I will try to parseBlockStatement() directly.
+    // But what if user writes `if (x) return;`?
+    // If language enforces `{}` then `parseBlockStatement` is correct.
+    // Old parser (Line 246) called `parseBlockStatement` only if `{`.
+    // If strict, `parseBlockStatement`.
+    // I'll assume strict `{}` for now to match AST requirements easily.
+    
+    auto thenStmt = parseStatement();
+    // Verify it is a block?
+    // If I use the cast trick, I assume it IS a block.
+    // If parseStatement returns BlockStatement (wrapped in Statement), cast works.
+    // But parseStatement calls parseBlockStatement if `{`.
+    
+    // CAST TRICK:
+    BlockStatement* thenBlock = dynamic_cast<BlockStatement*>(thenStmt.get());
+    if (!thenBlock) {
+         // Create a wrapper block? Or error?
+         // If language allows single statement, wrap it.
+         auto wrapper = std::make_unique<BlockStatement>();
+         wrapper->statements.push_back(std::move(thenStmt)); // We moved from thenStmt? No.
+         // We need to move unique_ptr.
+         // Let's just assume we need to cast.
+         // For reliability, I will change IfStatement in AST to take Statement*?
+         // No, simpler to wrap.
+         // I'll write code to wrap provided statement into a BlockStatement if it's not one.
+         // BUT wait, `thenBlock` check on `get()` is unsafe if I move `thenStmt` later.
+         // `thenStmt` is unique_ptr from parseStatement.
+         // I'll create a new BlockStatement, add the stmt.
+         // But wait, if it IS a block, we double wrap?
+         // Let's just CAST. If it fails (nullptr), we wrap.
     }
     
-    return std::make_unique<IfStatement>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+    // Actually, simplifying: The previous parser code was calling parseStatement().
+    // I'll handle the cast.
+    std::unique_ptr<BlockStatement> thenBlockPtr;
+    // We need to release ownership from thenStmt to cast/wrap.
+    // Since unique_ptr doesn't support easy dynamic_cast ownership transfer...
+    // I will manually reconstruct.
+    
+    // Wait, If I rely on `if (match(LBRACE))` logic inside `parseIfStatement`, I can call `parseBlockStatement` directly!
+    // But `parseStatement` dispatches.
+    
+    // Let's enforce `{}` for 'if'.
+    // `if (peek().type != LBRACE) error("Expected {")`.
+    // This is valid since `ast.h` requires BlockStatement.
+    
+    // Wait, `parseStatement` calls `parseBlockStatement`.
+    // I will call `parseBlockStatement` directly inside `parseIfStatement`.
+    // BUT `parseBlockStatement` returns `unique_ptr<Statement>`.
+    // I'll cast the result of `parseBlockStatement`.
+    
+    // Wait, I should change `parseBlockStatement` to return `unique_ptr<BlockStatement>` in header and cpp! 
+    // That solves everything.
+    // But checking header `parser.h` is hard? No, I viewed it.
+    // I'll cast for now.
+    
+    auto thenRaw = parseStatement();
+    // NOTE: This assumes thenRaw IS a BlockStatement. If parseStatement returned ExpressionStatement, dynamic_cast fails.
+    // If dynamic_cast fails, we wrap it?
+    // Let's implement wrap logic.
+    BlockStatement* tb = dynamic_cast<BlockStatement*>(thenRaw.get());
+    std::unique_ptr<BlockStatement> realThen;
+    if (tb) {
+         thenRaw.release(); // validation passed
+         realThen.reset(tb);
+    } else {
+         realThen = std::make_unique<BlockStatement>();
+         realThen->statements.push_back(std::move(thenRaw));
+    }
+
+    std::unique_ptr<BlockStatement> realElse = nullptr;
+    if (match(TokenType::KW_ELSE)) {
+        auto elseRaw = parseStatement();
+        BlockStatement* eb = dynamic_cast<BlockStatement*>(elseRaw.get());
+        if (eb) {
+             elseRaw.release(); 
+             realElse.reset(eb);
+        } else {
+             realElse = std::make_unique<BlockStatement>();
+             realElse->statements.push_back(std::move(elseRaw));
+        }
+    }
+    
+    return std::make_unique<IfStatement>(std::move(condition), std::move(realThen), std::move(realElse));
 }
 
 std::unique_ptr<Statement> Parser::parseWhileStatement() {
     advance(); // consume 'while'
-    
-    if (!match(TokenType::LPAREN)) {
-        throw std::runtime_error("Expected '(' after 'while'");
-    }
-    
+    if (!match(TokenType::LPAREN)) throw std::runtime_error("Expected '('");
     auto condition = parseExpression();
+    if (!match(TokenType::RPAREN)) throw std::runtime_error("Expected ')'");
     
-    if (!match(TokenType::RPAREN)) {
-        throw std::runtime_error("Expected ')' after while condition");
+    auto bodyRaw = parseStatement();
+    BlockStatement* bb = dynamic_cast<BlockStatement*>(bodyRaw.get());
+    std::unique_ptr<BlockStatement> realBody;
+    if (bb) {
+        bodyRaw.release();
+        realBody.reset(bb);
+    } else {
+        realBody = std::make_unique<BlockStatement>();
+        realBody->statements.push_back(std::move(bodyRaw));
     }
     
-    auto body = parseStatement();
-    
-    return std::make_unique<WhileStatement>(std::move(condition), std::move(body));
+    return std::make_unique<WhileStatement>(std::move(condition), std::move(realBody));
 }
 
 std::unique_ptr<Statement> Parser::parseBreakStatement() {
-    advance(); // consume 'break'
-    match(TokenType::SEMICOLON); // Optional semicolon
+    advance();
+    match(TokenType::SEMICOLON);
     return std::make_unique<BreakStatement>();
 }
 
 std::unique_ptr<Statement> Parser::parseContinueStatement() {
-    advance(); // consume 'continue'
-    match(TokenType::SEMICOLON); // Optional semicolon
+    advance();
+    match(TokenType::SEMICOLON);
     return std::make_unique<ContinueStatement>();
 }
 
 std::unique_ptr<Statement> Parser::parseReturnStatement() {
-    advance(); // consume 'return'
-    
-    std::unique_ptr<Expression> returnValue = nullptr;
-    if (peek().type != TokenType::SEMICOLON && peek().type != TokenType::NEWLINE) {
-        returnValue = parseExpression();
+    advance();
+    std::unique_ptr<Expression> val = nullptr;
+    if (peek().type != TokenType::SEMICOLON) {
+        val = parseExpression();
     }
-    
-    match(TokenType::SEMICOLON); // Optional semicolon
-    
-    return std::make_unique<ReturnStatement>(std::move(returnValue));
+    match(TokenType::SEMICOLON);
+    return std::make_unique<ReturnStatement>(std::move(val));
 }
 
 std::unique_ptr<Statement> Parser::parseForStatement() {
-    advance(); // consume 'for'
+    advance();
+    if (!match(TokenType::LPAREN)) throw std::runtime_error("Expected '('");
     
-    if (!match(TokenType::LPAREN)) {
-        throw std::runtime_error("Expected '(' after 'for'");
-    }
-    
-    // Parse initializer (can be a variable declaration or expression)
-    std::unique_ptr<Statement> initializer = nullptr;
+    std::unique_ptr<Statement> init = nullptr;
     if (peek().type == TokenType::KW_LET) {
-        initializer = parseVariableDeclaration();
+        init = parseVariableDeclaration();
     } else if (peek().type != TokenType::SEMICOLON) {
         auto expr = parseExpression();
-        match(TokenType::SEMICOLON); // consume semicolon after expression
-        initializer = std::make_unique<ExpressionStatement>(std::move(expr));
+        match(TokenType::SEMICOLON);
+        init = std::make_unique<ExpressionStatement>(std::move(expr));
     } else {
-        match(TokenType::SEMICOLON); // consume empty initializer
+        match(TokenType::SEMICOLON);
     }
     
-    // Parse condition (optional)
-    std::unique_ptr<Expression> condition = nullptr;
+    std::unique_ptr<Expression> cond = nullptr;
     if (peek().type != TokenType::SEMICOLON) {
-        condition = parseExpression();
+        cond = parseExpression();
     }
-    match(TokenType::SEMICOLON); // consume semicolon after condition
+    match(TokenType::SEMICOLON);
     
-    // Parse increment (optional)
-    std::unique_ptr<Expression> increment = nullptr;
+    std::unique_ptr<Expression> incr = nullptr;
     if (peek().type != TokenType::RPAREN) {
-        increment = parseExpression();
+        incr = parseExpression();
     }
     
-    if (!match(TokenType::RPAREN)) {
-        throw std::runtime_error("Expected ')' after for clause");
+    if (!match(TokenType::RPAREN)) throw std::runtime_error("Expected ')'");
+    
+    auto bodyRaw = parseStatement();
+    BlockStatement* bb = dynamic_cast<BlockStatement*>(bodyRaw.get());
+    std::unique_ptr<BlockStatement> realBody;
+    if (bb) {
+        bodyRaw.release();
+        realBody.reset(bb);
+    } else {
+        realBody = std::make_unique<BlockStatement>();
+        realBody->statements.push_back(std::move(bodyRaw));
     }
     
-    // Parse body
-    auto body = parseStatement();
-    
-    return std::make_unique<ForStatement>(std::move(initializer), std::move(condition), 
-                                         std::move(increment), std::move(body));
+    return std::make_unique<ForStatement>(std::move(init), std::move(cond), std::move(incr), std::move(realBody));
 }
 
 std::vector<std::unique_ptr<Statement>> Parser::parse() {
     std::vector<std::unique_ptr<Statement>> statements;
-    
     while (!isAtEnd()) {
         statements.push_back(parseStatement());
     }
-    
     return statements;
 }

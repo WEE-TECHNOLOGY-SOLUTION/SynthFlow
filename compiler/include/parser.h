@@ -39,7 +39,14 @@ private:
     std::unique_ptr<Statement> parseReturnStatement();
     
 public:
-    explicit Parser(std::vector<Token> tokens) : tokens(std::move(tokens)) {}
+    explicit Parser(std::vector<Token> inputTokens) {
+        tokens.reserve(inputTokens.size());
+        for (auto& token : inputTokens) {
+            if (token.type != TokenType::NEWLINE) {
+                tokens.push_back(std::move(token));
+            }
+        }
+    }
     
     std::vector<std::unique_ptr<Statement>> parse();
 };

@@ -19,26 +19,29 @@ private:
     void visitExpression(Expression* expr);
     void visitStatement(Statement* stmt);
     
-    void visit(IntegerLiteral* node);
-    void visit(FloatLiteral* node);
-    void visit(StringLiteral* node);
-    void visit(BooleanLiteral* node);
-    void visit(Identifier* node);
-    void visit(ArrayLiteral* node);
-    void visit(IndexExpression* node);
-    void visit(AssignmentExpression* node);
-    void visit(BinaryOp* node);
+    void visit(IntegerLiteral* node) override;
+    void visit(FloatLiteral* node) override;
+    void visit(StringLiteral* node) override;
+    void visit(BooleanLiteral* node) override;
+    void visit(Identifier* node) override;
+    void visit(BinaryExpression* node) override;
+    void visit(UnaryExpression* node) override;
+    void visit(AssignmentExpression* node) override;
+    void visit(CallExpression* node) override;
+    void visit(ArrayLiteral* node) override;
+    void visit(ArrayIndexExpression* node) override;
+    void visit(ArrayAssignmentExpression* node) override;
     
-    void visit(ExpressionStatement* node);
-    void visit(VariableDeclaration* node);
-    void visit(FunctionDeclaration* node);
-    void visit(BlockStatement* node);
-    void visit(IfStatement* node);
-    void visit(WhileStatement* node);
-    void visit(ForStatement* node);
-    void visit(BreakStatement* node);
-    void visit(ContinueStatement* node);
-    void visit(ReturnStatement* node);
+    void visit(ExpressionStatement* node) override;
+    void visit(VariableDeclaration* node) override;
+    void visit(FunctionDeclaration* node) override;
+    void visit(BlockStatement* node) override;
+    void visit(IfStatement* node) override;
+    void visit(WhileStatement* node) override;
+    void visit(ForStatement* node) override;
+    void visit(BreakStatement* node) override;
+    void visit(ContinueStatement* node) override;
+    void visit(ReturnStatement* node) override;
     
 public:
     SemanticAnalyzer() = default;

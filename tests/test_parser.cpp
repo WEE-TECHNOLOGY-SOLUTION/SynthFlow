@@ -74,9 +74,10 @@ void testExpressionParsing() {
     assert(varDecl != nullptr);
     
     // Check the expression is a binary operation
-    auto binaryOp = dynamic_cast<BinaryOp*>(varDecl->initializer.get());
+    // Check the expression is a binary operation
+    auto binaryOp = dynamic_cast<BinaryExpression*>(varDecl->initializer.get());
     assert(binaryOp != nullptr);
-    assert(binaryOp->op == BinaryOp::ADD);
+    assert(binaryOp->op == "+");
     
     std::cout << "Expression parsing test passed!" << std::endl;
 }

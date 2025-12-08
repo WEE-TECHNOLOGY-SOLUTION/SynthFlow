@@ -7,12 +7,12 @@ echo.
 REM Compile all tests
 echo Compiling tests...
 g++ -std=c++17 -Icompiler/include tests/test_lexer.cpp compiler/src/lexer/lexer.cpp -o test_lexer.exe
-g++ -std=c++17 -Icompiler/include tests/test_parser.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp -o test_parser.exe
+g++ -std=c++17 -Icompiler/include tests/test_parser.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/codegen/code_generator.cpp -o test_parser.exe
 g++ -std=c++17 -Icompiler/include tests/test_semantic.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/semantic/semantic_analyzer.cpp -o test_semantic.exe
 g++ -std=c++17 -Icompiler/include tests/test_codegen.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/codegen/code_generator.cpp -o test_codegen.exe
-g++ -std=c++17 -Icompiler/include tests/test_while_loop.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp -o test_while_loop.exe
-g++ -std=c++17 -Icompiler/include tests/test_break_continue.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/semantic/semantic_analyzer.cpp -o test_break_continue.exe
-g++ -std=c++17 -Icompiler/include tests/test_for_loop.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp -o test_for_loop.exe
+g++ -std=c++17 -Icompiler/include tests/test_while_loop.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/codegen/code_generator.cpp -o test_while_loop.exe
+g++ -std=c++17 -Icompiler/include tests/test_break_continue.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/semantic/semantic_analyzer.cpp compiler/src/codegen/code_generator.cpp -o test_break_continue.exe
+g++ -std=c++17 -Icompiler/include tests/test_for_loop.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/codegen/code_generator.cpp -o test_for_loop.exe
 g++ -std=c++17 -Icompiler/include tests/test_arrays.cpp compiler/src/lexer/lexer.cpp compiler/src/parser/parser.cpp compiler/src/ast/ast_visitor.cpp compiler/src/semantic/semantic_analyzer.cpp compiler/src/codegen/code_generator.cpp -o test_arrays.exe
 
 echo.
