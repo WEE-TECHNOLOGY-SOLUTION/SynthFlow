@@ -24,7 +24,7 @@ jobs:
 
     - name: Setup NSIS (Windows)
       if: runner.os == 'Windows'
-      run: choco install nsis
+      run: choco install nsis -y
 
     - name: Package (Windows)
       if: runner.os == 'Windows'
@@ -56,8 +56,8 @@ jobs:
         # Create Zip
         7z a synthflow-windows-x64.zip dist\synthflow-windows\*
         
-        # Build Installer
-        makensis packaging/synthflow-installer.nsi
+        # Build Installer using absolute path
+        & "C:\Program Files (x86)\NSIS\makensis.exe" packaging/synthflow-installer.nsi
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
