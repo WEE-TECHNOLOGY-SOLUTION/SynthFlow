@@ -118,15 +118,21 @@ void SemanticAnalyzer::visit(FunctionDeclaration* node) {
         reportError("Redeclaration of function '" + node->name + "'");
     }
     
-    // Add to symbol table
+    // Add function to symbol table
     symbolTable[node->name] = {node->name};
     
-    // TODO: Handle function parameters in symbol table (scope)
+    // Add function parameters to symbol table for body analysis
+    for (const auto& param : node->parameters) {
+        symbolTable[param] = {param};
+    }
     
     // Visit body
     if (node->body) {
         visitStatement(node->body.get());
     }
+    
+    // Note: In a proper implementation with scopes, we'd pop the parameters here
+    // For now, the simplified single-scope approach keeps them in the table
 }
 
 void SemanticAnalyzer::visit(BlockStatement* node) {

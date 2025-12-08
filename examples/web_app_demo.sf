@@ -1,0 +1,52 @@
+# SynthFlow Web Application Demo
+# This demonstrates SynthFlow syntax for a simple web-style application
+
+# Define a configuration
+let app_name = "My SynthFlow App"
+let version = "1.0.0"
+let port = 8080
+
+# Function to greet users
+fn greet(name) {
+    let message = "Hello, " + name + "!"
+    return message
+}
+
+# Function to calculate something
+fn calculate_total(price, quantity) {
+    let subtotal = price * quantity
+    let tax = subtotal * 0.1
+    let total = subtotal + tax
+    return total
+}
+
+# Entry point
+fn main() {
+    # Display app info
+    print("Starting " + app_name + " v" + version)
+    print("Running on port " + port)
+    
+    # Test greeting
+    let welcome = greet("World")
+    print(welcome)
+    
+    # Test calculation
+    let order_total = calculate_total(99.99, 3)
+    print("Order total: " + order_total)
+    
+    # Loop example
+    let i = 0
+    while (i < 5) {
+        print("Processing item " + i)
+        i = i + 1
+    }
+    
+    # Conditional example
+    if (order_total > 200) {
+        print("Large order - free shipping!")
+    } else {
+        print("Standard shipping applies")
+    }
+    
+    print("Application complete!")
+}

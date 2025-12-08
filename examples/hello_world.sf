@@ -1,0 +1,58 @@
+# SynthFlow Demo - Hello World
+# This program demonstrates SynthFlow's runtime capabilities
+
+# Variables
+let message = "Hello from SynthFlow!"
+let count = 5
+
+# Print a welcome message
+print(message)
+
+# Demonstrate a loop
+let i = 1
+while i <= count {
+    print("Count:", i)
+    i = i + 1
+}
+
+# Demonstrate a function
+fn greet(name) {
+    print("Hello,", name, "!")
+}
+
+greet("World")
+greet("Developer")
+
+# Demonstrate arrays
+let numbers = [10, 20, 30, 40, 50]
+print("Array length:", len(numbers))
+print("First element:", numbers[0])
+print("Last element:", numbers[4])
+
+# Demonstrate arithmetic
+let a = 10
+let b = 3
+print("Addition:", a + b)
+print("Subtraction:", a - b)
+print("Multiplication:", a * b)
+print("Division:", a / b)
+print("Modulo:", a % b)
+
+# Demonstrate conditionals
+if a > b {
+    print("a is greater than b")
+} else {
+    print("b is greater than or equal to a")
+}
+
+# Fibonacci example
+fn fibonacci(n) {
+    if n <= 1 {
+        return n
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+print("Fibonacci(10):", fibonacci(10))
+
+print("SynthFlow demo complete!")

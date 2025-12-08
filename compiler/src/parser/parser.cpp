@@ -211,6 +211,26 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
     
     if (match(TokenType::IDENTIFIER)) {
         std::string name = tokens[current - 1].lexeme;
+        
+        // Check if this is a function call
+        if (peek().type == TokenType::LPAREN) {
+            advance(); // consume '('
+            std::vector<std::unique_ptr<Expression>> arguments;
+            
+            // Parse arguments
+            if (peek().type != TokenType::RPAREN) {
+                do {
+                    arguments.push_back(parseExpression());
+                } while (match(TokenType::COMMA));
+            }
+            
+            if (!match(TokenType::RPAREN)) {
+                throw std::runtime_error("Expected ')' after function arguments");
+            }
+            
+            return std::make_unique<CallExpression>(name, std::move(arguments));
+        }
+        
         auto identifier = std::make_unique<Identifier>(name);
         
         // Check if this is an array indexing operation

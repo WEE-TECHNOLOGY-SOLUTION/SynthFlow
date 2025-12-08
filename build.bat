@@ -7,6 +7,8 @@ g++ -std=c++17 -Wall -Wextra -O2 -Icompiler/include ^
     compiler/src/ast/ast_visitor.cpp ^
     compiler/src/semantic/semantic_analyzer.cpp ^
     compiler/src/codegen/code_generator.cpp ^
+    compiler/src/codegen/js_transpiler.cpp ^
+    compiler/src/interpreter/interpreter.cpp ^
     compiler/src/main.cpp ^
     -o synthflow.exe
 

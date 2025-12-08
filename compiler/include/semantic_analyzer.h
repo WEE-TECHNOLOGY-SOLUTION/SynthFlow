@@ -10,6 +10,7 @@ class SemanticAnalyzer : public ASTVisitor {
 private:
     struct Symbol {
         std::string name;
+        bool isBuiltin = false;
         // TODO: Add type information
     };
     
@@ -44,7 +45,17 @@ private:
     void visit(ReturnStatement* node) override;
     
 public:
-    SemanticAnalyzer() = default;
+    SemanticAnalyzer() {
+        // Register built-in functions
+        symbolTable["print"] = {"print", true};
+        symbolTable["input"] = {"input", true};
+        symbolTable["len"] = {"len", true};
+        symbolTable["str"] = {"str", true};
+        symbolTable["int"] = {"int", true};
+        symbolTable["float"] = {"float", true};
+        symbolTable["read_file"] = {"read_file", true};
+        symbolTable["write_file"] = {"write_file", true};
+    }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);
     

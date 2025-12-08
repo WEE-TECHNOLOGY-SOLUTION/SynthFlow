@@ -36,13 +36,21 @@ target_link_libraries(semantic ast)
 add_library(synthflow_codegen compiler/src/codegen/code_generator.cpp)
 target_link_libraries(synthflow_codegen ast semantic)
 
+# Interpreter
+add_library(interpreter compiler/src/interpreter/interpreter.cpp)
+target_link_libraries(interpreter ast)
+
+# JavaScript Transpiler
+add_library(js_transpiler compiler/src/codegen/js_transpiler.cpp)
+target_link_libraries(js_transpiler ast)
+
 # ------------------------------------------------------------------------------
 # Executables
 # ------------------------------------------------------------------------------
 
 # Main Compiler Executable
 add_executable(synthflow compiler/src/main.cpp)
-target_link_libraries(synthflow parser semantic synthflow_codegen ast lexer)
+target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js_transpiler ast lexer)
 
 # LSP Server
 add_executable(synthflow-lsp lsp-server/src/main.cpp)
@@ -50,5 +58,5 @@ target_link_libraries(synthflow-lsp parser semantic ast lexer)
 # ------------------------------------------------------------------------------
 # Installation
 # ------------------------------------------------------------------------------
-install(TARGETS synthflow synthflow-lsp lexer parser ast semantic synthflow_codegen DESTINATION bin)
+install(TARGETS synthflow synthflow-lsp lexer parser ast semantic synthflow_codegen interpreter DESTINATION bin)
 install(DIRECTORY compiler/include/ DESTINATION include)

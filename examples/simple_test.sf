@@ -1,0 +1,12 @@
+let message = "Hello from SynthFlow!"
+print(message)
+
+let x = 10
+let y = 20
+print("Sum:", x + y)
+
+fn greet(name) {
+    print("Hello,", name)
+}
+
+greet("World")
