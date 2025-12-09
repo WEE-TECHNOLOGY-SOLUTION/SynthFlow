@@ -1,0 +1,32 @@
+// Test new language features: match expression
+
+// Test match expression
+let status = 200
+
+let message = match status {
+    200 => "OK"
+    404 => "Not Found"
+    500 => "Server Error"
+    _ => "Unknown"
+}
+
+print("Status:", status, "=>", message)
+
+// Test with different value
+let code = 404
+let result = match code {
+    200 => "Success"
+    404 => "Page not found"
+    _ => "Other"
+}
+print("Code:", code, "=>", result)
+
+// Test default case
+let unknown = 999
+let msg = match unknown {
+    200 => "OK"
+    _ => "Unknown status"
+}
+print("Unknown:", unknown, "=>", msg)
+
+print("Match expressions working!")

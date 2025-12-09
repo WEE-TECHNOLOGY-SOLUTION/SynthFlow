@@ -1,0 +1,123 @@
+// Simple stdlib test
+print("========================================")
+print("  SynthFlow stdlib Quick Tests")
+print("========================================")
+
+// Math tests
+fn abs(x) {
+    if (x < 0) {
+        return -x
+    }
+    return x
+}
+
+fn pow(base, exp) {
+    let result = 1
+    for (let i = 0; i < exp; i = i + 1) {
+        result = result * base
+    }
+    return result
+}
+
+fn fibonacci(n) {
+    if (n <= 1) {
+        return n
+    }
+    let a = 0
+    let b = 1
+    for (let i = 2; i <= n; i = i + 1) {
+        let temp = a + b
+        a = b
+        b = temp
+    }
+    return b
+}
+
+print("")
+print("Math tests:")
+print("  abs(-5) =", abs(-5))
+print("  abs(5) =", abs(5))
+print("  pow(2, 3) =", pow(2, 3))
+print("  pow(5, 2) =", pow(5, 2))
+print("  fibonacci(10) =", fibonacci(10))
+
+// List tests
+print("")
+print("List tests:")
+let arr = [1, 2, 3, 4, 5]
+print("  len([1,2,3,4,5]) =", len(arr))
+print("  first element =", arr[0])
+print("  last element =", arr[4])
+
+fn sum(a) {
+    let total = 0
+    for (let i = 0; i < len(a); i = i + 1) {
+        total = total + a[i]
+    }
+    return total
+}
+print("  sum([1,2,3,4,5]) =", sum(arr))
+
+// String tests
+print("")
+print("String tests:")
+print("  len('hello') =", len("hello"))
+
+fn repeat(s, n) {
+    let result = ""
+    for (let i = 0; i < n; i = i + 1) {
+        result = result + s
+    }
+    return result
+}
+print("  repeat('ab', 3) =", repeat("ab", 3))
+
+// Interpolation
+let name = "SynthFlow"
+print("  interpolation: Hello, ${name}!")
+
+// Lambda tests
+print("")
+print("Lambda tests:")
+let double = (x) => x * 2
+let add = (a, b) => a + b
+print("  double(5) =", double(5))
+print("  add(3, 4) =", add(3, 4))
+
+// Match tests
+print("")
+print("Match tests:")
+fn getStatus(code) {
+    return match code {
+        200 => "OK"
+        404 => "Not Found"
+        _ => "Unknown"
+    }
+}
+print("  status(200) =", getStatus(200))
+print("  status(404) =", getStatus(404))
+print("  status(999) =", getStatus(999))
+
+// DateTime tests
+print("")
+print("DateTime tests:")
+fn isLeapYear(year) {
+    if (year % 400 == 0) {
+        return true
+    }
+    if (year % 100 == 0) {
+        return false
+    }
+    if (year % 4 == 0) {
+        return true
+    }
+    return false
+}
+print("  isLeapYear(2000) =", isLeapYear(2000))
+print("  isLeapYear(2024) =", isLeapYear(2024))
+print("  isLeapYear(2023) =", isLeapYear(2023))
+
+print("")
+print("========================================")
+print("  All tests completed!")
+print("========================================")

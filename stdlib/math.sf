@@ -1,0 +1,354 @@
+// SynthFlow Math Library
+// Mathematical constants and functions
+
+// ===== Constants =====
+const PI = 3.14159265358979323846
+const E = 2.71828182845904523536
+const TAU = 6.28318530717958647692
+const PHI = 1.61803398874989484820
+const SQRT2 = 1.41421356237309504880
+
+// ===== Basic Functions =====
+
+// Absolute value
+fn abs(x) {
+    if (x < 0) {
+        return -x
+    }
+    return x
+}
+
+// Sign of a number (-1, 0, or 1)
+fn sign(x) {
+    if (x > 0) { return 1 }
+    if (x < 0) { return -1 }
+    return 0
+}
+
+// Minimum of two values
+fn min(a, b) {
+    if (a < b) { return a }
+    return b
+}
+
+// Maximum of two values
+fn max(a, b) {
+    if (a > b) { return a }
+    return b
+}
+
+// Clamp value between min and max
+fn clamp(value, minVal, maxVal) {
+    if (value < minVal) { return minVal }
+    if (value > maxVal) { return maxVal }
+    return value
+}
+
+// ===== Rounding Functions =====
+
+// Floor - round down to nearest integer
+fn floor(x) {
+    let intPart = int(x)
+    if (x < 0 && x != float(intPart)) {
+        return intPart - 1
+    }
+    return intPart
+}
+
+// Ceiling - round up to nearest integer
+fn ceil(x) {
+    let intPart = int(x)
+    if (x > 0 && x != float(intPart)) {
+        return intPart + 1
+    }
+    return intPart
+}
+
+// Round to nearest integer
+fn round(x) {
+    if (x >= 0) {
+        return floor(x + 0.5)
+    }
+    return ceil(x - 0.5)
+}
+
+// Truncate toward zero
+fn trunc(x) {
+    return int(x)
+}
+
+// ===== Power Functions =====
+
+// Power function (x^n for integer n)
+fn pow(base, exp) {
+    if (exp == 0) { return 1 }
+    if (exp < 0) {
+        return 1.0 / pow(base, -exp)
+    }
+    
+    let result = 1
+    for (let i = 0; i < exp; i = i + 1) {
+        result = result * base
+    }
+    return result
+}
+
+// Square root using Newton's method
+fn sqrt(x) {
+    if (x < 0) {
+        // Cannot compute sqrt of negative number
+        return 0
+    }
+    if (x == 0) { return 0 }
+    if (x == 1) { return 1 }
+    
+    let guess = x / 2.0
+    for (let i = 0; i < 20; i = i + 1) {
+        guess = (guess + x / guess) / 2.0
+    }
+    return guess
+}
+
+// Cube root
+fn cbrt(x) {
+    let sign = 1
+    if (x < 0) {
+        sign = -1
+        x = -x
+    }
+    
+    let guess = x / 3.0
+    for (let i = 0; i < 20; i = i + 1) {
+        guess = (2.0 * guess + x / (guess * guess)) / 3.0
+    }
+    return sign * guess
+}
+
+// ===== Trigonometric Functions =====
+// Using Taylor series approximations
+
+// Normalize angle to [0, 2*PI)
+fn normalizeAngle(x) {
+    while (x < 0) {
+        x = x + TAU
+    }
+    while (x >= TAU) {
+        x = x - TAU
+    }
+    return x
+}
+
+// Sine function using Taylor series
+fn sin(x) {
+    x = normalizeAngle(x)
+    
+    // Reduce to first quadrant
+    if (x > PI) {
+        x = x - PI
+        return -sin(x)
+    }
+    if (x > PI / 2) {
+        x = PI - x
+    }
+    
+    // Taylor series: x - x^3/3! + x^5/5! - x^7/7! + ...
+    let term = x
+    let sum = x
+    for (let n = 1; n < 10; n = n + 1) {
+        term = -term * x * x / ((2 * n) * (2 * n + 1))
+        sum = sum + term
+    }
+    return sum
+}
+
+// Cosine function
+fn cos(x) {
+    return sin(x + PI / 2)
+}
+
+// Tangent function
+fn tan(x) {
+    let c = cos(x)
+    if (abs(c) < 0.0001) {
+        // Near undefined
+        return 0
+    }
+    return sin(x) / c
+}
+
+// ===== Exponential and Logarithmic =====
+
+// Exponential function e^x using Taylor series
+fn exp(x) {
+    let sum = 1.0
+    let term = 1.0
+    for (let n = 1; n < 50; n = n + 1) {
+        term = term * x / n
+        sum = sum + term
+        if (abs(term) < 0.0000001) {
+            break
+        }
+    }
+    return sum
+}
+
+// Natural logarithm using Newton's method
+fn ln(x) {
+    if (x <= 0) { return 0 }
+    if (x == 1) { return 0 }
+    
+    // Scale x to be near 1 for better convergence
+    let k = 0
+    while (x > 2) {
+        x = x / E
+        k = k + 1
+    }
+    while (x < 0.5) {
+        x = x * E
+        k = k - 1
+    }
+    
+    // Newton's method for ln(x): iteratively improve guess
+    let y = x - 1
+    let sum = 0.0
+    let term = y
+    for (let n = 1; n < 100; n = n + 1) {
+        sum = sum + term / n
+        term = -term * y
+        if (abs(term / n) < 0.0000001) {
+            break
+        }
+    }
+    return sum + k
+}
+
+// Logarithm base 10
+fn log10(x) {
+    return ln(x) / ln(10)
+}
+
+// Logarithm base 2
+fn log2(x) {
+    return ln(x) / ln(2)
+}
+
+// ===== Utility Functions =====
+
+// Greatest common divisor
+fn gcd(a, b) {
+    a = abs(int(a))
+    b = abs(int(b))
+    while (b != 0) {
+        let temp = b
+        b = a % b
+        a = temp
+    }
+    return a
+}
+
+// Least common multiple
+fn lcm(a, b) {
+    return abs(a * b) / gcd(a, b)
+}
+
+// Factorial
+fn factorial(n) {
+    if (n <= 1) { return 1 }
+    let result = 1
+    for (let i = 2; i <= n; i = i + 1) {
+        result = result * i
+    }
+    return result
+}
+
+// Fibonacci
+fn fibonacci(n) {
+    if (n <= 1) { return n }
+    let a = 0
+    let b = 1
+    for (let i = 2; i <= n; i = i + 1) {
+        let temp = a + b
+        a = b
+        b = temp
+    }
+    return b
+}
+
+// Check if number is prime
+fn isPrime(n) {
+    if (n < 2) { return false }
+    if (n == 2) { return true }
+    if (n % 2 == 0) { return false }
+    
+    let limit = int(sqrt(float(n))) + 1
+    for (let i = 3; i <= limit; i = i + 2) {
+        if (n % i == 0) { return false }
+    }
+    return true
+}
+
+// Linear interpolation
+fn lerp(a, b, t) {
+    return a + (b - a) * t
+}
+
+// Map value from one range to another
+fn mapRange(value, inMin, inMax, outMin, outMax) {
+    return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
+}
+
+// Convert degrees to radians
+fn toRadians(degrees) {
+    return degrees * PI / 180.0
+}
+
+// Convert radians to degrees
+fn toDegrees(radians) {
+    return radians * 180.0 / PI
+}
+
+// Distance between two 2D points
+fn distance2D(x1, y1, x2, y2) {
+    let dx = x2 - x1
+    let dy = y2 - y1
+    return sqrt(dx * dx + dy * dy)
+}
+
+// Sum of an array
+fn sum(arr) {
+    let total = 0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        total = total + arr[i]
+    }
+    return total
+}
+
+// Average of an array
+fn average(arr) {
+    if (len(arr) == 0) { return 0 }
+    return sum(arr) / len(arr)
+}
+
+// Minimum value in array
+fn minArray(arr) {
+    if (len(arr) == 0) { return 0 }
+    let result = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] < result) {
+            result = arr[i]
+        }
+    }
+    return result
+}
+
+// Maximum value in array
+fn maxArray(arr) {
+    if (len(arr) == 0) { return 0 }
+    let result = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] > result) {
+            result = arr[i]
+        }
+    }
+    return result
+}

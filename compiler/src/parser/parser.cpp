@@ -1,4 +1,5 @@
 #include "../include/parser.h"
+#include "../include/lexer.h"
 #include "../include/token.h"
 #include "../include/ast.h"
 #include <stdexcept>
@@ -209,6 +210,53 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return std::make_unique<StringLiteral>(value);
     }
     
+    // Handle interpolated strings: "Hello, ${name}!"
+    if (match(TokenType::INTERPOLATED_STRING)) {
+        std::string value = std::get<std::string>(tokens[current - 1].value);
+        std::vector<StringPart> parts;
+        
+        size_t pos = 0;
+        while (pos < value.length()) {
+            size_t dollarPos = value.find("${", pos);
+            
+            if (dollarPos == std::string::npos) {
+                // No more interpolations, add rest as text
+                if (pos < value.length()) {
+                    parts.push_back(StringPart(value.substr(pos)));
+                }
+                break;
+            }
+            
+            // Add text before ${
+            if (dollarPos > pos) {
+                parts.push_back(StringPart(value.substr(pos, dollarPos - pos)));
+            }
+            
+            // Find matching }
+            size_t braceStart = dollarPos + 2;
+            size_t braceEnd = value.find("}", braceStart);
+            
+            if (braceEnd == std::string::npos) {
+                throw std::runtime_error("Unclosed interpolation in string");
+            }
+            
+            // Extract expression string and parse it
+            std::string exprStr = value.substr(braceStart, braceEnd - braceStart);
+            
+            // Create a mini-lexer and parser for the expression
+            Lexer exprLexer(exprStr);
+            auto exprTokens = exprLexer.tokenize();
+            Parser exprParser(exprTokens);
+            auto expr = exprParser.parseExpression();
+            
+            parts.push_back(StringPart(std::move(expr)));
+            
+            pos = braceEnd + 1;
+        }
+        
+        return std::make_unique<InterpolatedString>(std::move(parts));
+    }
+    
     if (match(TokenType::BOOLEAN)) {
         bool value = std::get<bool>(tokens[current - 1].value);
         return std::make_unique<BooleanLiteral>(value);
@@ -223,6 +271,50 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return std::make_unique<NullLiteral>();
     }
     
+    // Match expression: match x { ... }
+    if (match(TokenType::KW_MATCH)) {
+        auto subject = parseUnary();  // Parse subject without recursing into full expression
+        
+        if (!match(TokenType::LBRACE)) {
+            throw std::runtime_error("Expected '{' after match expression");
+        }
+        
+        std::vector<MatchCase> cases;
+        
+        while (peek().type != TokenType::RBRACE && peek().type != TokenType::EOF_TOKEN) {
+            while (peek().type == TokenType::NEWLINE) advance();
+            
+            // Parse pattern (or _ for default)
+            std::unique_ptr<Expression> pattern = nullptr;
+            if (peek().type == TokenType::IDENTIFIER && peek().lexeme == "_") {
+                advance(); // consume _
+            } else {
+                pattern = parsePrimary();  // Parse simple pattern only
+            }
+            
+            if (!match(TokenType::FAT_ARROW)) {
+                throw std::runtime_error("Expected '=>' in match case");
+            }
+            
+            auto result = parsePrimary();  // Parse result expression
+            
+            MatchCase mc;
+            mc.pattern = std::move(pattern);
+            mc.result = std::move(result);
+            cases.push_back(std::move(mc));
+            
+            // Skip comma and newlines between cases
+            match(TokenType::COMMA);
+            while (peek().type == TokenType::NEWLINE) advance();
+        }
+        
+        if (!match(TokenType::RBRACE)) {
+            throw std::runtime_error("Expected '}' after match cases");
+        }
+        
+        return std::make_unique<MatchExpression>(std::move(subject), std::move(cases));
+    }
+
     if (match(TokenType::IDENTIFIER)) {
         std::string name = tokens[current - 1].lexeme;
         
@@ -255,7 +347,46 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return identifier;
     }
     
+    // Lambda or grouped expression: (x) => x * 2 or (expr)
     if (match(TokenType::LPAREN)) {
+        // Could be lambda parameters or grouped expression
+        // Check for lambda: (params) =>
+        size_t savedPos = current;
+        std::vector<std::string> params;
+        bool isLambda = false;
+        
+        // Try to parse as lambda parameters
+        if (peek().type == TokenType::IDENTIFIER || peek().type == TokenType::RPAREN) {
+            // Parse potential parameters
+            if (peek().type == TokenType::IDENTIFIER) {
+                do {
+                    if (peek().type != TokenType::IDENTIFIER) break;
+                    params.push_back(advance().lexeme);
+                } while (match(TokenType::COMMA));
+            }
+            
+            if (match(TokenType::RPAREN)) {
+                if (peek().type == TokenType::FAT_ARROW) {
+                    isLambda = true;
+                    advance(); // consume =>
+                    
+                    // Parse body - single expression or block
+                    if (peek().type == TokenType::LBRACE) {
+                        auto block = parseBlockStatement();
+                        // Cast to BlockStatement
+                        auto blockStmt = std::unique_ptr<BlockStatement>(
+                            static_cast<BlockStatement*>(block.release()));
+                        return std::make_unique<LambdaExpression>(std::move(params), std::move(blockStmt));
+                    } else {
+                        auto body = parseExpression();
+                        return std::make_unique<LambdaExpression>(std::move(params), std::move(body));
+                    }
+                }
+            }
+        }
+        
+        // Not a lambda, backtrack and parse as grouped expression
+        current = savedPos;
         auto expr = parseExpression();
         if (!match(TokenType::RPAREN)) {
             throw std::runtime_error("Expected ')' after expression");

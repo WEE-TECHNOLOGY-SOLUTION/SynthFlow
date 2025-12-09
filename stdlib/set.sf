@@ -1,0 +1,247 @@
+// SynthFlow Set Library
+// Set data structure - collection of unique values
+// Implemented using arrays until native set type is added
+
+// Create an empty set
+fn setNew() {
+    return []
+}
+
+// Get the size of a set
+fn setSize(s) {
+    return len(s)
+}
+
+// Check if set is empty
+fn setIsEmpty(s) {
+    return len(s) == 0
+}
+
+// Add element to set (returns new set)
+fn setAdd(s, element) {
+    // Check if already exists
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (s[i] == element) {
+            return s  // Already exists, return unchanged
+        }
+    }
+    
+    // Add new element
+    let result = []
+    for (let i = 0; i < len(s); i = i + 1) {
+        result[i] = s[i]
+    }
+    result[len(s)] = element
+    return result
+}
+
+// Remove element from set (returns new set)
+fn setRemove(s, element) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (s[i] != element) {
+            result[idx] = s[i]
+            idx = idx + 1
+        }
+    }
+    return result
+}
+
+// Check if set contains element
+fn setHas(s, element) {
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (s[i] == element) {
+            return true
+        }
+    }
+    return false
+}
+
+// Clear set (returns empty set)
+fn setClear(s) {
+    return []
+}
+
+// Convert set to array
+fn setToArray(s) {
+    let result = []
+    for (let i = 0; i < len(s); i = i + 1) {
+        result[i] = s[i]
+    }
+    return result
+}
+
+// Create set from array
+fn setFromArray(arr) {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = setAdd(result, arr[i])
+    }
+    return result
+}
+
+// ===== Set Operations =====
+
+// Union of two sets (A ∪ B)
+fn setUnion(a, b) {
+    let result = a
+    for (let i = 0; i < len(b); i = i + 1) {
+        result = setAdd(result, b[i])
+    }
+    return result
+}
+
+// Intersection of two sets (A ∩ B)
+fn setIntersection(a, b) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(a); i = i + 1) {
+        if (setHas(b, a[i])) {
+            result[idx] = a[i]
+            idx = idx + 1
+        }
+    }
+    return result
+}
+
+// Difference of two sets (A - B)
+fn setDifference(a, b) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(a); i = i + 1) {
+        if (!setHas(b, a[i])) {
+            result[idx] = a[i]
+            idx = idx + 1
+        }
+    }
+    return result
+}
+
+// Symmetric difference (A △ B) - elements in either but not both
+fn setSymmetricDifference(a, b) {
+    let diffAB = setDifference(a, b)
+    let diffBA = setDifference(b, a)
+    return setUnion(diffAB, diffBA)
+}
+
+// Check if A is subset of B (A ⊆ B)
+fn setIsSubset(a, b) {
+    for (let i = 0; i < len(a); i = i + 1) {
+        if (!setHas(b, a[i])) {
+            return false
+        }
+    }
+    return true
+}
+
+// Check if A is proper subset of B (A ⊂ B)
+fn setIsProperSubset(a, b) {
+    return setIsSubset(a, b) && len(a) < len(b)
+}
+
+// Check if A is superset of B (A ⊇ B)
+fn setIsSuperset(a, b) {
+    return setIsSubset(b, a)
+}
+
+// Check if two sets are equal
+fn setEquals(a, b) {
+    if (len(a) != len(b)) {
+        return false
+    }
+    return setIsSubset(a, b)
+}
+
+// Check if two sets are disjoint (no common elements)
+fn setIsDisjoint(a, b) {
+    for (let i = 0; i < len(a); i = i + 1) {
+        if (setHas(b, a[i])) {
+            return false
+        }
+    }
+    return true
+}
+
+// ===== Higher-Order Functions =====
+
+// Apply function to each element
+fn setForEach(s, fn) {
+    for (let i = 0; i < len(s); i = i + 1) {
+        fn(s[i])
+    }
+}
+
+// Map function over set
+fn setMap(s, fn) {
+    let result = []
+    for (let i = 0; i < len(s); i = i + 1) {
+        result = setAdd(result, fn(s[i]))
+    }
+    return result
+}
+
+// Filter set by predicate
+fn setFilter(s, predicate) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (predicate(s[i])) {
+            result[idx] = s[i]
+            idx = idx + 1
+        }
+    }
+    return result
+}
+
+// Check if any element satisfies predicate
+fn setSome(s, predicate) {
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (predicate(s[i])) {
+            return true
+        }
+    }
+    return false
+}
+
+// Check if all elements satisfy predicate
+fn setEvery(s, predicate) {
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (!predicate(s[i])) {
+            return false
+        }
+    }
+    return true
+}
+
+// Find first element matching predicate
+fn setFind(s, predicate) {
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (predicate(s[i])) {
+            return s[i]
+        }
+    }
+    return null
+}
+
+// Reduce set to single value
+fn setReduce(s, initial, fn) {
+    let acc = initial
+    for (let i = 0; i < len(s); i = i + 1) {
+        acc = fn(acc, s[i])
+    }
+    return acc
+}
+
+// Convert set to string
+fn setToString(s) {
+    let result = "{"
+    for (let i = 0; i < len(s); i = i + 1) {
+        if (i > 0) {
+            result = result + ", "
+        }
+        result = result + str(s[i])
+    }
+    result = result + "}"
+    return result
+}

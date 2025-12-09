@@ -1,0 +1,358 @@
+// SynthFlow DateTime Library
+// Date and time utilities
+// Note: Full implementation requires system time access builtins
+
+// ===== Constants =====
+const SECONDS_PER_MINUTE = 60
+const SECONDS_PER_HOUR = 3600
+const SECONDS_PER_DAY = 86400
+const DAYS_PER_WEEK = 7
+const MONTHS_PER_YEAR = 12
+
+// Days in each month (non-leap year)
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+// Month names
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+                     "July", "August", "September", "October", "November", "December"]
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+// Day names
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+// ===== Date Creation =====
+// A date is represented as [year, month, day, hour, minute, second]
+
+// Create a new date
+fn dateNew(year, month, day, hour, minute, second) {
+    return [year, month, day, hour, minute, second]
+}
+
+// Create date from just year, month, day
+fn dateFromYMD(year, month, day) {
+    return [year, month, day, 0, 0, 0]
+}
+
+// Create date from just time
+fn timeFromHMS(hour, minute, second) {
+    return [1970, 1, 1, hour, minute, second]
+}
+
+// ===== Date Component Getters =====
+
+fn getYear(date) { return date[0] }
+fn getMonth(date) { return date[1] }
+fn getDay(date) { return date[2] }
+fn getHour(date) { return date[3] }
+fn getMinute(date) { return date[4] }
+fn getSecond(date) { return date[5] }
+
+// ===== Leap Year Calculation =====
+
+fn isLeapYear(year) {
+    if (year % 400 == 0) { return true }
+    if (year % 100 == 0) { return false }
+    if (year % 4 == 0) { return true }
+    return false
+}
+
+// Get days in a specific month
+fn daysInMonth(year, month) {
+    if (month == 2 && isLeapYear(year)) {
+        return 29
+    }
+    return DAYS_IN_MONTH[month - 1]
+}
+
+// Get days in year
+fn daysInYear(year) {
+    if (isLeapYear(year)) { return 366 }
+    return 365
+}
+
+// ===== Date Comparisons =====
+
+// Compare two dates: -1, 0, or 1
+fn dateCompare(d1, d2) {
+    for (let i = 0; i < 6; i = i + 1) {
+        if (d1[i] < d2[i]) { return -1 }
+        if (d1[i] > d2[i]) { return 1 }
+    }
+    return 0
+}
+
+fn dateEquals(d1, d2) { return dateCompare(d1, d2) == 0 }
+fn dateBefore(d1, d2) { return dateCompare(d1, d2) < 0 }
+fn dateAfter(d1, d2) { return dateCompare(d1, d2) > 0 }
+
+// ===== Date Arithmetic =====
+
+// Add days to a date
+fn addDays(date, days) {
+    let year = date[0]
+    let month = date[1]
+    let day = date[2] + days
+    
+    // Handle positive overflow
+    while (day > daysInMonth(year, month)) {
+        day = day - daysInMonth(year, month)
+        month = month + 1
+        if (month > 12) {
+            month = 1
+            year = year + 1
+        }
+    }
+    
+    // Handle negative underflow
+    while (day < 1) {
+        month = month - 1
+        if (month < 1) {
+            month = 12
+            year = year - 1
+        }
+        day = day + daysInMonth(year, month)
+    }
+    
+    return [year, month, day, date[3], date[4], date[5]]
+}
+
+// Add months to a date
+fn addMonths(date, months) {
+    let year = date[0]
+    let month = date[1] + months
+    
+    while (month > 12) {
+        month = month - 12
+        year = year + 1
+    }
+    while (month < 1) {
+        month = month + 12
+        year = year - 1
+    }
+    
+    // Clamp day to valid range
+    let day = date[2]
+    let maxDay = daysInMonth(year, month)
+    if (day > maxDay) { day = maxDay }
+    
+    return [year, month, day, date[3], date[4], date[5]]
+}
+
+// Add years to a date
+fn addYears(date, years) {
+    let year = date[0] + years
+    let month = date[1]
+    let day = date[2]
+    
+    // Handle Feb 29 on non-leap years
+    if (month == 2 && day == 29 && !isLeapYear(year)) {
+        day = 28
+    }
+    
+    return [year, month, day, date[3], date[4], date[5]]
+}
+
+// Add hours
+fn addHours(date, hours) {
+    let totalSeconds = date[5] + date[4] * 60 + (date[3] + hours) * 3600
+    return addSeconds(dateFromYMD(date[0], date[1], date[2]), totalSeconds)
+}
+
+// Add seconds
+fn addSeconds(date, seconds) {
+    let totalSec = date[5] + seconds
+    let totalMin = date[4]
+    let totalHour = date[3]
+    let day = date[2]
+    let month = date[1]
+    let year = date[0]
+    
+    // Normalize seconds
+    while (totalSec >= 60) {
+        totalSec = totalSec - 60
+        totalMin = totalMin + 1
+    }
+    while (totalSec < 0) {
+        totalSec = totalSec + 60
+        totalMin = totalMin - 1
+    }
+    
+    // Normalize minutes
+    while (totalMin >= 60) {
+        totalMin = totalMin - 60
+        totalHour = totalHour + 1
+    }
+    while (totalMin < 0) {
+        totalMin = totalMin + 60
+        totalHour = totalHour - 1
+    }
+    
+    // Normalize hours
+    let dayOffset = 0
+    while (totalHour >= 24) {
+        totalHour = totalHour - 24
+        dayOffset = dayOffset + 1
+    }
+    while (totalHour < 0) {
+        totalHour = totalHour + 24
+        dayOffset = dayOffset - 1
+    }
+    
+    let result = [year, month, day, totalHour, totalMin, totalSec]
+    if (dayOffset != 0) {
+        result = addDays(result, dayOffset)
+    }
+    return result
+}
+
+// ===== Day of Week =====
+
+// Get day of week (0 = Sunday, 6 = Saturday)
+// Using Zeller's congruence
+fn dayOfWeek(date) {
+    let year = date[0]
+    let month = date[1]
+    let day = date[2]
+    
+    // Adjust for Zeller's formula
+    if (month < 3) {
+        month = month + 12
+        year = year - 1
+    }
+    
+    let k = year % 100
+    let j = int(year / 100)
+    
+    let h = (day + int(13 * (month + 1) / 5) + k + int(k / 4) + int(j / 4) - 2 * j) % 7
+    
+    // Convert to Sunday = 0
+    let dow = (h + 6) % 7
+    return dow
+}
+
+// Get day name
+fn getDayName(date) {
+    return DAY_NAMES[dayOfWeek(date)]
+}
+
+// Get day abbreviation
+fn getDayAbbr(date) {
+    return DAY_ABBR[dayOfWeek(date)]
+}
+
+// ===== Month Operations =====
+
+// Get month name
+fn getMonthName(month) {
+    return MONTH_NAMES[month - 1]
+}
+
+// Get month abbreviation
+fn getMonthAbbr(month) {
+    return MONTH_ABBR[month - 1]
+}
+
+// ===== Formatting =====
+
+// Format date as ISO 8601 (YYYY-MM-DD)
+fn formatISO(date) {
+    let year = str(date[0])
+    let month = str(date[1])
+    let day = str(date[2])
+    
+    // Pad with zeros
+    if (date[1] < 10) { month = "0" + month }
+    if (date[2] < 10) { day = "0" + day }
+    
+    return year + "-" + month + "-" + day
+}
+
+// Format date as ISO 8601 with time (YYYY-MM-DDTHH:MM:SS)
+fn formatISOFull(date) {
+    let datePart = formatISO(date)
+    let hour = str(date[3])
+    let minute = str(date[4])
+    let second = str(date[5])
+    
+    if (date[3] < 10) { hour = "0" + hour }
+    if (date[4] < 10) { minute = "0" + minute }
+    if (date[5] < 10) { second = "0" + second }
+    
+    return datePart + "T" + hour + ":" + minute + ":" + second
+}
+
+// Format time as HH:MM:SS
+fn formatTime(date) {
+    let hour = str(date[3])
+    let minute = str(date[4])
+    let second = str(date[5])
+    
+    if (date[3] < 10) { hour = "0" + hour }
+    if (date[4] < 10) { minute = "0" + minute }
+    if (date[5] < 10) { second = "0" + second }
+    
+    return hour + ":" + minute + ":" + second
+}
+
+// Format as human-readable
+fn formatHuman(date) {
+    let monthName = getMonthName(date[1])
+    return getDayName(date) + ", " + monthName + " " + str(date[2]) + ", " + str(date[0])
+}
+
+// ===== Parsing =====
+
+// Parse ISO date string (YYYY-MM-DD)
+fn parseISO(s) {
+    // Simplified parsing - expects exact format
+    let year = int(s)  // Will parse leading number
+    let month = 1
+    let day = 1
+    
+    // Note: Full parsing requires string splitting
+    
+    return dateFromYMD(year, month, day)
+}
+
+// ===== Duration =====
+
+// Calculate difference in days between two dates
+fn daysBetween(d1, d2) {
+    // Simplified - just count days
+    let days = 0
+    let earlier = d1
+    let later = d2
+    let negative = false
+    
+    if (dateBefore(d2, d1)) {
+        earlier = d2
+        later = d1
+        negative = true
+    }
+    
+    let current = earlier
+    while (dateBefore(current, later)) {
+        days = days + 1
+        current = addDays(current, 1)
+    }
+    
+    if (negative) { return -days }
+    return days
+}
+
+// Age calculation
+fn age(birthDate, currentDate) {
+    let years = currentDate[0] - birthDate[0]
+    
+    // Adjust if birthday hasn't occurred yet this year
+    if (currentDate[1] < birthDate[1]) {
+        years = years - 1
+    } else if (currentDate[1] == birthDate[1] && currentDate[2] < birthDate[2]) {
+        years = years - 1
+    }
+    
+    return years
+}

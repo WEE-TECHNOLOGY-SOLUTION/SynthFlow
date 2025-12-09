@@ -99,6 +99,7 @@ Token Lexer::lexIdentifier() {
 Token Lexer::lexString() {
     advance(); // Skip opening quote
     std::string str;
+    bool hasInterpolation = false;
     
     while (current() != '"' && current() != '\0') {
         if (current() == '\\') {
@@ -108,8 +109,13 @@ Token Lexer::lexString() {
                 case 't': str += '\t'; break;
                 case '\\': str += '\\'; break;
                 case '"': str += '"'; break;
+                case '$': str += '$'; break;  // Allow escaping $
                 default: str += current();
             }
+        } else if (current() == '$' && peek() == '{') {
+            // Found interpolation marker
+            hasInterpolation = true;
+            str += current();  // Keep ${} in string for parsing
         } else {
             str += current();
         }
@@ -117,7 +123,9 @@ Token Lexer::lexString() {
     }
     
     if (current() == '"') advance(); // Skip closing quote
-    Token token = makeToken(TokenType::STRING, str);
+    
+    TokenType type = hasInterpolation ? TokenType::INTERPOLATED_STRING : TokenType::STRING;
+    Token token = makeToken(type, str);
     token.value = str;
     return token;
 }

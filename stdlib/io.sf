@@ -1,0 +1,104 @@
+// SynthFlow Standard I/O Library
+// Provides enhanced input/output functions beyond the built-in print/input
+
+// Print a line with a newline at the end
+fn println(message) {
+    print(message)
+}
+
+// Print without newline (using print for now, can be enhanced later)
+fn printRaw(message) {
+    print(message)
+}
+
+// Print formatted string with multiple values
+fn printf(format, ...args) {
+    // For now, use string interpolation
+    print(format)
+}
+
+// Read a line from stdin
+fn readLine(prompt) {
+    return input(prompt)
+}
+
+// Read an integer from stdin
+fn readInt(prompt) {
+    let value = input(prompt)
+    return int(value)
+}
+
+// Read a float from stdin  
+fn readFloat(prompt) {
+    let value = input(prompt)
+    return float(value)
+}
+
+// Read a boolean from stdin (accepts true/false, yes/no, 1/0)
+fn readBool(prompt) {
+    let value = input(prompt)
+    if (value == "true" || value == "yes" || value == "1") {
+        return true
+    }
+    return false
+}
+
+// Print to stderr (using print for now)
+fn eprintln(message) {
+    print("[ERROR]", message)
+}
+
+// Debug print with prefix
+fn debug(message) {
+    print("[DEBUG]", message)
+}
+
+// Log with timestamp (simplified)
+fn log(level, message) {
+    print("[" + level + "]", message)
+}
+
+// ===== File Utilities =====
+
+// Check if a file exists
+fn fileExists(path) {
+    try {
+        let content = read_file(path)
+        return true
+    } catch (e) {
+        return false
+    }
+}
+
+// Read all lines from a file as an array
+fn readLines(path) {
+    let content = read_file(path)
+    // Note: split function would be needed here
+    // For now, return the content as-is
+    return content
+}
+
+// Write multiple lines to a file
+fn writeLines(path, lines) {
+    let content = ""
+    for (let i = 0; i < len(lines); i = i + 1) {
+        content = content + lines[i] + "\n"
+    }
+    write_file(path, content)
+}
+
+// Append to a file
+fn appendFile(path, content) {
+    try {
+        let existing = read_file(path)
+        write_file(path, existing + content)
+    } catch (e) {
+        write_file(path, content)
+    }
+}
+
+// Copy a file
+fn copyFile(source, dest) {
+    let content = read_file(source)
+    write_file(dest, content)
+}

@@ -1,0 +1,17 @@
+// Test lambda functions
+
+// Simple lambda - returns double of input
+let doubler = (x) => x * 2
+print("Double 5:", doubler)
+
+// Lambda stored in variable
+let greeting = () => "Hello World"
+print("Greeting:", greeting)
+
+// Lambda with block body (for future testing)
+// let compute = (a, b) => {
+//     let sum = a + b
+//     return sum * 2
+// }
+
+print("Lambda parsing works!")

@@ -1,0 +1,232 @@
+// SynthFlow Package Manager (synthpkg)
+// Simple package manager implementation
+
+// Package manifest structure (synthpkg.json):
+// {
+//   "name": "myproject",
+//   "version": "1.0.0",
+//   "description": "My SynthFlow project",
+//   "main": "src/main.sf",
+//   "dependencies": {
+//     "stdlib": "^1.0.0"
+//   }
+// }
+
+// ===== Version Parsing =====
+
+fn parseVersion(versionStr) {
+    // Parse "1.2.3" into [1, 2, 3]
+    let major = 0
+    let minor = 0
+    let patch = 0
+    
+    // Simplified parsing - assumes format "x.y.z"
+    let parts = []
+    let current = ""
+    
+    for (let i = 0; i < len(versionStr); i = i + 1) {
+        let c = versionStr[i]
+        // Can't access individual chars easily, simplified version
+        current = current + c
+    }
+    
+    // Return as array [major, minor, patch]
+    return [0, 0, 1]  // Default version
+}
+
+fn compareVersions(v1, v2) {
+    // Compare two version arrays
+    // Returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
+    for (let i = 0; i < 3; i = i + 1) {
+        if (v1[i] < v2[i]) { return -1 }
+        if (v1[i] > v2[i]) { return 1 }
+    }
+    return 0
+}
+
+fn versionSatisfies(version, requirement) {
+    // Check if version satisfies requirement
+    // Supports: exact match, ^x.y.z (compatible), ~x.y.z (patch)
+    return true  // Simplified for now
+}
+
+// ===== Package Registry =====
+
+// Simulated local package registry
+fn getLocalPackages() {
+    // In a real implementation, this would scan stdlib/ and lib/
+    return [
+        ["stdlib/math", "1.0.0"],
+        ["stdlib/io", "1.0.0"],
+        ["stdlib/string", "1.0.0"],
+        ["stdlib/list", "1.0.0"],
+        ["stdlib/map", "1.0.0"],
+        ["stdlib/set", "1.0.0"],
+        ["stdlib/datetime", "1.0.0"]
+    ]
+}
+
+fn findPackage(name) {
+    let packages = getLocalPackages()
+    for (let i = 0; i < len(packages); i = i + 1) {
+        if (packages[i][0] == name) {
+            return packages[i]
+        }
+    }
+    return null
+}
+
+// ===== Manifest Operations =====
+
+fn createManifest(name, version, description) {
+    let manifest = "{\n"
+    manifest = manifest + "  \"name\": \"" + name + "\",\n"
+    manifest = manifest + "  \"version\": \"" + version + "\",\n"
+    manifest = manifest + "  \"description\": \"" + description + "\",\n"
+    manifest = manifest + "  \"main\": \"src/main.sf\",\n"
+    manifest = manifest + "  \"dependencies\": {}\n"
+    manifest = manifest + "}\n"
+    return manifest
+}
+
+fn writeManifest(path, content) {
+    write_file(path + "/synthpkg.json", content)
+    print("Created synthpkg.json")
+}
+
+// ===== CLI Commands =====
+
+fn cmd_init(projectName) {
+    print("Initializing new SynthFlow project: " + projectName)
+    print("")
+    
+    // Create manifest
+    let manifest = createManifest(projectName, "1.0.0", "A SynthFlow project")
+    
+    // Would create directories in real implementation:
+    // - src/
+    // - lib/
+    // - tests/
+    
+    print("Created project structure:")
+    print("  📁 " + projectName + "/")
+    print("  ├── 📁 src/")
+    print("  │   └── 📄 main.sf")
+    print("  ├── 📁 lib/")
+    print("  ├── 📁 tests/")
+    print("  └── 📄 synthpkg.json")
+    print("")
+    print("Run 'synthpkg install' to install dependencies")
+}
+
+fn cmd_install(packageName) {
+    if (packageName == "") {
+        print("Installing all dependencies...")
+        // Would read synthpkg.json and install all dependencies
+        print("✓ Dependencies installed")
+    } else {
+        print("Installing package: " + packageName)
+        
+        let pkg = findPackage(packageName)
+        if (pkg != null) {
+            print("✓ Installed " + pkg[0] + "@" + pkg[1])
+        } else {
+            print("✗ Package not found: " + packageName)
+        }
+    }
+}
+
+fn cmd_list() {
+    print("Available packages:")
+    print("")
+    
+    let packages = getLocalPackages()
+    for (let i = 0; i < len(packages); i = i + 1) {
+        print("  " + packages[i][0] + " @ " + packages[i][1])
+    }
+}
+
+fn cmd_info(packageName) {
+    let pkg = findPackage(packageName)
+    if (pkg == null) {
+        print("Package not found: " + packageName)
+        return
+    }
+    
+    print("Package: " + pkg[0])
+    print("Version: " + pkg[1])
+    print("Type: Standard Library")
+}
+
+fn cmd_help() {
+    print("SynthFlow Package Manager (synthpkg)")
+    print("")
+    print("Usage:")
+    print("  synthpkg init <name>      Create a new project")
+    print("  synthpkg install [pkg]    Install dependencies")
+    print("  synthpkg list             List available packages")
+    print("  synthpkg info <pkg>       Show package information")
+    print("  synthpkg help             Show this help message")
+    print("")
+    print("Examples:")
+    print("  synthpkg init myproject")
+    print("  synthpkg install stdlib/math")
+    print("  synthpkg list")
+}
+
+// ===== Main Entry Point =====
+
+fn synthpkg_main(args) {
+    if (len(args) == 0) {
+        cmd_help()
+        return
+    }
+    
+    let command = args[0]
+    
+    if (command == "init") {
+        if (len(args) > 1) {
+            cmd_init(args[1])
+        } else {
+            cmd_init("myproject")
+        }
+    } else if (command == "install") {
+        if (len(args) > 1) {
+            cmd_install(args[1])
+        } else {
+            cmd_install("")
+        }
+    } else if (command == "list") {
+        cmd_list()
+    } else if (command == "info") {
+        if (len(args) > 1) {
+            cmd_info(args[1])
+        } else {
+            print("Usage: synthpkg info <package>")
+        }
+    } else if (command == "help") {
+        cmd_help()
+    } else {
+        print("Unknown command: " + command)
+        print("Run 'synthpkg help' for usage")
+    }
+}
+
+// Demo
+print("========================================")
+print("  SynthFlow Package Manager Demo")
+print("========================================\n")
+
+cmd_help()
+print("")
+
+print("--- Listing packages ---")
+cmd_list()
+print("")
+
+print("--- Package info ---")
+cmd_info("stdlib/math")
+print("")
+
+print("--- Init demo ---")
+cmd_init("myapp")

@@ -1,0 +1,215 @@
+// SynthFlow Map (Dictionary) Library
+// Note: This is implemented using parallel arrays until native map type is added
+
+// ===== Map Data Structure =====
+// A map is represented as a pair of arrays: [keys[], values[]]
+
+// Create an empty map
+fn mapNew() {
+    return [[], []]
+}
+
+// Get the number of entries in a map
+fn mapSize(m) {
+    return len(m[0])
+}
+
+// Check if map is empty
+fn mapIsEmpty(m) {
+    return len(m[0]) == 0
+}
+
+// Set a key-value pair (returns new map)
+fn mapSet(m, key, value) {
+    let keys = m[0]
+    let values = m[1]
+    
+    // Check if key already exists
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (keys[i] == key) {
+            // Update existing value
+            let newValues = []
+            for (let j = 0; j < len(values); j = j + 1) {
+                if (j == i) {
+                    newValues[j] = value
+                } else {
+                    newValues[j] = values[j]
+                }
+            }
+            return [keys, newValues]
+        }
+    }
+    
+    // Add new key-value pair
+    let newKeys = []
+    let newValues = []
+    for (let i = 0; i < len(keys); i = i + 1) {
+        newKeys[i] = keys[i]
+        newValues[i] = values[i]
+    }
+    newKeys[len(keys)] = key
+    newValues[len(values)] = value
+    
+    return [newKeys, newValues]
+}
+
+// Get value by key (returns null if not found)
+fn mapGet(m, key) {
+    let keys = m[0]
+    let values = m[1]
+    
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (keys[i] == key) {
+            return values[i]
+        }
+    }
+    return null
+}
+
+// Get value with default if not found
+fn mapGetDefault(m, key, defaultValue) {
+    let result = mapGet(m, key)
+    if (result == null) {
+        return defaultValue
+    }
+    return result
+}
+
+// Check if map contains key
+fn mapHas(m, key) {
+    let keys = m[0]
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (keys[i] == key) {
+            return true
+        }
+    }
+    return false
+}
+
+// Delete a key from map (returns new map)
+fn mapDelete(m, key) {
+    let keys = m[0]
+    let values = m[1]
+    
+    let newKeys = []
+    let newValues = []
+    let idx = 0
+    
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (keys[i] != key) {
+            newKeys[idx] = keys[i]
+            newValues[idx] = values[i]
+            idx = idx + 1
+        }
+    }
+    
+    return [newKeys, newValues]
+}
+
+// Get all keys
+fn mapKeys(m) {
+    let keys = m[0]
+    let result = []
+    for (let i = 0; i < len(keys); i = i + 1) {
+        result[i] = keys[i]
+    }
+    return result
+}
+
+// Get all values
+fn mapValues(m) {
+    let values = m[1]
+    let result = []
+    for (let i = 0; i < len(values); i = i + 1) {
+        result[i] = values[i]
+    }
+    return result
+}
+
+// Get all entries as [key, value] pairs
+fn mapEntries(m) {
+    let keys = m[0]
+    let values = m[1]
+    let result = []
+    for (let i = 0; i < len(keys); i = i + 1) {
+        result[i] = [keys[i], values[i]]
+    }
+    return result
+}
+
+// Apply function to each entry
+fn mapForEach(m, fn) {
+    let keys = m[0]
+    let values = m[1]
+    for (let i = 0; i < len(keys); i = i + 1) {
+        fn(keys[i], values[i])
+    }
+}
+
+// Map values through a function (returns new map)
+fn mapMapValues(m, fn) {
+    let keys = m[0]
+    let values = m[1]
+    let newValues = []
+    for (let i = 0; i < len(values); i = i + 1) {
+        newValues[i] = fn(values[i])
+    }
+    return [keys, newValues]
+}
+
+// Filter map entries (returns new map)
+fn mapFilter(m, predicate) {
+    let keys = m[0]
+    let values = m[1]
+    let newKeys = []
+    let newValues = []
+    let idx = 0
+    
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (predicate(keys[i], values[i])) {
+            newKeys[idx] = keys[i]
+            newValues[idx] = values[i]
+            idx = idx + 1
+        }
+    }
+    
+    return [newKeys, newValues]
+}
+
+// Merge two maps (second map takes precedence)
+fn mapMerge(m1, m2) {
+    let result = m1
+    let keys2 = m2[0]
+    let values2 = m2[1]
+    
+    for (let i = 0; i < len(keys2); i = i + 1) {
+        result = mapSet(result, keys2[i], values2[i])
+    }
+    
+    return result
+}
+
+// Create map from entries array
+fn mapFromEntries(entries) {
+    let result = mapNew()
+    for (let i = 0; i < len(entries); i = i + 1) {
+        let entry = entries[i]
+        result = mapSet(result, entry[0], entry[1])
+    }
+    return result
+}
+
+// Convert map to string for debugging
+fn mapToString(m) {
+    let keys = m[0]
+    let values = m[1]
+    let result = "{"
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (i > 0) {
+            result = result + ", "
+        }
+        result = result + str(keys[i]) + ": " + str(values[i])
+    }
+    result = result + "}"
+    return result
+}

@@ -1,0 +1,352 @@
+// SynthFlow List/Array Utilities Library
+// Provides array manipulation functions
+
+// ===== Basic Operations =====
+
+// Get the length of an array
+fn arrayLength(arr) {
+    return len(arr)
+}
+
+// Check if array is empty
+fn arrayIsEmpty(arr) {
+    return len(arr) == 0
+}
+
+// Get first element
+fn first(arr) {
+    if (len(arr) == 0) {
+        return null
+    }
+    return arr[0]
+}
+
+// Get last element
+fn last(arr) {
+    let length = len(arr)
+    if (length == 0) {
+        return null
+    }
+    return arr[length - 1]
+}
+
+// ===== Adding/Removing Elements =====
+
+// Push element to end of array (returns new array)
+fn push(arr, element) {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result[i] = arr[i]
+    }
+    result[len(arr)] = element
+    return result
+}
+
+// Pop last element (returns new array without last element)
+fn pop(arr) {
+    let length = len(arr)
+    if (length == 0) {
+        return []
+    }
+    let result = []
+    for (let i = 0; i < length - 1; i = i + 1) {
+        result[i] = arr[i]
+    }
+    return result
+}
+
+// Add element at beginning (returns new array)
+fn unshift(arr, element) {
+    let result = [element]
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result[i + 1] = arr[i]
+    }
+    return result
+}
+
+// Remove first element (returns new array)
+fn shift(arr) {
+    let length = len(arr)
+    if (length == 0) {
+        return []
+    }
+    let result = []
+    for (let i = 1; i < length; i = i + 1) {
+        result[i - 1] = arr[i]
+    }
+    return result
+}
+
+// ===== Searching =====
+
+// Find index of element (-1 if not found)
+fn indexOf(arr, element) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == element) {
+            return i
+        }
+    }
+    return -1
+}
+
+// Find last index of element (-1 if not found)
+fn lastIndexOf(arr, element) {
+    let lastIdx = -1
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == element) {
+            lastIdx = i
+        }
+    }
+    return lastIdx
+}
+
+// Check if array contains element
+fn arrayContains(arr, element) {
+    return indexOf(arr, element) >= 0
+}
+
+// ===== Transformations =====
+
+// Reverse an array
+fn arrayReverse(arr) {
+    let length = len(arr)
+    let result = []
+    for (let i = 0; i < length; i = i + 1) {
+        result[i] = arr[length - 1 - i]
+    }
+    return result
+}
+
+// Slice array from start to end (exclusive)
+fn slice(arr, start, end) {
+    let result = []
+    let idx = 0
+    for (let i = start; i < end && i < len(arr); i = i + 1) {
+        result[idx] = arr[i]
+        idx = idx + 1
+    }
+    return result
+}
+
+// Concatenate two arrays
+fn concat(arr1, arr2) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(arr1); i = i + 1) {
+        result[idx] = arr1[i]
+        idx = idx + 1
+    }
+    for (let i = 0; i < len(arr2); i = i + 1) {
+        result[idx] = arr2[i]
+        idx = idx + 1
+    }
+    return result
+}
+
+// Copy an array
+fn arrayCopy(arr) {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result[i] = arr[i]
+    }
+    return result
+}
+
+// ===== Higher-Order Functions =====
+
+// Note: These require lambda support which SynthFlow has
+
+// Apply function to each element
+fn forEach(arr, fn) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        fn(arr[i], i)
+    }
+}
+
+// Map function over array
+fn map(arr, fn) {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result[i] = fn(arr[i])
+    }
+    return result
+}
+
+// Filter array by predicate
+fn filter(arr, predicate) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (predicate(arr[i])) {
+            result[idx] = arr[i]
+            idx = idx + 1
+        }
+    }
+    return result
+}
+
+// Reduce array to single value
+fn reduce(arr, initial, fn) {
+    let acc = initial
+    for (let i = 0; i < len(arr); i = i + 1) {
+        acc = fn(acc, arr[i])
+    }
+    return acc
+}
+
+// Find first element matching predicate
+fn find(arr, predicate) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (predicate(arr[i])) {
+            return arr[i]
+        }
+    }
+    return null
+}
+
+// Find index of first element matching predicate
+fn findIndex(arr, predicate) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (predicate(arr[i])) {
+            return i
+        }
+    }
+    return -1
+}
+
+// Check if any element matches predicate
+fn some(arr, predicate) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (predicate(arr[i])) {
+            return true
+        }
+    }
+    return false
+}
+
+// Check if all elements match predicate
+fn every(arr, predicate) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (!predicate(arr[i])) {
+            return false
+        }
+    }
+    return true
+}
+
+// ===== Sorting =====
+
+// Bubble sort (simple implementation)
+fn sort(arr) {
+    let result = arrayCopy(arr)
+    let n = len(result)
+    for (let i = 0; i < n - 1; i = i + 1) {
+        for (let j = 0; j < n - i - 1; j = j + 1) {
+            if (result[j] > result[j + 1]) {
+                let temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+            }
+        }
+    }
+    return result
+}
+
+// Sort in reverse order
+fn sortDescending(arr) {
+    return arrayReverse(sort(arr))
+}
+
+// ===== Utility =====
+
+// Create array filled with value
+fn fill(length, value) {
+    let result = []
+    for (let i = 0; i < length; i = i + 1) {
+        result[i] = value
+    }
+    return result
+}
+
+// Create array of numbers from start to end
+fn range(start, end) {
+    let result = []
+    let idx = 0
+    for (let i = start; i < end; i = i + 1) {
+        result[idx] = i
+        idx = idx + 1
+    }
+    return result
+}
+
+// Create array of numbers with step
+fn rangeStep(start, end, step) {
+    let result = []
+    let idx = 0
+    let i = start
+    while (i < end) {
+        result[idx] = i
+        idx = idx + 1
+        i = i + step
+    }
+    return result
+}
+
+// Zip two arrays together
+fn zip(arr1, arr2) {
+    let minLen = len(arr1)
+    if (len(arr2) < minLen) {
+        minLen = len(arr2)
+    }
+    let result = []
+    for (let i = 0; i < minLen; i = i + 1) {
+        result[i] = [arr1[i], arr2[i]]
+    }
+    return result
+}
+
+// Flatten nested array by one level
+fn flatten(arr) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let item = arr[i]
+        // Check if item is an array
+        // This is a simplified check
+        try {
+            let itemLen = len(item)
+            for (let j = 0; j < itemLen; j = j + 1) {
+                result[idx] = item[j]
+                idx = idx + 1
+            }
+        } catch (e) {
+            result[idx] = item
+            idx = idx + 1
+        }
+    }
+    return result
+}
+
+// Remove duplicate values
+fn unique(arr) {
+    let result = []
+    let idx = 0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (!arrayContains(result, arr[i])) {
+            result[idx] = arr[i]
+            idx = idx + 1
+        }
+    }
+    return result
+}
+
+// Count occurrences of element
+fn count(arr, element) {
+    let total = 0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == element) {
+            total = total + 1
+        }
+    }
+    return total
+}

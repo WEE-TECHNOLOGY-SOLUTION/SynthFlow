@@ -1,0 +1,13 @@
+// Test string interpolation
+
+let name = "Alice"
+let age = 25
+
+print("Hello, ${name}!")
+print("${name} is ${age} years old.")
+
+let x = 5
+let y = 10
+print("Sum: ${x} + ${y} = ${x + y}")
+
+print("String interpolation works!")

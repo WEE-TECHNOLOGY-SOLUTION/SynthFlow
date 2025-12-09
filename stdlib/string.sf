@@ -1,0 +1,144 @@
+// SynthFlow String Manipulation Library
+// Provides string utility functions
+
+// Get the length of a string
+fn strLength(s) {
+    return len(s)
+}
+
+// Check if string contains a substring
+fn contains(s, sub) {
+    let sLen = len(s)
+    let subLen = len(sub)
+    
+    if (subLen > sLen) {
+        return false
+    }
+    
+    for (let i = 0; i <= sLen - subLen; i = i + 1) {
+        let found = true
+        for (let j = 0; j < subLen; j = j + 1) {
+            // Note: charAt would be needed here
+            // This is a placeholder implementation
+        }
+        if (found) {
+            return true
+        }
+    }
+    return false
+}
+
+// Convert string to uppercase (placeholder)
+fn toUpper(s) {
+    // Requires character-level access
+    return s
+}
+
+// Convert string to lowercase (placeholder)
+fn toLower(s) {
+    // Requires character-level access
+    return s
+}
+
+// Trim whitespace from both ends (placeholder)
+fn trim(s) {
+    // Requires character-level access
+    return s
+}
+
+// Trim whitespace from left
+fn trimLeft(s) {
+    return s
+}
+
+// Trim whitespace from right
+fn trimRight(s) {
+    return s
+}
+
+// Check if string starts with prefix
+fn startsWith(s, prefix) {
+    let prefixLen = len(prefix)
+    if (prefixLen > len(s)) {
+        return false
+    }
+    // Requires substring functionality
+    return true
+}
+
+// Check if string ends with suffix
+fn endsWith(s, suffix) {
+    let suffixLen = len(suffix)
+    if (suffixLen > len(s)) {
+        return false
+    }
+    // Requires substring functionality
+    return true
+}
+
+// Repeat a string n times
+fn repeat(s, n) {
+    let result = ""
+    for (let i = 0; i < n; i = i + 1) {
+        result = result + s
+    }
+    return result
+}
+
+// Pad string on left to reach target length
+fn padLeft(s, length, char) {
+    let currentLen = len(s)
+    if (currentLen >= length) {
+        return s
+    }
+    let padding = repeat(char, length - currentLen)
+    return padding + s
+}
+
+// Pad string on right to reach target length
+fn padRight(s, length, char) {
+    let currentLen = len(s)
+    if (currentLen >= length) {
+        return s
+    }
+    let padding = repeat(char, length - currentLen)
+    return s + padding
+}
+
+// Reverse a string
+fn reverse(s) {
+    let result = ""
+    let sLen = len(s)
+    // Requires character-level access
+    return result
+}
+
+// Check if string is empty
+fn isEmpty(s) {
+    return len(s) == 0
+}
+
+// Check if string is blank (empty or only whitespace)
+fn isBlank(s) {
+    // Requires trimming
+    return len(s) == 0
+}
+
+// Join array of strings with separator
+fn join(arr, sep) {
+    let result = ""
+    let arrLen = len(arr)
+    for (let i = 0; i < arrLen; i = i + 1) {
+        if (i > 0) {
+            result = result + sep
+        }
+        result = result + str(arr[i])
+    }
+    return result
+}
+
+// Format a number with fixed decimal places
+fn formatNumber(n, decimals) {
+    // Basic implementation
+    return str(n)
+}

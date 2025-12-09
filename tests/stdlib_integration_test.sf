@@ -1,0 +1,322 @@
+// SynthFlow Standard Library Integration Tests
+// Simple test suite for stdlib modules
+
+// ===== Test Variables =====
+let testsPassed = 0
+let testsFailed = 0
+
+fn test(name, condition) {
+    if (condition) {
+        testsPassed = testsPassed + 1
+        print("  ✓", name)
+    }
+    if (!condition) {
+        testsFailed = testsFailed + 1
+        print("  ✗", name, "- FAILED")
+    }
+}
+
+// ===== Math Tests =====
+print("========================================")
+print("  SynthFlow stdlib Integration Tests")
+print("========================================")
+
+print("")
+print("📐 Math Module Tests")
+print("----------------------------------------")
+
+// abs function
+fn abs(x) {
+    if (x < 0) {
+        return -x
+    }
+    return x
+}
+
+fn min(a, b) {
+    if (a < b) {
+        return a
+    }
+    return b
+}
+
+fn max(a, b) {
+    if (a > b) {
+        return a
+    }
+    return b
+}
+
+test("abs(-5) == 5", abs(-5) == 5)
+test("abs(5) == 5", abs(5) == 5)
+test("min(3, 7) == 3", min(3, 7) == 3)
+test("max(3, 7) == 7", max(3, 7) == 7)
+
+// Power function
+fn pow(base, exp) {
+    if (exp == 0) {
+        return 1
+    }
+    let result = 1
+    for (let i = 0; i < exp; i = i + 1) {
+        result = result * base
+    }
+    return result
+}
+
+test("pow(2, 3) == 8", pow(2, 3) == 8)
+test("pow(10, 0) == 1", pow(10, 0) == 1)
+test("pow(5, 2) == 25", pow(5, 2) == 25)
+
+// GCD
+fn gcd(a, b) {
+    a = abs(int(a))
+    b = abs(int(b))
+    while (b != 0) {
+        let temp = b
+        b = a % b
+        a = temp
+    }
+    return a
+}
+
+test("gcd(12, 8) == 4", gcd(12, 8) == 4)
+test("gcd(100, 25) == 25", gcd(100, 25) == 25)
+
+// Fibonacci
+fn fibonacci(n) {
+    if (n <= 1) {
+        return n
+    }
+    let a = 0
+    let b = 1
+    for (let i = 2; i <= n; i = i + 1) {
+        let temp = a + b
+        a = b
+        b = temp
+    }
+    return b
+}
+
+test("fibonacci(0) == 0", fibonacci(0) == 0)
+test("fibonacci(1) == 1", fibonacci(1) == 1)
+test("fibonacci(10) == 55", fibonacci(10) == 55)
+
+// ===== List Tests =====
+print("")
+print("📋 List Module Tests")
+print("----------------------------------------")
+
+fn arrayContains(arr, element) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == element) {
+            return true
+        }
+    }
+    return false
+}
+
+fn indexOf(arr, element) {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == element) {
+            return i
+        }
+    }
+    return -1
+}
+
+let testArr = [1, 2, 3, 4, 5]
+test("len([1,2,3,4,5]) == 5", len(testArr) == 5)
+test("arrayContains has 3", arrayContains(testArr, 3) == true)
+test("arrayContains not 6", arrayContains(testArr, 6) == false)
+test("indexOf finds 3 at 2", indexOf(testArr, 3) == 2)
+
+fn first(arr) {
+    if (len(arr) == 0) {
+        return null
+    }
+    return arr[0]
+}
+
+fn last(arr) {
+    let length = len(arr)
+    if (length == 0) {
+        return null
+    }
+    return arr[length - 1]
+}
+
+test("first([1,2,3]) == 1", first([1, 2, 3]) == 1)
+test("last([1,2,3]) == 3", last([1, 2, 3]) == 3)
+
+fn sum(arr) {
+    let total = 0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        total = total + arr[i]
+    }
+    return total
+}
+
+test("sum([1,2,3,4,5]) == 15", sum([1, 2, 3, 4, 5]) == 15)
+
+// ===== String Tests =====
+print("")
+print("📝 String Module Tests")
+print("----------------------------------------")
+
+fn isEmpty(s) {
+    return len(s) == 0
+}
+
+fn repeat(s, n) {
+    let result = ""
+    for (let i = 0; i < n; i = i + 1) {
+        result = result + s
+    }
+    return result
+}
+
+test("isEmpty('') == true", isEmpty("") == true)
+test("isEmpty('hello') == false", isEmpty("hello") == false)
+test("len('hello') == 5", len("hello") == 5)
+test("repeat('ab', 3) == 'ababab'", repeat("ab", 3) == "ababab")
+
+// String interpolation
+let name = "World"
+let greeting = "Hello, ${name}!"
+test("String interpolation works", greeting == "Hello, World!")
+
+// ===== Map Tests =====
+print("")
+print("🗺️  Map Module Tests")
+print("----------------------------------------")
+
+fn mapNew() {
+    return [[], []]
+}
+
+fn mapSet(m, key, value) {
+    let keys = m[0]
+    let values = m[1]
+    
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (keys[i] == key) {
+            let newValues = []
+            for (let j = 0; j < len(values); j = j + 1) {
+                if (j == i) {
+                    newValues[j] = value
+                }
+                if (j != i) {
+                    newValues[j] = values[j]
+                }
+            }
+            return [keys, newValues]
+        }
+    }
+    
+    let newKeys = []
+    let newValues = []
+    for (let i = 0; i < len(keys); i = i + 1) {
+        newKeys[i] = keys[i]
+        newValues[i] = values[i]
+    }
+    newKeys[len(keys)] = key
+    newValues[len(values)] = value
+    return [newKeys, newValues]
+}
+
+fn mapGet(m, key) {
+    let keys = m[0]
+    let values = m[1]
+    for (let i = 0; i < len(keys); i = i + 1) {
+        if (keys[i] == key) {
+            return values[i]
+        }
+    }
+    return null
+}
+
+fn mapSize(m) {
+    return len(m[0])
+}
+
+let myMap = mapNew()
+myMap = mapSet(myMap, "name", "Alice")
+myMap = mapSet(myMap, "age", 30)
+
+test("mapSize after 2 inserts == 2", mapSize(myMap) == 2)
+test("mapGet('name') == 'Alice'", mapGet(myMap, "name") == "Alice")
+test("mapGet('age') == 30", mapGet(myMap, "age") == 30)
+
+// ===== Lambda Tests =====
+print("")
+print("🔧 Lambda Function Tests")
+print("----------------------------------------")
+
+let double = (x) => x * 2
+let add = (a, b) => a + b
+let isEven = (x) => x % 2 == 0
+
+test("double(5) == 10", double(5) == 10)
+test("add(3, 4) == 7", add(3, 4) == 7)
+test("isEven(4) == true", isEven(4) == true)
+test("isEven(3) == false", isEven(3) == false)
+
+// ===== Match Tests =====
+print("")
+print("🎯 Match Expression Tests")
+print("----------------------------------------")
+
+fn getStatus(code) {
+    return match code {
+        200 => "OK"
+        404 => "Not Found"
+        500 => "Server Error"
+        _ => "Unknown"
+    }
+}
+
+test("match 200 => 'OK'", getStatus(200) == "OK")
+test("match 404 => 'Not Found'", getStatus(404) == "Not Found")
+test("match 999 => 'Unknown'", getStatus(999) == "Unknown")
+
+// ===== DateTime Tests =====
+print("")
+print("📅 DateTime Module Tests")
+print("----------------------------------------")
+
+fn isLeapYear(year) {
+    if (year % 400 == 0) {
+        return true
+    }
+    if (year % 100 == 0) {
+        return false
+    }
+    if (year % 4 == 0) {
+        return true
+    }
+    return false
+}
+
+test("isLeapYear(2000) == true", isLeapYear(2000) == true)
+test("isLeapYear(1900) == false", isLeapYear(1900) == false)
+test("isLeapYear(2024) == true", isLeapYear(2024) == true)
+test("isLeapYear(2023) == false", isLeapYear(2023) == false)
+
+// ===== Summary =====
+print("")
+print("========================================")
+print("  Test Summary")
+print("========================================")
+print("Tests Passed:", testsPassed)
+print("Tests Failed:", testsFailed)
+print("Total Tests: ", testsPassed + testsFailed)
+
+if (testsFailed == 0) {
+    print("")
+    print("✅ All tests passed!")
+}
+if (testsFailed > 0) {
+    print("")
+    print("❌ Some tests failed.")
+}
