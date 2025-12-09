@@ -1,0 +1,5 @@
+const PI = 3.14159
+print("PI:", PI)
+
+PI = 3.0
+print("New PI:", PI)

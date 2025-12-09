@@ -209,6 +209,11 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return parseArrayLiteral();
     }
     
+    // Null literal (for null safety)
+    if (match(TokenType::KW_NULL)) {
+        return std::make_unique<NullLiteral>();
+    }
+    
     if (match(TokenType::IDENTIFIER)) {
         std::string name = tokens[current - 1].lexeme;
         
@@ -255,6 +260,16 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
 std::unique_ptr<Statement> Parser::parseStatement() {
     if (peek().type == TokenType::KW_LET) {
         return parseVariableDeclaration();
+    }
+    
+    // const declaration (immutable variable)
+    if (peek().type == TokenType::KW_CONST) {
+        return parseConstDeclaration();
+    }
+    
+    // try/catch statement
+    if (peek().type == TokenType::KW_TRY) {
+        return parseTryStatement();
     }
     
     if (peek().type == TokenType::KW_FN) {
@@ -306,6 +321,25 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     }
     
     std::string name = tokens[current - 1].lexeme;
+    std::string typeName = "";
+    bool isNullable = false;
+    
+    // Optional type annotation: let x: int = 10
+    if (match(TokenType::COLON)) {
+        // Parse type name
+        if (match(TokenType::KW_INT)) typeName = "int";
+        else if (match(TokenType::KW_FLOAT)) typeName = "float";
+        else if (match(TokenType::KW_STRING)) typeName = "string";
+        else if (match(TokenType::KW_BOOL)) typeName = "bool";
+        else if (match(TokenType::KW_ARRAY)) typeName = "array";
+        else if (match(TokenType::IDENTIFIER)) typeName = tokens[current - 1].lexeme;
+        else throw std::runtime_error("Expected type after ':'");
+        
+        // Check for nullable type (?)
+        if (match(TokenType::QUESTION)) {
+            isNullable = true;
+        }
+    }
     
     if (!match(TokenType::ASSIGN)) {
         throw std::runtime_error("Expected '=' after identifier in variable declaration");
@@ -314,7 +348,7 @@ std::unique_ptr<Statement> Parser::parseVariableDeclaration() {
     auto initializer = parseExpression();
     match(TokenType::SEMICOLON); // Optional semicolon
     
-    return std::make_unique<VariableDeclaration>(name, std::move(initializer));
+    return std::make_unique<VariableDeclaration>(name, std::move(initializer), false, typeName, isNullable);
 }
 
 std::unique_ptr<Statement> Parser::parseFunctionDeclaration() {
@@ -584,6 +618,91 @@ std::unique_ptr<Statement> Parser::parseForStatement() {
     }
     
     return std::make_unique<ForStatement>(std::move(init), std::move(cond), std::move(incr), std::move(realBody));
+}
+
+std::unique_ptr<Statement> Parser::parseConstDeclaration() {
+    advance(); // consume 'const'
+    
+    if (!match(TokenType::IDENTIFIER)) {
+        throw std::runtime_error("Expected identifier after 'const'");
+    }
+    
+    std::string name = tokens[current - 1].lexeme;
+    std::string typeName = "";
+    bool isNullable = false;
+    
+    // Optional type annotation: const PI: float = 3.14
+    if (match(TokenType::COLON)) {
+        if (match(TokenType::KW_INT)) typeName = "int";
+        else if (match(TokenType::KW_FLOAT)) typeName = "float";
+        else if (match(TokenType::KW_STRING)) typeName = "string";
+        else if (match(TokenType::KW_BOOL)) typeName = "bool";
+        else if (match(TokenType::KW_ARRAY)) typeName = "array";
+        else if (match(TokenType::IDENTIFIER)) typeName = tokens[current - 1].lexeme;
+        else throw std::runtime_error("Expected type after ':'");
+        
+        if (match(TokenType::QUESTION)) {
+            isNullable = true;
+        }
+    }
+    
+    if (!match(TokenType::ASSIGN)) {
+        throw std::runtime_error("Expected '=' in const declaration");
+    }
+    
+    auto initializer = parseExpression();
+    match(TokenType::SEMICOLON);
+    
+    return std::make_unique<VariableDeclaration>(name, std::move(initializer), true, typeName, isNullable);
+}
+
+std::unique_ptr<Statement> Parser::parseTryStatement() {
+    advance(); // consume 'try'
+    
+    // Parse try block
+    auto tryBlock = parseBlockStatement();
+    BlockStatement* tbb = dynamic_cast<BlockStatement*>(tryBlock.get());
+    std::unique_ptr<BlockStatement> realTry;
+    if (tbb) {
+        tryBlock.release();
+        realTry.reset(tbb);
+    } else {
+        realTry = std::make_unique<BlockStatement>();
+        realTry->statements.push_back(std::move(tryBlock));
+    }
+    
+    // Expect 'catch'
+    if (!match(TokenType::KW_CATCH)) {
+        throw std::runtime_error("Expected 'catch' after try block");
+    }
+    
+    // Parse error variable
+    if (!match(TokenType::LPAREN)) {
+        throw std::runtime_error("Expected '(' after 'catch'");
+    }
+    
+    if (!match(TokenType::IDENTIFIER)) {
+        throw std::runtime_error("Expected error variable name in catch");
+    }
+    std::string errorVar = tokens[current - 1].lexeme;
+    
+    if (!match(TokenType::RPAREN)) {
+        throw std::runtime_error("Expected ')' after error variable");
+    }
+    
+    // Parse catch block
+    auto catchBlock = parseBlockStatement();
+    BlockStatement* cbb = dynamic_cast<BlockStatement*>(catchBlock.get());
+    std::unique_ptr<BlockStatement> realCatch;
+    if (cbb) {
+        catchBlock.release();
+        realCatch.reset(cbb);
+    } else {
+        realCatch = std::make_unique<BlockStatement>();
+        realCatch->statements.push_back(std::move(catchBlock));
+    }
+    
+    return std::make_unique<TryStatement>(std::move(realTry), errorVar, std::move(realCatch));
 }
 
 std::vector<std::unique_ptr<Statement>> Parser::parse() {

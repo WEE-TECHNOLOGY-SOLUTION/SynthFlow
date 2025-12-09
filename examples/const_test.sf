@@ -1,0 +1,7 @@
+const PI = 3.14159
+print("PI:", PI)
+
+let count = 42
+print("count:", count)
+
+print("Done!")

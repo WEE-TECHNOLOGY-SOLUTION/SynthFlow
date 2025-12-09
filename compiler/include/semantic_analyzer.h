@@ -11,7 +11,9 @@ private:
     struct Symbol {
         std::string name;
         bool isBuiltin = false;
-        // TODO: Add type information
+        bool isConst = false;    // Track if variable is constant
+        std::string typeName = ""; // Track type annotation
+        bool isNullable = false;   // Track if type is nullable
     };
     
     std::unordered_map<std::string, Symbol> symbolTable;
@@ -24,6 +26,7 @@ private:
     void visit(FloatLiteral* node) override;
     void visit(StringLiteral* node) override;
     void visit(BooleanLiteral* node) override;
+    void visit(NullLiteral* node) override;
     void visit(Identifier* node) override;
     void visit(BinaryExpression* node) override;
     void visit(UnaryExpression* node) override;
@@ -43,18 +46,19 @@ private:
     void visit(BreakStatement* node) override;
     void visit(ContinueStatement* node) override;
     void visit(ReturnStatement* node) override;
+    void visit(TryStatement* node) override;
     
 public:
     SemanticAnalyzer() {
         // Register built-in functions
-        symbolTable["print"] = {"print", true};
-        symbolTable["input"] = {"input", true};
-        symbolTable["len"] = {"len", true};
-        symbolTable["str"] = {"str", true};
-        symbolTable["int"] = {"int", true};
-        symbolTable["float"] = {"float", true};
-        symbolTable["read_file"] = {"read_file", true};
-        symbolTable["write_file"] = {"write_file", true};
+        symbolTable["print"] = {"print", true, false, "", false};
+        symbolTable["input"] = {"input", true, false, "", false};
+        symbolTable["len"] = {"len", true, false, "", false};
+        symbolTable["str"] = {"str", true, false, "", false};
+        symbolTable["int"] = {"int", true, false, "", false};
+        symbolTable["float"] = {"float", true, false, "", false};
+        symbolTable["read_file"] = {"read_file", true, false, "", false};
+        symbolTable["write_file"] = {"write_file", true, false, "", false};
     }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);

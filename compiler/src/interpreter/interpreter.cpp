@@ -281,6 +281,10 @@ void Interpreter::visit(BooleanLiteral* node) {
     lastValue = Value(node->value);
 }
 
+void Interpreter::visit(NullLiteral* node) {
+    lastValue = Value();  // monostate = null
+}
+
 void Interpreter::visit(Identifier* node) {
     lastValue = currentEnv->get(node->name);
 }
@@ -448,6 +452,11 @@ void Interpreter::visit(VariableDeclaration* node) {
         value = evaluate(node->initializer.get());
     }
     currentEnv->define(node->name, value);
+    
+    // Track if this is a const variable
+    if (node->isConst) {
+        constVariables[node->name] = true;
+    }
 }
 
 void Interpreter::visit(ExpressionStatement* node) {
@@ -547,4 +556,27 @@ void Interpreter::visit(ReturnStatement* node) {
         throw ret;
     }
     throw ReturnException(std::monostate{});
+}
+
+void Interpreter::visit(TryStatement* node) {
+    try {
+        // Execute try block
+        if (node->tryBlock) {
+            node->tryBlock->accept(*this);
+        }
+    } catch (const std::exception& e) {
+        // Create catch environment with error variable
+        auto catchEnv = std::make_shared<Environment>(currentEnv);
+        catchEnv->define(node->errorVariable, Value(std::string(e.what())));
+        
+        auto prevEnv = currentEnv;
+        currentEnv = catchEnv;
+        
+        // Execute catch block
+        if (node->catchBlock) {
+            node->catchBlock->accept(*this);
+        }
+        
+        currentEnv = prevEnv;
+    }
 }

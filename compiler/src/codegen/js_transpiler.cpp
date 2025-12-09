@@ -228,3 +228,21 @@ void JSTranspiler::visit(ReturnStatement* node) {
     }
     emit(";\n");
 }
+
+void JSTranspiler::visit(NullLiteral* node) {
+    (void)node;
+    emit("null");
+}
+
+void JSTranspiler::visit(TryStatement* node) {
+    indent();
+    emit("try ");
+    if (node->tryBlock) {
+        node->tryBlock->accept(*this);
+    }
+    emit(" catch (" + node->errorVariable + ") ");
+    if (node->catchBlock) {
+        node->catchBlock->accept(*this);
+    }
+    emit("\n");
+}

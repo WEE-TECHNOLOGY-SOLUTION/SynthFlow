@@ -187,3 +187,20 @@ void CodeGenerator::visit(ReturnStatement* node) {
     }
     output += ";\n";
 }
+
+void CodeGenerator::visit(NullLiteral* node) {
+    (void)node; // Unused
+    output += "null";
+}
+
+void CodeGenerator::visit(TryStatement* node) {
+    output += "  try {\n";
+    if (node->tryBlock) {
+        node->tryBlock->accept(*this);
+    }
+    output += "  } catch (" + node->errorVariable + ") {\n";
+    if (node->catchBlock) {
+        node->catchBlock->accept(*this);
+    }
+    output += "  }\n";
+}

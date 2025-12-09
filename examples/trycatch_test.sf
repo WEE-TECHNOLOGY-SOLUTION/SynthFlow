@@ -1,0 +1,17 @@
+print("=== Try/Catch Test ===")
+
+try {
+    print("Inside try block")
+    let x = 10 / 0
+    print("This should not print")
+} catch (err) {
+    print("Caught error:", err)
+}
+
+print("Program continues!")
+
+print("\n=== Null Test ===")
+let empty = null
+print("empty:", empty)
+
+print("\nDone!")

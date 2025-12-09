@@ -34,6 +34,8 @@ class CallExpression;
 class ArrayLiteral;
 class ArrayIndexExpression;
 class ArrayAssignmentExpression;
+class NullLiteral;
+class TryStatement;
 
 // Base visitor class
 class ASTVisitor {
@@ -45,6 +47,7 @@ public:
     virtual void visit(FloatLiteral* node) = 0;
     virtual void visit(StringLiteral* node) = 0;
     virtual void visit(BooleanLiteral* node) = 0;
+    virtual void visit(NullLiteral* node) = 0;  // Null safety
     virtual void visit(Identifier* node) = 0;
     virtual void visit(BinaryExpression* node) = 0;
     virtual void visit(UnaryExpression* node) = 0;
@@ -65,6 +68,7 @@ public:
     virtual void visit(ContinueStatement* node) = 0;
     virtual void visit(FunctionDeclaration* node) = 0;
     virtual void visit(ReturnStatement* node) = 0;
+    virtual void visit(TryStatement* node) = 0;  // Error handling
 };
 
 // Base class for all AST nodes
@@ -119,6 +123,14 @@ public:
     void accept(ASTVisitor& visitor) override;
 };
 
+// Null literal node (for null safety)
+class NullLiteral : public Expression {
+public:
+    NullLiteral() = default;
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
 // Float literal node
 class FloatLiteral : public Expression {
 public:
@@ -166,14 +178,22 @@ public:
     void accept(ASTVisitor& visitor) override;
 };
 
-// Variable declaration statement
+// Variable declaration statement (with safety features)
 class VariableDeclaration : public Statement {
 public:
     std::string name;
     std::unique_ptr<Expression> initializer;
+    bool isConst = false;           // const keyword (immutable)
+    std::string typeName = "";      // Optional type annotation (int, float, string, bool, array)
+    bool isNullable = false;        // Whether type is nullable (?)
     
     VariableDeclaration(const std::string& n, std::unique_ptr<Expression> init)
         : name(n), initializer(std::move(init)) {}
+    
+    VariableDeclaration(const std::string& n, std::unique_ptr<Expression> init, 
+                        bool constant, const std::string& type = "", bool nullable = false)
+        : name(n), initializer(std::move(init)), isConst(constant), 
+          typeName(type), isNullable(nullable) {}
     
     void accept(ASTVisitor& visitor) override;
 };
@@ -345,6 +365,21 @@ public:
                               std::unique_ptr<Expression> idx,
                               std::unique_ptr<Expression> val)
         : array(std::move(arr)), index(std::move(idx)), value(std::move(val)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Try/Catch statement for error handling
+class TryStatement : public Statement {
+public:
+    std::unique_ptr<BlockStatement> tryBlock;
+    std::string errorVariable;  // Variable name in catch (e.g., "error" in "catch (error)")
+    std::unique_ptr<BlockStatement> catchBlock;
+    
+    TryStatement(std::unique_ptr<BlockStatement> tryB,
+                 const std::string& errVar,
+                 std::unique_ptr<BlockStatement> catchB)
+        : tryBlock(std::move(tryB)), errorVariable(errVar), catchBlock(std::move(catchB)) {}
     
     void accept(ASTVisitor& visitor) override;
 };

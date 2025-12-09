@@ -88,3 +88,11 @@ void CallExpression::accept(ASTVisitor& visitor) {
 void ArrayAssignmentExpression::accept(ASTVisitor& visitor) {
     visitor.visit(this);
 }
+
+void NullLiteral::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void TryStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}

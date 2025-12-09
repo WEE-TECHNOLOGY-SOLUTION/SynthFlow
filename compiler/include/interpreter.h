@@ -134,6 +134,7 @@ public:
     void visit(FloatLiteral* node) override;
     void visit(StringLiteral* node) override;
     void visit(BooleanLiteral* node) override;
+    void visit(NullLiteral* node) override;
     void visit(Identifier* node) override;
     void visit(BinaryExpression* node) override;
     void visit(UnaryExpression* node) override;
@@ -154,6 +155,7 @@ public:
     void visit(ContinueStatement* node) override;
     void visit(FunctionDeclaration* node) override;
     void visit(ReturnStatement* node) override;
+    void visit(TryStatement* node) override;
     
 private:
     // Helper to evaluate an expression
@@ -161,6 +163,9 @@ private:
     
     // Register built-in functions
     void registerBuiltins();
+    
+    // Track const variables
+    std::map<std::string, bool> constVariables;
 };
 
 #endif // INTERPRETER_H

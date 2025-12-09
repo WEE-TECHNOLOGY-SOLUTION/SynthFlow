@@ -16,8 +16,20 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
     {"intent", TokenType::KW_INTENT},
     {"break", TokenType::KW_BREAK},
     {"continue", TokenType::KW_CONTINUE},
+    {"for", TokenType::KW_FOR},
+    {"array", TokenType::KW_ARRAY},
     {"true", TokenType::BOOLEAN},
-    {"false", TokenType::BOOLEAN}
+    {"false", TokenType::BOOLEAN},
+    // Safety feature keywords
+    {"const", TokenType::KW_CONST},
+    {"try", TokenType::KW_TRY},
+    {"catch", TokenType::KW_CATCH},
+    {"null", TokenType::KW_NULL},
+    // Type keywords for annotations
+    {"int", TokenType::KW_INT},
+    {"float", TokenType::KW_FLOAT},
+    {"string", TokenType::KW_STRING},
+    {"bool", TokenType::KW_BOOL}
 };
 
 char Lexer::current() {
@@ -240,6 +252,44 @@ std::vector<Token> Lexer::tokenize() {
             case ';': 
                 tokens.push_back(makeToken(TokenType::SEMICOLON, ";")); 
                 advance(); 
+                break;
+            case '?': 
+                tokens.push_back(makeToken(TokenType::QUESTION, "?")); 
+                advance(); 
+                break;
+            case '!':
+                if (peek() == '=') {
+                    tokens.push_back(makeToken(TokenType::NE, "!="));
+                    advance(); 
+                    advance();
+                } else {
+                    tokens.push_back(makeToken(TokenType::NOT, "!"));
+                    advance();
+                }
+                break;
+            case '%': 
+                tokens.push_back(makeToken(TokenType::PERCENT, "%")); 
+                advance(); 
+                break;
+            case '&':
+                if (peek() == '&') {
+                    tokens.push_back(makeToken(TokenType::AND, "&&"));
+                    advance(); 
+                    advance();
+                } else {
+                    tokens.push_back(makeToken(TokenType::INVALID, std::string(1, current())));
+                    advance();
+                }
+                break;
+            case '|':
+                if (peek() == '|') {
+                    tokens.push_back(makeToken(TokenType::OR, "||"));
+                    advance(); 
+                    advance();
+                } else {
+                    tokens.push_back(makeToken(TokenType::INVALID, std::string(1, current())));
+                    advance();
+                }
                 break;
             default:
                 tokens.push_back(makeToken(TokenType::INVALID, std::string(1, current())));

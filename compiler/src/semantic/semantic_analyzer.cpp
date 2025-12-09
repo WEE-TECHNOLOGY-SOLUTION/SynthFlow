@@ -34,11 +34,18 @@ void SemanticAnalyzer::visit(Identifier* node) {
 }
 
 void SemanticAnalyzer::visit(AssignmentExpression* node) {
-    // Visit left and right expressions
-    visitExpression(node->left.get());
+    // Visit right expression first
     visitExpression(node->right.get());
     
-    // TODO: Add type checking for assignment
+    // Check if left side is an identifier being reassigned
+    if (auto* id = dynamic_cast<Identifier*>(node->left.get())) {
+        auto it = symbolTable.find(id->name);
+        if (it != symbolTable.end() && it->second.isConst) {
+            reportError("Cannot reassign constant '" + id->name + "'");
+        }
+    }
+    
+    visitExpression(node->left.get());
 }
 
 void SemanticAnalyzer::visit(ArrayLiteral* node) {
@@ -103,8 +110,14 @@ void SemanticAnalyzer::visit(VariableDeclaration* node) {
         reportError("Redeclaration of variable '" + node->name + "'");
     }
     
-    // Add to symbol table
-    symbolTable[node->name] = {node->name};
+    // Add to symbol table with safety tracking
+    symbolTable[node->name] = {
+        node->name, 
+        false,              // isBuiltin
+        node->isConst,      // isConst
+        node->typeName,     // typeName
+        node->isNullable    // isNullable
+    };
     
     // Visit initializer
     if (node->initializer) {
@@ -215,6 +228,25 @@ void SemanticAnalyzer::visit(ReturnStatement* node) {
     // Visit return value if it exists
     if (node->value) {
         visitExpression(node->value.get());
+    }
+}
+
+void SemanticAnalyzer::visit(NullLiteral* node) {
+    // Nothing to check for null literals
+}
+
+void SemanticAnalyzer::visit(TryStatement* node) {
+    // Visit try block
+    if (node->tryBlock) {
+        visitStatement(node->tryBlock.get());
+    }
+    
+    // Add error variable to symbol table for catch block
+    symbolTable[node->errorVariable] = {node->errorVariable, false, false, "error", false};
+    
+    // Visit catch block
+    if (node->catchBlock) {
+        visitStatement(node->catchBlock.get());
     }
 }
 

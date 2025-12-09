@@ -1,0 +1,44 @@
+# SynthFlow Safety Features Demo
+
+# 1. const keyword - Immutable variables
+const PI: float = 3.14159
+const MAX_SIZE: int = 100
+const APP_NAME: string = "MySafeApp"
+
+print("=== Constants Demo ===")
+print("PI:", PI)
+print("MAX_SIZE:", MAX_SIZE)
+print("APP_NAME:", APP_NAME)
+
+# 2. Type annotations
+let count: int = 42
+let price: float = 19.99
+let name: string = "Alice"
+let active: bool = true
+
+print("\n=== Type Annotations Demo ===")
+print("count:", count)
+print("price:", price)
+print("name:", name)
+print("active:", active)
+
+# 3. Nullable types
+let maybeValue: int? = null
+print("\n=== Null Safety Demo ===")
+print("maybeValue:", maybeValue)
+
+# 4. Try/catch error handling
+print("\n=== Error Handling Demo ===")
+
+try {
+    let x = 10
+    let y = 0
+    print("About to do something risky...")
+    let result = x / y
+    print("Result:", result)
+} catch (error) {
+    print("Caught error:", error)
+}
+
+print("\nProgram continues safely!")
+print("Done!")

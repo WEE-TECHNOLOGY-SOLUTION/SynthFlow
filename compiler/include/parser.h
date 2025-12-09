@@ -29,6 +29,7 @@ private:
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<Statement> parseExpressionStatement();
     std::unique_ptr<Statement> parseVariableDeclaration();
+    std::unique_ptr<Statement> parseConstDeclaration();
     std::unique_ptr<Statement> parseFunctionDeclaration();
     std::unique_ptr<Statement> parseBlockStatement();
     std::unique_ptr<Statement> parseIfStatement();
@@ -37,6 +38,7 @@ private:
     std::unique_ptr<Statement> parseBreakStatement();
     std::unique_ptr<Statement> parseContinueStatement();
     std::unique_ptr<Statement> parseReturnStatement();
+    std::unique_ptr<Statement> parseTryStatement();
     
 public:
     explicit Parser(std::vector<Token> inputTokens) {
