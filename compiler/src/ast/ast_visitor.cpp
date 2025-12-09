@@ -96,3 +96,23 @@ void NullLiteral::accept(ASTVisitor& visitor) {
 void TryStatement::accept(ASTVisitor& visitor) {
     visitor.visit(this);
 }
+
+void LambdaExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void MatchExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void CompoundAssignment::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void UpdateExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void InterpolatedString::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}

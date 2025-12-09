@@ -35,27 +35,36 @@ bool Parser::isAtEnd() {
 std::unique_ptr<Expression> Parser::parseAssignment() {
     auto expr = parseEquality();
     
+    // Handle regular assignment
     if (match(TokenType::ASSIGN)) {
         auto right = parseAssignment();
-        // Check if expr is a valid assignment target (l-value)
-        // For now, we wrap it in AssignmentExpression, but AST has specific structure?
-        // ast.h: AssignmentExpression(unique_ptr<Expression> l, unique_ptr<Expression> r)
-        // CodeGen expects left to be accepted.
-        
-        // Wait, what if it's array assignment? `arr[i] = val`
-        // ast.h has ArrayAssignmentExpression.
-        // But parser logic for `arr[i] = val` usually parses `arr[i]` as IndexExpression first.
-        // If we want to support ArrayAssignmentExpression, we might need to cast 'expr' or check its type.
-        // However, standard AssignmentExpression handles general assignment. 
-        // If CodeGen/Semantic handle AssignmentExpression generically, we are fine.
-        // CodeGen::visit(AssignmentExpression) calls left->accept().
-        // If left is ArrayIndexExpression, visitor outputs `arr[i]`.
-        // Then outputs ` = `. Then right.
-        // `arr[i] = val`. This WORKS via standard AssignmentExpression!
-        // So ArrayAssignmentExpression in AST might be redundant or for optimization?
-        // For now, I will use AssignmentExpression for everything to be safe.
-        
         return std::make_unique<AssignmentExpression>(std::move(expr), std::move(right));
+    }
+    
+    // Handle compound assignment +=, -=, *=, /=
+    if (match(TokenType::PLUS_EQ)) {
+        auto right = parseAssignment();
+        return std::make_unique<CompoundAssignment>(std::move(expr), "+=", std::move(right));
+    }
+    if (match(TokenType::MINUS_EQ)) {
+        auto right = parseAssignment();
+        return std::make_unique<CompoundAssignment>(std::move(expr), "-=", std::move(right));
+    }
+    if (match(TokenType::STAR_EQ)) {
+        auto right = parseAssignment();
+        return std::make_unique<CompoundAssignment>(std::move(expr), "*=", std::move(right));
+    }
+    if (match(TokenType::SLASH_EQ)) {
+        auto right = parseAssignment();
+        return std::make_unique<CompoundAssignment>(std::move(expr), "/=", std::move(right));
+    }
+    
+    // Handle postfix ++ and --
+    if (match(TokenType::PLUS_PLUS)) {
+        return std::make_unique<UpdateExpression>(std::move(expr), "++", false);
+    }
+    if (match(TokenType::MINUS_MINUS)) {
+        return std::make_unique<UpdateExpression>(std::move(expr), "--", false);
     }
     
     return expr;

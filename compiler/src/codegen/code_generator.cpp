@@ -204,3 +204,47 @@ void CodeGenerator::visit(TryStatement* node) {
     }
     output += "  }\n";
 }
+
+void CodeGenerator::visit(LambdaExpression* node) {
+    output += "(";
+    for (size_t i = 0; i < node->parameters.size(); ++i) {
+        if (i > 0) output += ", ";
+        output += node->parameters[i];
+    }
+    output += ") => ";
+    if (node->body) {
+        node->body->accept(*this);
+    }
+}
+
+void CodeGenerator::visit(MatchExpression* node) {
+    output += "match ";
+    node->subject->accept(*this);
+    output += " { ... }";
+}
+
+void CodeGenerator::visit(CompoundAssignment* node) {
+    node->target->accept(*this);
+    output += " " + node->op + " ";
+    node->value->accept(*this);
+}
+
+void CodeGenerator::visit(UpdateExpression* node) {
+    if (node->prefix) output += node->op;
+    node->operand->accept(*this);
+    if (!node->prefix) output += node->op;
+}
+
+void CodeGenerator::visit(InterpolatedString* node) {
+    output += "\"";
+    for (auto& part : node->parts) {
+        if (part.isExpression) {
+            output += "${";
+            part.expr->accept(*this);
+            output += "}";
+        } else {
+            output += part.text;
+        }
+    }
+    output += "\"";
+}

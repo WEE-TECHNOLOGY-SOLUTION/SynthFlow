@@ -580,3 +580,128 @@ void Interpreter::visit(TryStatement* node) {
         currentEnv = prevEnv;
     }
 }
+
+void Interpreter::visit(LambdaExpression* node) {
+    // Create a callable value for the lambda
+    // For now, store as a string representation
+    (void)node;
+    lastValue = Value(std::string("<lambda>"));
+}
+
+void Interpreter::visit(MatchExpression* node) {
+    Value subject = evaluate(node->subject.get());
+    
+    for (auto& matchCase : node->cases) {
+        // nullptr pattern means default case
+        if (!matchCase.pattern) {
+            lastValue = evaluate(matchCase.result.get());
+            return;
+        }
+        
+        Value pattern = evaluate(matchCase.pattern.get());
+        
+        // Simple equality check
+        bool matches = false;
+        if (subject.isInt() && pattern.isInt()) {
+            matches = subject.asInt() == pattern.asInt();
+        } else if (subject.isString() && pattern.isString()) {
+            matches = subject.asString() == pattern.asString();
+        } else if (subject.isBool() && pattern.isBool()) {
+            matches = subject.asBool() == pattern.asBool();
+        }
+        
+        if (matches) {
+            lastValue = evaluate(matchCase.result.get());
+            return;
+        }
+    }
+    
+    // No match found
+    lastValue = Value();
+}
+
+void Interpreter::visit(CompoundAssignment* node) {
+    auto* id = dynamic_cast<Identifier*>(node->target.get());
+    if (!id) {
+        throw std::runtime_error("Compound assignment target must be an identifier");
+    }
+    
+    Value current = currentEnv->get(id->name);
+    Value value = evaluate(node->value.get());
+    Value result;
+    
+    if (node->op == "+=") {
+        if (current.isString() || value.isString()) {
+            result = Value(current.toString() + value.toString());
+        } else if (current.isInt() && value.isInt()) {
+            result = Value(current.asInt() + value.asInt());
+        } else {
+            result = Value(current.asFloat() + value.asFloat());
+        }
+    } else if (node->op == "-=") {
+        if (current.isInt() && value.isInt()) {
+            result = Value(current.asInt() - value.asInt());
+        } else {
+            result = Value(current.asFloat() - value.asFloat());
+        }
+    } else if (node->op == "*=") {
+        if (current.isInt() && value.isInt()) {
+            result = Value(current.asInt() * value.asInt());
+        } else {
+            result = Value(current.asFloat() * value.asFloat());
+        }
+    } else if (node->op == "/=") {
+        if (current.isInt() && value.isInt()) {
+            result = Value(current.asInt() / value.asInt());
+        } else {
+            result = Value(current.asFloat() / value.asFloat());
+        }
+    }
+    
+    currentEnv->set(id->name, result);
+    lastValue = result;
+}
+
+void Interpreter::visit(UpdateExpression* node) {
+    auto* id = dynamic_cast<Identifier*>(node->operand.get());
+    if (!id) {
+        throw std::runtime_error("Update expression operand must be an identifier");
+    }
+    
+    Value current = currentEnv->get(id->name);
+    Value result;
+    
+    if (node->op == "++") {
+        if (current.isInt()) {
+            result = Value(current.asInt() + 1);
+        } else {
+            result = Value(current.asFloat() + 1.0);
+        }
+    } else if (node->op == "--") {
+        if (current.isInt()) {
+            result = Value(current.asInt() - 1);
+        } else {
+            result = Value(current.asFloat() - 1.0);
+        }
+    }
+    
+    currentEnv->set(id->name, result);
+    
+    // For prefix, return new value; for postfix, return old value
+    lastValue = node->prefix ? result : current;
+}
+
+void Interpreter::visit(InterpolatedString* node) {
+    std::string result;
+    
+    for (auto& part : node->parts) {
+        if (part.isExpression) {
+            Value val = evaluate(part.expr.get());
+            result += val.toString();
+        } else {
+            result += part.text;
+        }
+    }
+    
+    lastValue = Value(result);
+}

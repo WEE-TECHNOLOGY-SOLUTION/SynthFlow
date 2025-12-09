@@ -253,3 +253,28 @@ void BytecodeCompiler::visit(TryStatement* node) {
         node->tryBlock->accept(*this);
     }
 }
+
+void BytecodeCompiler::visit(LambdaExpression* node) {
+    (void)node;
+    // TODO: Implement lambda bytecode
+}
+
+void BytecodeCompiler::visit(MatchExpression* node) {
+    (void)node;
+    // TODO: Implement match bytecode
+}
+
+void BytecodeCompiler::visit(CompoundAssignment* node) {
+    (void)node;
+    // TODO: Implement compound assignment bytecode
+}
+
+void BytecodeCompiler::visit(UpdateExpression* node) {
+    (void)node;
+    // TODO: Implement update expression bytecode
+}
+
+void BytecodeCompiler::visit(InterpolatedString* node) {
+    (void)node;
+    // TODO: Implement interpolated string bytecode
+}

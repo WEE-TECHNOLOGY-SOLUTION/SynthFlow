@@ -1,4 +1,4 @@
-Automation website designed with the wall click it's called Magic Animator and it works right inside just select any free or design element of users # This is a simple SynthFlow program
+# This is a simple SynthFlow program
 # It demonstrates basic syntax
 
 fn fibonacci(n: Int) -> Int {

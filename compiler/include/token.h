@@ -8,6 +8,7 @@ enum class TokenType {
     KW_FN, KW_LET, KW_IF, KW_ELSE, KW_WHILE, KW_RETURN,
     KW_TYPE, KW_STRUCT, KW_ENUM, KW_INTENT, KW_BREAK, KW_CONTINUE, KW_FOR,
     KW_ARRAY, // Keyword for array type
+    KW_MATCH, // Match expression
     
     // Safety Feature Keywords
     KW_CONST,  // Immutable variables
@@ -21,12 +22,15 @@ enum class TokenType {
     // Identifiers and Literals
     IDENTIFIER, INTEGER, FLOAT, STRING, BOOLEAN,
     ARRAY_LITERAL, // Token type for array literals
+    INTERPOLATED_STRING, // String with ${} interpolation
     
     // Operators
     PLUS, MINUS, STAR, SLASH, PERCENT,
+    PLUS_PLUS, MINUS_MINUS, // ++ and --
+    PLUS_EQ, MINUS_EQ, STAR_EQ, SLASH_EQ, // +=, -=, *=, /=
     EQ, NE, LT, GT, LE, GE,
     AND, OR, NOT,
-    ASSIGN, ARROW, DOT, COMMA, COLON, SEMICOLON,
+    ASSIGN, ARROW, FAT_ARROW, DOT, COMMA, COLON, SEMICOLON,
     QUESTION,  // For nullable types (?)
     
     // Delimiters

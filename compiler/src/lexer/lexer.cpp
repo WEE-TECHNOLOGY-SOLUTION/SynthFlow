@@ -18,6 +18,7 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
     {"continue", TokenType::KW_CONTINUE},
     {"for", TokenType::KW_FOR},
     {"array", TokenType::KW_ARRAY},
+    {"match", TokenType::KW_MATCH},
     {"true", TokenType::BOOLEAN},
     {"false", TokenType::BOOLEAN},
     // Safety feature keywords
@@ -135,8 +136,14 @@ std::vector<Token> Lexer::tokenize() {
             continue;
         }
         
-        // Handle comments
+        // Handle comments (# style)
         if (current() == '#') {
+            while (current() != '\n' && current() != '\0') advance();
+            continue;
+        }
+        
+        // Handle // style comments
+        if (current() == '/' && peek() == '/') {
             while (current() != '\n' && current() != '\0') advance();
             continue;
         }
@@ -162,32 +169,57 @@ std::vector<Token> Lexer::tokenize() {
         // Operators and delimiters
         switch (current()) {
             case '+': 
-                tokens.push_back(makeToken(TokenType::PLUS, "+")); 
-                advance(); 
+                if (peek() == '+') {
+                    tokens.push_back(makeToken(TokenType::PLUS_PLUS, "++"));
+                    advance(); advance();
+                } else if (peek() == '=') {
+                    tokens.push_back(makeToken(TokenType::PLUS_EQ, "+="));
+                    advance(); advance();
+                } else {
+                    tokens.push_back(makeToken(TokenType::PLUS, "+")); 
+                    advance();
+                }
                 break;
             case '-':
                 if (peek() == '>') {
                     tokens.push_back(makeToken(TokenType::ARROW, "->"));
-                    advance(); 
-                    advance();
+                    advance(); advance();
+                } else if (peek() == '-') {
+                    tokens.push_back(makeToken(TokenType::MINUS_MINUS, "--"));
+                    advance(); advance();
+                } else if (peek() == '=') {
+                    tokens.push_back(makeToken(TokenType::MINUS_EQ, "-="));
+                    advance(); advance();
                 } else {
                     tokens.push_back(makeToken(TokenType::MINUS, "-"));
                     advance();
                 }
                 break;
             case '*': 
-                tokens.push_back(makeToken(TokenType::STAR, "*")); 
-                advance(); 
+                if (peek() == '=') {
+                    tokens.push_back(makeToken(TokenType::STAR_EQ, "*="));
+                    advance(); advance();
+                } else {
+                    tokens.push_back(makeToken(TokenType::STAR, "*")); 
+                    advance();
+                }
                 break;
             case '/': 
-                tokens.push_back(makeToken(TokenType::SLASH, "/")); 
-                advance(); 
+                if (peek() == '=') {
+                    tokens.push_back(makeToken(TokenType::SLASH_EQ, "/="));
+                    advance(); advance();
+                } else {
+                    tokens.push_back(makeToken(TokenType::SLASH, "/")); 
+                    advance();
+                }
                 break;
             case '=':
                 if (peek() == '=') {
                     tokens.push_back(makeToken(TokenType::EQ, "=="));
-                    advance(); 
-                    advance();
+                    advance(); advance();
+                } else if (peek() == '>') {
+                    tokens.push_back(makeToken(TokenType::FAT_ARROW, "=>"));
+                    advance(); advance();
                 } else {
                     tokens.push_back(makeToken(TokenType::ASSIGN, "="));
                     advance();

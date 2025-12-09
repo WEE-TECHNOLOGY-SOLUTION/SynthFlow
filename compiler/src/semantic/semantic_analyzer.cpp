@@ -250,6 +250,62 @@ void SemanticAnalyzer::visit(TryStatement* node) {
     }
 }
 
+void SemanticAnalyzer::visit(LambdaExpression* node) {
+    // Add parameters to symbol table
+    for (const auto& param : node->parameters) {
+        symbolTable[param] = {param, false, false, "", false};
+    }
+    // Visit body
+    if (node->body) {
+        visitExpression(node->body.get());
+    }
+    if (node->blockBody) {
+        visitStatement(node->blockBody.get());
+    }
+}
+
+void SemanticAnalyzer::visit(MatchExpression* node) {
+    // Visit subject expression
+    if (node->subject) {
+        visitExpression(node->subject.get());
+    }
+    // Visit all cases
+    for (auto& matchCase : node->cases) {
+        if (matchCase.pattern) {
+            visitExpression(matchCase.pattern.get());
+        }
+        if (matchCase.result) {
+            visitExpression(matchCase.result.get());
+        }
+    }
+}
+
+void SemanticAnalyzer::visit(CompoundAssignment* node) {
+    // Visit target and value
+    if (node->target) {
+        visitExpression(node->target.get());
+    }
+    if (node->value) {
+        visitExpression(node->value.get());
+    }
+}
+
+void SemanticAnalyzer::visit(UpdateExpression* node) {
+    // Visit operand
+    if (node->operand) {
+        visitExpression(node->operand.get());
+    }
+}
+
+void SemanticAnalyzer::visit(InterpolatedString* node) {
+    // Visit expression parts
+    for (auto& part : node->parts) {
+        if (part.isExpression && part.expr) {
+            visitExpression(part.expr.get());
+        }
+    }
+}
+
 void SemanticAnalyzer::analyze(const std::vector<std::unique_ptr<Statement>>& statements) {
     for (const auto& stmt : statements) {
         visitStatement(stmt.get());

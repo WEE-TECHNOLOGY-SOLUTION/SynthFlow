@@ -246,3 +246,62 @@ void JSTranspiler::visit(TryStatement* node) {
     }
     emit("\n");
 }
+
+void JSTranspiler::visit(LambdaExpression* node) {
+    emit("(");
+    for (size_t i = 0; i < node->parameters.size(); ++i) {
+        if (i > 0) emit(", ");
+        emit(node->parameters[i]);
+    }
+    emit(") => ");
+    if (node->body) {
+        node->body->accept(*this);
+    } else if (node->blockBody) {
+        node->blockBody->accept(*this);
+    }
+}
+
+void JSTranspiler::visit(MatchExpression* node) {
+    // Convert match to switch-like IIFE
+    emit("(function() { switch (");
+    node->subject->accept(*this);
+    emit(") {");
+    for (auto& matchCase : node->cases) {
+        if (!matchCase.pattern) {
+            emit(" default: return ");
+        } else {
+            emit(" case ");
+            matchCase.pattern->accept(*this);
+            emit(": return ");
+        }
+        matchCase.result->accept(*this);
+        emit(";");
+    }
+    emit(" } })()");
+}
+
+void JSTranspiler::visit(CompoundAssignment* node) {
+    node->target->accept(*this);
+    emit(" " + node->op + " ");
+    node->value->accept(*this);
+}
+
+void JSTranspiler::visit(UpdateExpression* node) {
+    if (node->prefix) emit(node->op);
+    node->operand->accept(*this);
+    if (!node->prefix) emit(node->op);
+}
+
+void JSTranspiler::visit(InterpolatedString* node) {
+    emit("`");
+    for (auto& part : node->parts) {
+        if (part.isExpression) {
+            emit("${");
+            part.expr->accept(*this);
+            emit("}");
+        } else {
+            emit(part.text);
+        }
+    }
+    emit("`");
+}

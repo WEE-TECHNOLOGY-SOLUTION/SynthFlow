@@ -36,6 +36,11 @@ public:
     void visit(ArrayLiteral* node) override;
     void visit(ArrayIndexExpression* node) override;
     void visit(ArrayAssignmentExpression* node) override;
+    void visit(LambdaExpression* node) override;
+    void visit(MatchExpression* node) override;
+    void visit(CompoundAssignment* node) override;
+    void visit(UpdateExpression* node) override;
+    void visit(InterpolatedString* node) override;
     
     // Statement visitors
     void visit(VariableDeclaration* node) override;

@@ -1,0 +1,30 @@
+// Test quick win features: increment operators and compound assignment
+
+let count = 0
+print("Initial count:", count)
+
+// Test increment operator
+count++
+print("After count++:", count)
+
+// Test compound assignment +=
+count += 5
+print("After count += 5:", count)
+
+// Test compound assignment -=
+count -= 2
+print("After count -= 2:", count)
+
+// Test compound assignment *=
+count *= 2
+print("After count *= 2:", count)
+
+// Test compound assignment /=
+count /= 3
+print("After count /= 3:", count)
+
+// Test decrement
+count--
+print("After count--:", count)
+
+print("All quick wins working!")

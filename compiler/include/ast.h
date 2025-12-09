@@ -36,6 +36,11 @@ class ArrayIndexExpression;
 class ArrayAssignmentExpression;
 class NullLiteral;
 class TryStatement;
+class LambdaExpression;
+class MatchExpression;
+class CompoundAssignment;
+class UpdateExpression;
+class InterpolatedString;
 
 // Base visitor class
 class ASTVisitor {
@@ -56,6 +61,11 @@ public:
     virtual void visit(ArrayLiteral* node) = 0;
     virtual void visit(ArrayIndexExpression* node) = 0;
     virtual void visit(ArrayAssignmentExpression* node) = 0;
+    virtual void visit(LambdaExpression* node) = 0;  // Lambda functions
+    virtual void visit(MatchExpression* node) = 0;   // Match expression
+    virtual void visit(CompoundAssignment* node) = 0; // +=, -=, etc.
+    virtual void visit(UpdateExpression* node) = 0;  // ++, --
+    virtual void visit(InterpolatedString* node) = 0; // String interpolation
     
     // Statement visitors
     virtual void visit(VariableDeclaration* node) = 0;
@@ -380,6 +390,86 @@ public:
                  const std::string& errVar,
                  std::unique_ptr<BlockStatement> catchB)
         : tryBlock(std::move(tryB)), errorVariable(errVar), catchBlock(std::move(catchB)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Lambda expression: (x, y) => x + y
+class LambdaExpression : public Expression {
+public:
+    std::vector<std::string> parameters;
+    std::unique_ptr<Expression> body;  // Single expression body
+    std::unique_ptr<BlockStatement> blockBody;  // Optional block body
+    
+    LambdaExpression(std::vector<std::string> params, std::unique_ptr<Expression> expr)
+        : parameters(std::move(params)), body(std::move(expr)), blockBody(nullptr) {}
+    
+    LambdaExpression(std::vector<std::string> params, std::unique_ptr<BlockStatement> block)
+        : parameters(std::move(params)), body(nullptr), blockBody(std::move(block)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Match case for pattern matching
+struct MatchCase {
+    std::unique_ptr<Expression> pattern;  // nullptr means default case (_)
+    std::unique_ptr<Expression> result;
+};
+
+// Match expression: match x { 1 => "one", 2 => "two", _ => "other" }
+class MatchExpression : public Expression {
+public:
+    std::unique_ptr<Expression> subject;
+    std::vector<MatchCase> cases;
+    
+    MatchExpression(std::unique_ptr<Expression> subj, std::vector<MatchCase> c)
+        : subject(std::move(subj)), cases(std::move(c)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Compound assignment: x += 5, x -= 3, x *= 2, x /= 4
+class CompoundAssignment : public Expression {
+public:
+    std::unique_ptr<Expression> target;
+    std::string op;  // "+=", "-=", "*=", "/="
+    std::unique_ptr<Expression> value;
+    
+    CompoundAssignment(std::unique_ptr<Expression> tgt, const std::string& o, std::unique_ptr<Expression> val)
+        : target(std::move(tgt)), op(o), value(std::move(val)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Update expression: x++ or x--
+class UpdateExpression : public Expression {
+public:
+    std::unique_ptr<Expression> operand;
+    std::string op;  // "++" or "--"
+    bool prefix;     // true for ++x, false for x++
+    
+    UpdateExpression(std::unique_ptr<Expression> expr, const std::string& o, bool pre)
+        : operand(std::move(expr)), op(o), prefix(pre) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// String part for interpolated strings
+struct StringPart {
+    bool isExpression;
+    std::string text;  // For literal parts
+    std::unique_ptr<Expression> expr;  // For ${expr} parts
+    
+    StringPart(const std::string& t) : isExpression(false), text(t), expr(nullptr) {}
+    StringPart(std::unique_ptr<Expression> e) : isExpression(true), text(""), expr(std::move(e)) {}
+};
+
+// Interpolated string: "Hello, ${name}!"
+class InterpolatedString : public Expression {
+public:
+    std::vector<StringPart> parts;
+    
+    explicit InterpolatedString(std::vector<StringPart> p) : parts(std::move(p)) {}
     
     void accept(ASTVisitor& visitor) override;
 };
