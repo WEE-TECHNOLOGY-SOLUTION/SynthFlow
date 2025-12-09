@@ -1,0 +1,167 @@
+// SynthFlow SADK - JSON Module
+// Provides JSON parsing and serialization
+
+// ===== Parsing =====
+
+// Parse JSON string into SynthFlow value
+// Returns: map or array
+fn parse(jsonString) {
+    print("[JSON] Parsing:", jsonString)
+    // Note: Native JSON parsing requires interpreter support
+    // This is a placeholder implementation
+    return {}
+}
+
+// Parse JSON with error handling
+fn tryParse(jsonString) {
+    try {
+        return {
+            success: true,
+            value: parse(jsonString),
+            error: null
+        }
+    } catch (e) {
+        return {
+            success: false,
+            value: null,
+            error: str(e)
+        }
+    }
+}
+
+// ===== Serialization =====
+
+// Convert SynthFlow value to JSON string
+fn stringify(value) {
+    // Note: Uses Value::toString() internally for maps
+    return str(value)
+}
+
+// Convert to pretty-printed JSON
+fn prettyPrint(value, indent) {
+    // Placeholder - would add proper indentation
+    return stringify(value)
+}
+
+// ===== Path Access =====
+
+// Get value at JSON path (e.g., "user.profile.name")
+fn getPath(obj, path) {
+    // Simple path parsing
+    let current = obj
+    // Note: string split not yet implemented
+    // Would split path by "." and traverse
+    return current
+}
+
+// Set value at JSON path
+fn setPath(obj, path, value) {
+    // Placeholder implementation
+    return obj
+}
+
+// Check if path exists in object
+fn hasPath(obj, path) {
+    try {
+        let val = getPath(obj, path)
+        return val != null
+    } catch (e) {
+        return false
+    }
+}
+
+// ===== Array Helpers =====
+
+// Get array of keys from object
+fn keys(obj) {
+    // Note: Would require native implementation
+    return []
+}
+
+// Get array of values from object
+fn values(obj) {
+    return []
+}
+
+// Get array of [key, value] pairs
+fn entries(obj) {
+    return []
+}
+
+// Create object from key-value pairs
+fn fromEntries(pairs) {
+    let result = {}
+    for (let i = 0; i < len(pairs); i = i + 1) {
+        let pair = pairs[i]
+        // result[pair[0]] = pair[1]  -- dynamic key access needed
+    }
+    return result
+}
+
+// ===== Merging =====
+
+// Shallow merge two objects
+fn merge(obj1, obj2) {
+    // Placeholder - would copy all keys from obj2 to obj1
+    return obj1
+}
+
+// Deep merge two objects
+fn deepMerge(obj1, obj2) {
+    return merge(obj1, obj2)
+}
+
+// ===== Validation =====
+
+// Check if value is a valid JSON object
+fn isObject(value) {
+    // Placeholder type check
+    return true
+}
+
+// Check if value is a JSON array
+fn isArray(value) {
+    return true
+}
+
+// ===== Schema Validation (Placeholder) =====
+
+// Validate object against schema
+fn validate(obj, schema) {
+    return {
+        valid: true,
+        errors: []
+    }
+}
+
+// ===== Diff and Patch =====
+
+// Get differences between two objects
+fn diff(obj1, obj2) {
+    return []
+}
+
+// Apply patch to object
+fn patch(obj, operations) {
+    return obj
+}
+
+// ===== Cloning =====
+
+// Deep clone an object
+fn clone(obj) {
+    // Simple implementation: stringify and parse
+    return parse(stringify(obj))
+}
+
+// ===== Pretty Printing Helpers =====
+
+// Format as compact JSON
+fn compact(value) {
+    return stringify(value)
+}
+
+// Format with 2-space indent
+fn format(value) {
+    return prettyPrint(value, 2)
+}

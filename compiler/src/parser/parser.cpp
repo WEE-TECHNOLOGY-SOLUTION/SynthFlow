@@ -160,7 +160,7 @@ std::unique_ptr<Expression> Parser::parseUnary() {
 }
 
 std::unique_ptr<Expression> Parser::parseArrayLiteral() {
-    advance(); // consume '['
+    // Note: '[' was already consumed by match(LBRACKET) in parsePrimary
     
     auto array = std::make_unique<ArrayLiteral>();
     
@@ -266,6 +266,39 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return parseArrayLiteral();
     }
     
+    // SADK: Map literal { key: value }
+    // Disambiguate from block statement by checking for key: pattern
+    if (peek().type == TokenType::LBRACE) {
+        // Look ahead to determine if this is a map literal or block
+        // Map: { key: value } or { "key": value }
+        // Block: { statement; }
+        size_t savedPos = current;
+        advance(); // consume '{'
+        
+        bool isMap = false;
+        // Empty braces is an empty map
+        if (peek().type == TokenType::RBRACE) {
+            isMap = true;
+        }
+        // Check for identifier : pattern (map) vs statement (block)
+        else if (peek().type == TokenType::STRING || 
+                 (peek().type == TokenType::IDENTIFIER && peek(1).type == TokenType::COLON)) {
+            isMap = true;
+        }
+        
+        current = savedPos; // restore position
+        
+        if (isMap) {
+            return parseMapLiteral();
+        }
+        // Otherwise let it fall through to block (handled by caller)
+    }
+    
+    // SADK: self keyword for struct methods
+    if (match(TokenType::KW_SELF)) {
+        return std::make_unique<SelfExpression>();
+    }
+    
     // Null literal (for null safety)
     if (match(TokenType::KW_NULL)) {
         return std::make_unique<NullLiteral>();
@@ -334,10 +367,17 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
                 throw std::runtime_error("Expected ')' after function arguments");
             }
             
-            return std::make_unique<CallExpression>(name, std::move(arguments));
+            auto callExpr = std::make_unique<CallExpression>(name, std::move(arguments));
+            // SADK: Check for chained member access: func().field
+            return parseCallOrMemberExpression(std::move(callExpr));
         }
         
         auto identifier = std::make_unique<Identifier>(name);
+        
+        // SADK: Check for member access: obj.field, obj.method()
+        if (peek().type == TokenType::DOT) {
+            return parseCallOrMemberExpression(std::move(identifier));
+        }
         
         // Check if this is an array indexing operation
         if (peek().type == TokenType::LBRACKET) {
@@ -398,6 +438,16 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
 }
 
 std::unique_ptr<Statement> Parser::parseStatement() {
+    // SADK: import statement
+    if (peek().type == TokenType::KW_IMPORT) {
+        return parseImportStatement();
+    }
+    
+    // SADK: struct declaration
+    if (peek().type == TokenType::KW_STRUCT) {
+        return parseStructDeclaration();
+    }
+    
     if (peek().type == TokenType::KW_LET) {
         return parseVariableDeclaration();
     }
@@ -843,6 +893,247 @@ std::unique_ptr<Statement> Parser::parseTryStatement() {
     }
     
     return std::make_unique<TryStatement>(std::move(realTry), errorVar, std::move(realCatch));
+}
+
+// ========================================
+// SADK (Agent Development Kit) Parsing
+// ========================================
+
+std::unique_ptr<Expression> Parser::parseMapLiteral() {
+    advance(); // consume '{'
+    
+    auto map = std::make_unique<MapLiteral>();
+    
+    // Handle empty map
+    if (match(TokenType::RBRACE)) {
+        return map;
+    }
+    
+    // Parse key-value pairs
+    do {
+        // Skip newlines inside map
+        while (peek().type == TokenType::NEWLINE) advance();
+        
+        if (peek().type == TokenType::RBRACE) break;
+        
+        // Parse key (string or identifier)
+        std::unique_ptr<Expression> key;
+        if (peek().type == TokenType::STRING) {
+            advance();
+            std::string keyStr = std::get<std::string>(tokens[current - 1].value);
+            key = std::make_unique<StringLiteral>(keyStr);
+        } else if (peek().type == TokenType::IDENTIFIER) {
+            advance();
+            std::string keyStr = tokens[current - 1].lexeme;
+            key = std::make_unique<StringLiteral>(keyStr);  // Convert identifier to string key
+        } else {
+            throw std::runtime_error("Expected string or identifier as map key");
+        }
+        
+        // Expect colon
+        if (!match(TokenType::COLON)) {
+            throw std::runtime_error("Expected ':' after map key");
+        }
+        
+        // Parse value
+        auto value = parseExpression();
+        
+        map->addEntry(std::move(key), std::move(value));
+        
+        // Skip newlines
+        while (peek().type == TokenType::NEWLINE) advance();
+        
+    } while (match(TokenType::COMMA));
+    
+    // Skip newlines before closing brace
+    while (peek().type == TokenType::NEWLINE) advance();
+    
+    if (!match(TokenType::RBRACE)) {
+        throw std::runtime_error("Expected '}' at end of map literal");
+    }
+    
+    return map;
+}
+
+std::unique_ptr<Expression> Parser::parseCallOrMemberExpression(std::unique_ptr<Expression> expr) {
+    while (true) {
+        if (match(TokenType::DOT)) {
+            // Member access: obj.field
+            if (!match(TokenType::IDENTIFIER)) {
+                throw std::runtime_error("Expected identifier after '.'");
+            }
+            std::string member = tokens[current - 1].lexeme;
+            
+            // Check if it's a method call: obj.method()
+            if (peek().type == TokenType::LPAREN) {
+                advance(); // consume '('
+                std::vector<std::unique_ptr<Expression>> arguments;
+                
+                if (peek().type != TokenType::RPAREN) {
+                    do {
+                        arguments.push_back(parseExpression());
+                    } while (match(TokenType::COMMA));
+                }
+                
+                if (!match(TokenType::RPAREN)) {
+                    throw std::runtime_error("Expected ')' after method arguments");
+                }
+                
+                // Create member access first, then wrap in a call
+                auto memberExpr = std::make_unique<MemberExpression>(std::move(expr), member);
+                // For now, method calls are represented as CallExpression on member name
+                // A proper implementation would need a MethodCallExpression or CallExpression with callee as Expression
+                // Simplified: we'll store the method name and handle in interpreter
+                expr = std::make_unique<MemberExpression>(std::move(memberExpr), "<call>");  // Placeholder
+            } else {
+                expr = std::make_unique<MemberExpression>(std::move(expr), member);
+            }
+        } else if (peek().type == TokenType::LBRACKET) {
+            // Computed member access: obj["field"]
+            advance(); // consume '['
+            auto index = parseExpression();
+            
+            if (!match(TokenType::RBRACKET)) {
+                throw std::runtime_error("Expected ']' after index");
+            }
+            
+            // Check if the object is an array or map
+            auto indexExpr = std::make_unique<ArrayIndexExpression>(std::move(expr), std::move(index));
+            expr = std::move(indexExpr);
+        } else if (peek().type == TokenType::LPAREN) {
+            // Function call on expression result
+            advance(); // consume '('
+            std::vector<std::unique_ptr<Expression>> arguments;
+            
+            if (peek().type != TokenType::RPAREN) {
+                do {
+                    arguments.push_back(parseExpression());
+                } while (match(TokenType::COMMA));
+            }
+            
+            if (!match(TokenType::RPAREN)) {
+                throw std::runtime_error("Expected ')' after arguments");
+            }
+            
+            // For identifier expressions, create a proper CallExpression
+            if (auto* ident = dynamic_cast<Identifier*>(expr.get())) {
+                std::string name = ident->name;
+                expr = std::make_unique<CallExpression>(name, std::move(arguments));
+            } else {
+                // General callable - not yet supported in full
+                throw std::runtime_error("Callable expressions not fully supported yet");
+            }
+        } else {
+            break;
+        }
+    }
+    return expr;
+}
+
+std::unique_ptr<Statement> Parser::parseImportStatement() {
+    advance(); // consume 'import'
+    
+    // Parse module name
+    if (!match(TokenType::IDENTIFIER)) {
+        throw std::runtime_error("Expected module name after 'import'");
+    }
+    std::string moduleName = tokens[current - 1].lexeme;
+    
+    auto importStmt = std::make_unique<ImportStatement>(moduleName);
+    
+    // Check for 'from' clause: import io from "path"
+    if (match(TokenType::KW_FROM)) {
+        if (!match(TokenType::STRING)) {
+            throw std::runtime_error("Expected string path after 'from'");
+        }
+        importStmt->modulePath = std::get<std::string>(tokens[current - 1].value);
+    }
+    
+    // Check for 'as' clause: import io as fileIO
+    if (match(TokenType::KW_AS)) {
+        if (!match(TokenType::IDENTIFIER)) {
+            throw std::runtime_error("Expected alias after 'as'");
+        }
+        importStmt->alias = tokens[current - 1].lexeme;
+    }
+    
+    match(TokenType::SEMICOLON);
+    return importStmt;
+}
+
+std::unique_ptr<Statement> Parser::parseStructDeclaration() {
+    advance(); // consume 'struct'
+    
+    // Parse struct name
+    if (!match(TokenType::IDENTIFIER)) {
+        throw std::runtime_error("Expected struct name after 'struct'");
+    }
+    std::string structName = tokens[current - 1].lexeme;
+    
+    auto structDecl = std::make_unique<StructDeclaration>(structName);
+    
+    // Check for 'extends' clause
+    if (match(TokenType::KW_EXTENDS)) {
+        if (!match(TokenType::IDENTIFIER)) {
+            throw std::runtime_error("Expected parent struct name after 'extends'");
+        }
+        structDecl->parentStruct = tokens[current - 1].lexeme;
+    }
+    
+    // Parse struct body
+    if (!match(TokenType::LBRACE)) {
+        throw std::runtime_error("Expected '{' after struct name");
+    }
+    
+    while (!isAtEnd() && peek().type != TokenType::RBRACE) {
+        // Skip newlines
+        while (peek().type == TokenType::NEWLINE) advance();
+        
+        if (peek().type == TokenType::RBRACE) break;
+        
+        // Check for method declaration (fn keyword)
+        if (peek().type == TokenType::KW_FN) {
+            auto method = parseFunctionDeclaration();
+            structDecl->addMethod(std::unique_ptr<FunctionDeclaration>(
+                static_cast<FunctionDeclaration*>(method.release())));
+        }
+        // Otherwise parse as field: name: type
+        else if (peek().type == TokenType::IDENTIFIER) {
+            advance();
+            std::string fieldName = tokens[current - 1].lexeme;
+            
+            if (!match(TokenType::COLON)) {
+                throw std::runtime_error("Expected ':' after field name");
+            }
+            
+            // Parse type
+            std::string typeName;
+            if (match(TokenType::KW_INT)) typeName = "int";
+            else if (match(TokenType::KW_FLOAT)) typeName = "float";
+            else if (match(TokenType::KW_STRING)) typeName = "string";
+            else if (match(TokenType::KW_BOOL)) typeName = "bool";
+            else if (match(TokenType::KW_ARRAY)) typeName = "array";
+            else if (match(TokenType::KW_MAP)) typeName = "map";
+            else if (match(TokenType::IDENTIFIER)) typeName = tokens[current - 1].lexeme;
+            else throw std::runtime_error("Expected type for field");
+            
+            structDecl->addField(fieldName, typeName);
+            
+            // Optional comma
+            match(TokenType::COMMA);
+        } else {
+            throw std::runtime_error("Expected field or method in struct");
+        }
+        
+        // Skip newlines
+        while (peek().type == TokenType::NEWLINE) advance();
+    }
+    
+    if (!match(TokenType::RBRACE)) {
+        throw std::runtime_error("Expected '}' at end of struct");
+    }
+    
+    return structDecl;
 }
 
 std::vector<std::unique_ptr<Statement>> Parser::parse() {

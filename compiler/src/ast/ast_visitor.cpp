@@ -116,3 +116,25 @@ void UpdateExpression::accept(ASTVisitor& visitor) {
 void InterpolatedString::accept(ASTVisitor& visitor) {
     visitor.visit(this);
 }
+
+// SADK (Agent Development Kit) AST node accept() implementations
+
+void MapLiteral::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void MemberExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void SelfExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void ImportStatement::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
+void StructDeclaration::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}

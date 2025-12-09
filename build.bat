@@ -12,7 +12,9 @@ g++ -std=c++17 -Wall -Wextra -O3 -march=native -flto -DNDEBUG -Icompiler/include
     compiler/src/optimizer/optimizer.cpp ^
     compiler/src/bytecode/bytecode_compiler.cpp ^
     compiler/src/bytecode/vm.cpp ^
+    compiler/src/http/http_client.cpp ^
     compiler/src/main.cpp ^
+    -lwinhttp ^
     -o synthflow.exe
 
 echo Building SynthFlow LSP...

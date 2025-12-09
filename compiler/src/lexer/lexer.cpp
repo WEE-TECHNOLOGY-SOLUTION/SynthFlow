@@ -30,7 +30,16 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
     {"int", TokenType::KW_INT},
     {"float", TokenType::KW_FLOAT},
     {"string", TokenType::KW_STRING},
-    {"bool", TokenType::KW_BOOL}
+    {"bool", TokenType::KW_BOOL},
+    // SADK (Agent Development Kit) keywords
+    {"import", TokenType::KW_IMPORT},
+    {"from", TokenType::KW_FROM},
+    {"as", TokenType::KW_AS},
+    {"self", TokenType::KW_SELF},
+    {"async", TokenType::KW_ASYNC},
+    {"await", TokenType::KW_AWAIT},
+    {"extends", TokenType::KW_EXTENDS},
+    {"map", TokenType::KW_MAP}
 };
 
 char Lexer::current() {

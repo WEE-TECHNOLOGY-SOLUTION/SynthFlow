@@ -42,6 +42,11 @@ public:
     void visit(UpdateExpression* node) override;
     void visit(InterpolatedString* node) override;
     
+    // SADK Expression visitors (Agent Development Kit)
+    void visit(MapLiteral* node) override;
+    void visit(MemberExpression* node) override;
+    void visit(SelfExpression* node) override;
+    
     // Statement visitors
     void visit(VariableDeclaration* node) override;
     void visit(ExpressionStatement* node) override;
@@ -54,6 +59,10 @@ public:
     void visit(FunctionDeclaration* node) override;
     void visit(ReturnStatement* node) override;
     void visit(TryStatement* node) override;
+    
+    // SADK Statement visitors (Agent Development Kit)
+    void visit(ImportStatement* node) override;
+    void visit(StructDeclaration* node) override;
 };
 
 #endif // JS_TRANSPILER_H

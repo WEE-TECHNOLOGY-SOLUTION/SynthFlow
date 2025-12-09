@@ -42,6 +42,13 @@ class CompoundAssignment;
 class UpdateExpression;
 class InterpolatedString;
 
+// SADK (Agent Development Kit) AST nodes
+class MapLiteral;
+class MemberExpression;
+class ImportStatement;
+class StructDeclaration;
+class SelfExpression;
+
 // Base visitor class
 class ASTVisitor {
 public:
@@ -67,6 +74,11 @@ public:
     virtual void visit(UpdateExpression* node) = 0;  // ++, --
     virtual void visit(InterpolatedString* node) = 0; // String interpolation
     
+    // SADK Expression visitors (Agent Development Kit)
+    virtual void visit(MapLiteral* node) = 0;         // { key: value }
+    virtual void visit(MemberExpression* node) = 0;   // obj.field
+    virtual void visit(SelfExpression* node) = 0;     // self keyword
+    
     // Statement visitors
     virtual void visit(VariableDeclaration* node) = 0;
     virtual void visit(ExpressionStatement* node) = 0;
@@ -79,6 +91,10 @@ public:
     virtual void visit(FunctionDeclaration* node) = 0;
     virtual void visit(ReturnStatement* node) = 0;
     virtual void visit(TryStatement* node) = 0;  // Error handling
+    
+    // SADK Statement visitors (Agent Development Kit)
+    virtual void visit(ImportStatement* node) = 0;    // import io
+    virtual void visit(StructDeclaration* node) = 0;  // struct Agent { ... }
 };
 
 // Base class for all AST nodes
@@ -470,6 +486,99 @@ public:
     std::vector<StringPart> parts;
     
     explicit InterpolatedString(std::vector<StringPart> p) : parts(std::move(p)) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// ========================================
+// SADK (Agent Development Kit) AST Nodes
+// ========================================
+
+// Map literal expression: { "key": value, "key2": value2 }
+class MapLiteral : public Expression {
+public:
+    // Each entry is a key-value pair
+    std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>> entries;
+    
+    MapLiteral() = default;
+    
+    void addEntry(std::unique_ptr<Expression> key, std::unique_ptr<Expression> value) {
+        entries.emplace_back(std::move(key), std::move(value));
+    }
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Member access expression: obj.field, obj.method()
+class MemberExpression : public Expression {
+public:
+    std::unique_ptr<Expression> object;  // The object being accessed
+    std::string member;                   // The field or method name
+    bool isComputed;                      // true for obj["field"], false for obj.field
+    
+    MemberExpression(std::unique_ptr<Expression> obj, const std::string& mem, bool computed = false)
+        : object(std::move(obj)), member(mem), isComputed(computed) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Self expression: self keyword in struct methods
+class SelfExpression : public Expression {
+public:
+    SelfExpression() = default;
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Import statement: import io, import string from "stdlib", import http as net
+class ImportStatement : public Statement {
+public:
+    std::string moduleName;              // e.g., "io", "string", "http"
+    std::string modulePath;              // e.g., "stdlib" (optional, for 'from' clause)
+    std::string alias;                   // e.g., "net" (optional, for 'as' clause)
+    std::vector<std::string> imports;    // Specific symbols to import (for named imports)
+    bool isDefault;                      // Is this a default import (import whole module)
+    
+    ImportStatement(const std::string& name) 
+        : moduleName(name), isDefault(true) {}
+    
+    ImportStatement(const std::string& name, const std::string& path)
+        : moduleName(name), modulePath(path), isDefault(true) {}
+    
+    ImportStatement(const std::string& name, const std::string& path, const std::string& as)
+        : moduleName(name), modulePath(path), alias(as), isDefault(true) {}
+    
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Struct field in declaration
+struct StructField {
+    std::string name;
+    std::string typeName;
+    bool isPublic;
+    std::unique_ptr<Expression> defaultValue;  // Optional default
+    
+    StructField(const std::string& n, const std::string& t, bool pub = true)
+        : name(n), typeName(t), isPublic(pub), defaultValue(nullptr) {}
+};
+
+// Struct declaration: struct Agent { name: string, fn process(self) -> string { ... } }
+class StructDeclaration : public Statement {
+public:
+    std::string name;                                      // Struct name
+    std::vector<StructField> fields;                       // Fields with types
+    std::vector<std::unique_ptr<FunctionDeclaration>> methods;  // Methods
+    std::string parentStruct;                              // For 'extends' (optional)
+    
+    StructDeclaration(const std::string& n) : name(n) {}
+    
+    void addField(const std::string& fieldName, const std::string& typeName, bool isPublic = true) {
+        fields.emplace_back(fieldName, typeName, isPublic);
+    }
+    
+    void addMethod(std::unique_ptr<FunctionDeclaration> method) {
+        methods.push_back(std::move(method));
+    }
     
     void accept(ASTVisitor& visitor) override;
 };

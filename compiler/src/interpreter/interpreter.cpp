@@ -1,4 +1,5 @@
 #include "../../include/interpreter.h"
+#include "../../include/http_client.h"
 #include <iostream>
 #include <sstream>
 #include <cmath>
@@ -23,6 +24,18 @@ std::string Value::toString() const {
             result += (*arr)[i].toString();
         }
         result += "]";
+        return result;
+    }
+    if (isMap()) {
+        std::string result = "{";
+        auto m = asMap();
+        bool first = true;
+        for (const auto& [key, val] : *m) {
+            if (!first) result += ", ";
+            result += "\"" + key + "\": " + val.toString();
+            first = false;
+        }
+        result += "}";
         return result;
     }
     if (isFunction()) return "<function>";
@@ -192,6 +205,96 @@ void Interpreter::registerBuiltins() {
             }
             file << args[1].toString();
             return Value(true);
+        }
+    )));
+    
+    // ===== Gemini API Built-in Functions =====
+    
+    // gemini_set_api_key(key) - Set the Gemini API key
+    globalEnv->define("gemini_set_api_key", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("gemini_set_api_key() requires a string API key");
+            }
+            http::gemini::setApiKey(args[0].asString());
+            return Value(true);
+        }
+    )));
+    
+    // gemini_has_api_key() - Check if API key is set
+    globalEnv->define("gemini_has_api_key", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            return Value(http::gemini::hasApiKey());
+        }
+    )));
+    
+    // gemini_complete(prompt) - Generate text from prompt
+    globalEnv->define("gemini_complete", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("gemini_complete() requires a prompt string");
+            }
+            std::string model = "gemini-2.0-flash";
+            if (args.size() > 1 && args[1].isString()) {
+                model = args[1].asString();
+            }
+            std::string result = http::gemini::generateContent(args[0].asString(), model);
+            return Value(result);
+        }
+    )));
+    
+    // gemini_chat(systemPrompt, userMessage) - Chat with system instruction
+    globalEnv->define("gemini_chat", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                throw std::runtime_error("gemini_chat() requires systemPrompt and userMessage strings");
+            }
+            std::string model = "gemini-2.0-flash";
+            if (args.size() > 2 && args[2].isString()) {
+                model = args[2].asString();
+            }
+            std::string result = http::gemini::generateContentWithSystem(
+                args[0].asString(),  // system instruction
+                args[1].asString(),  // user prompt
+                model
+            );
+            return Value(result);
+        }
+    )));
+    
+    // http_get(url) - Perform HTTP GET request
+    globalEnv->define("http_get", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("http_get() requires a URL string");
+            }
+            http::Client client;
+            http::Response response = client.get(args[0].asString());
+            
+            // Return a map with status, body, and error
+            auto resultMap = std::make_shared<Value::MapType>();
+            (*resultMap)["status"] = Value(static_cast<int64_t>(response.statusCode));
+            (*resultMap)["body"] = Value(response.body);
+            (*resultMap)["error"] = Value(response.error);
+            return Value(resultMap);
+        }
+    )));
+    
+    // http_post(url, body) - Perform HTTP POST request
+    globalEnv->define("http_post", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                throw std::runtime_error("http_post() requires URL and body strings");
+            }
+            http::Client client;
+            http::Response response = client.post(args[0].asString(), args[1].asString());
+            
+            // Return a map with status, body, and error
+            auto resultMap = std::make_shared<Value::MapType>();
+            (*resultMap)["status"] = Value(static_cast<int64_t>(response.statusCode));
+            (*resultMap)["body"] = Value(response.body);
+            (*resultMap)["error"] = Value(response.error);
+            return Value(resultMap);
         }
     )));
 }
@@ -704,4 +807,116 @@ void Interpreter::visit(InterpolatedString* node) {
     }
     
     lastValue = Value(result);
+}
+
+// ========================================
+// SADK (Agent Development Kit) Visitors
+// ========================================
+
+void Interpreter::visit(MapLiteral* node) {
+    auto map = std::make_shared<Value::MapType>();
+    
+    for (auto& entry : node->entries) {
+        // Evaluate key (should be a string or identifier)
+        Value keyVal = evaluate(entry.first.get());
+        std::string key;
+        
+        if (keyVal.isString()) {
+            key = keyVal.asString();
+        } else {
+            // For identifiers used as keys, use their name
+            if (auto* ident = dynamic_cast<Identifier*>(entry.first.get())) {
+                key = ident->name;
+            } else {
+                key = keyVal.toString();
+            }
+        }
+        
+        // Evaluate value
+        Value value = evaluate(entry.second.get());
+        
+        (*map)[key] = value;
+    }
+    
+    lastValue = Value(map);
+}
+
+void Interpreter::visit(MemberExpression* node) {
+    Value obj = evaluate(node->object.get());
+    
+    if (obj.isMap()) {
+        auto map = obj.asMap();
+        auto it = map->find(node->member);
+        if (it != map->end()) {
+            lastValue = it->second;
+        } else {
+            throw std::runtime_error("Map does not have member: " + node->member);
+        }
+    } else if (obj.isArray()) {
+        // Array built-in properties
+        if (node->member == "length") {
+            lastValue = Value(static_cast<int64_t>(obj.asArray()->size()));
+        } else {
+            throw std::runtime_error("Array does not have member: " + node->member);
+        }
+    } else if (obj.isString()) {
+        // String built-in properties
+        if (node->member == "length") {
+            lastValue = Value(static_cast<int64_t>(obj.asString().length()));
+        } else {
+            throw std::runtime_error("String does not have member: " + node->member);
+        }
+    } else {
+        throw std::runtime_error("Cannot access member of non-object type");
+    }
+}
+
+void Interpreter::visit(SelfExpression* node) {
+    (void)node;  // Unused parameter
+    // 'self' should be defined in the current environment when inside a method
+    if (currentEnv->exists("self")) {
+        lastValue = currentEnv->get("self");
+    } else {
+        throw std::runtime_error("'self' is not defined in current context");
+    }
+}
+
+void Interpreter::visit(ImportStatement* node) {
+    // For now, imports are handled at parse time
+    // This is a placeholder that prints a warning if reached at runtime
+    std::cerr << "[SADK] Import statement for '" << node->moduleName 
+              << "' reached at runtime. Module loading not yet fully implemented." << std::endl;
+}
+
+void Interpreter::visit(StructDeclaration* node) {
+    // Store struct definition in a special registry
+    // For now, we'll create a constructor function for the struct
+    
+    std::string structName = node->name;
+    std::vector<std::string> fieldNames;
+    
+    for (const auto& field : node->fields) {
+        fieldNames.push_back(field.name);
+    }
+    
+    // Create a constructor function that creates map instances
+    auto constructor = std::make_shared<Value::FunctionType>(
+        [structName, fieldNames](std::vector<Value>& args, Interpreter& interp) -> Value {
+            (void)interp;  // Unused
+            auto instance = std::make_shared<Value::MapType>();
+            
+            // Set field values from arguments
+            for (size_t i = 0; i < fieldNames.size() && i < args.size(); ++i) {
+                (*instance)[fieldNames[i]] = args[i];
+            }
+            
+            // Add a __type__ field to identify the struct type
+            (*instance)["__type__"] = Value(structName);
+            
+            return Value(instance);
+        }
+    );
+    
+    // Define the constructor in global environment
+    globalEnv->define(structName, Value(constructor));
 }

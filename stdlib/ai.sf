@@ -1,0 +1,191 @@
+// SynthFlow SADK - AI Module
+// Provides AI model integration for agent development
+// Now connected to Google Gemini API via native bindings!
+
+// ===== AI Model Configuration =====
+
+// Default AI configuration
+let AI_CONFIG = {
+    model: "gemini-2.0-flash",
+    temperature: 0.7,
+    maxTokens: 4096,
+    topP: 0.9
+}
+
+// Set the Gemini API key (required before making API calls)
+fn setApiKey(key) {
+    gemini_set_api_key(key)
+}
+
+// Check if API key is configured
+fn hasApiKey() {
+    return gemini_has_api_key()
+}
+
+// Set the default AI model
+fn setModel(modelName) {
+    AI_CONFIG.model = modelName
+}
+
+// Set temperature for generation
+fn setTemperature(temp) {
+    AI_CONFIG.temperature = temp
+}
+
+// ===== Text Generation =====
+
+// Generate text completion from a prompt
+// Returns: string response from Gemini
+fn complete(prompt) {
+    return gemini_complete(prompt, AI_CONFIG.model)
+}
+
+// Generate text with custom model
+fn completeWithModel(prompt, model) {
+    return gemini_complete(prompt, model)
+}
+
+// ===== Chat Completions =====
+
+// Chat message structure helper
+fn message(role, content) {
+    return { role: role, content: content }
+}
+
+// Create a system message
+fn systemMessage(content) {
+    return message("system", content)
+}
+
+// Create a user message
+fn userMessage(content) {
+    return message("user", content)
+}
+
+// Create an assistant message
+fn assistantMessage(content) {
+    return message("assistant", content)
+}
+
+// Generate chat completion with system instruction
+// This is the main chat function - uses gemini_chat native binding
+fn chat(systemPrompt, userMessage) {
+    return gemini_chat(systemPrompt, userMessage, AI_CONFIG.model)
+}
+
+// Alias for chat
+fn chatWithSystem(systemPrompt, userMessage) {
+    return chat(systemPrompt, userMessage)
+}
+
+// ===== Embeddings =====
+
+// Generate embedding vector for text
+// Returns: array of floats
+fn embed(text) {
+    print("[AI] Generating embedding for:", text)
+    // Return placeholder embedding
+    return [0.0, 0.0, 0.0]
+}
+
+// Generate embeddings for multiple texts
+fn embedBatch(texts) {
+    let embeddings = []
+    for (let i = 0; i < len(texts); i = i + 1) {
+        let emb = embed(texts[i])
+        // embeddings.push(emb) -- array push not yet implemented
+    }
+    return embeddings
+}
+
+// Calculate cosine similarity between two embeddings
+fn cosineSimilarity(a, b) {
+    let dotProduct = 0.0
+    let normA = 0.0
+    let normB = 0.0
+    
+    for (let i = 0; i < len(a); i = i + 1) {
+        dotProduct = dotProduct + a[i] * b[i]
+        normA = normA + a[i] * a[i]
+        normB = normB + b[i] * b[i]
+    }
+    
+    // Note: sqrt function needed from math module
+    // return dotProduct / (sqrt(normA) * sqrt(normB))
+    return dotProduct
+}
+
+// ===== Intent Processing =====
+
+// Process user intent and extract structured data
+fn parseIntent(text) {
+    print("[AI] Parsing intent:", text)
+    return {
+        intent: "unknown",
+        entities: {},
+        confidence: 0.0
+    }
+}
+
+// Classify text into categories
+fn classify(text, categories) {
+    print("[AI] Classifying:", text)
+    print("[AI] Categories:", categories)
+    return {
+        category: categories[0],
+        confidence: 0.5
+    }
+}
+
+// Extract structured data from text
+fn extract(text, schema) {
+    print("[AI] Extracting from:", text)
+    return {}
+}
+
+// ===== Utility Functions =====
+
+// Summarize long text
+fn summarize(text, maxLength) {
+    return chatWithSystem(
+        "Summarize the following text concisely.",
+        text
+    )
+}
+
+// Translate text to another language
+fn translate(text, targetLang) {
+    return chatWithSystem(
+        "Translate the following text to " + targetLang + ".",
+        text
+    )
+}
+
+// Generate code from description
+fn generateCode(description, language) {
+    return chatWithSystem(
+        "Generate " + language + " code for the following requirement.",
+        description
+    )
+}
+
+// Answer a question based on context
+fn answer(question, context) {
+    return chatWithSystem(
+        "Answer the question based on the following context:\n" + context,
+        question
+    )
+}
+
+// ===== Streaming (Placeholder) =====
+
+// Stream completion (callback-based)
+fn streamComplete(prompt, onChunk) {
+    print("[AI] Streaming not yet implemented")
+    // Would call onChunk(chunk) for each chunk received
+}
+
+// Stream chat completion
+fn streamChat(messages, onChunk) {
+    print("[AI] Streaming not yet implemented")
+}

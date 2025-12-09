@@ -1,0 +1,20 @@
+# Simple SADK Demo
+print("=== SADK Demo ===")
+
+# Create a simple struct
+struct Point {
+    x: int,
+    y: int
+}
+
+let p = Point(10, 20)
+print("Point:", p)
+print("X:", p.x)
+print("Y:", p.y)
+
+# Create a simple map
+let config = { name: "test", value: 42 }
+print("Config:", config)
+print("Name:", config.name)
+
+print("=== Done ===")

@@ -1,0 +1,231 @@
+// SynthFlow SADK - HTTP Module
+// Provides HTTP client and server capabilities
+
+// ===== HTTP Client Configuration =====
+
+let HTTP_CONFIG = {
+    timeout: 30000,
+    retries: 3,
+    followRedirects: true,
+    userAgent: "SynthFlow-SADK/0.1"
+}
+
+// Set default timeout (milliseconds)
+fn setTimeout(ms) {
+    HTTP_CONFIG.timeout = ms
+}
+
+// Set retry count
+fn setRetries(count) {
+    HTTP_CONFIG.retries = count
+}
+
+// ===== Request Helpers =====
+
+// Create request options with headers
+fn createRequest(method, url, headers, body) {
+    return {
+        method: method,
+        url: url,
+        headers: headers,
+        body: body,
+        timeout: HTTP_CONFIG.timeout
+    }
+}
+
+// ===== HTTP Methods =====
+
+// Perform GET request
+// Returns: { status: int, headers: map, body: string }
+fn get(url) {
+    return getWithHeaders(url, {})
+}
+
+// GET with custom headers
+fn getWithHeaders(url, headers) {
+    print("[HTTP] GET", url)
+    // Note: Actual HTTP implementation requires native binding
+    return {
+        status: 200,
+        headers: {},
+        body: "[HTTP Response - Implementation pending]"
+    }
+}
+
+// Perform POST request
+fn post(url, body) {
+    return postWithHeaders(url, body, {
+        contentType: "application/json"
+    })
+}
+
+// POST with custom headers
+fn postWithHeaders(url, body, headers) {
+    print("[HTTP] POST", url)
+    return {
+        status: 200,
+        headers: {},
+        body: "[HTTP Response - Implementation pending]"
+    }
+}
+
+// Perform PUT request
+fn put(url, body) {
+    print("[HTTP] PUT", url)
+    return {
+        status: 200,
+        headers: {},
+        body: ""
+    }
+}
+
+// Perform DELETE request
+fn delete(url) {
+    print("[HTTP] DELETE", url)
+    return {
+        status: 200,
+        headers: {},
+        body: ""
+    }
+}
+
+// Perform PATCH request
+fn patch(url, body) {
+    print("[HTTP] PATCH", url)
+    return {
+        status: 200,
+        headers: {},
+        body: ""
+    }
+}
+
+// Perform HEAD request (headers only)
+fn head(url) {
+    print("[HTTP] HEAD", url)
+    return {
+        status: 200,
+        headers: {}
+    }
+}
+
+// ===== JSON-specific Helpers =====
+
+// GET and parse JSON response
+fn getJson(url) {
+    let response = get(url)
+    if (response.status == 200) {
+        // Would use json.parse(response.body)
+        return response.body
+    }
+    return null
+}
+
+// POST JSON data
+fn postJson(url, data) {
+    let body = str(data)  // Would use json.stringify(data)
+    return postWithHeaders(url, body, {
+        contentType: "application/json"
+    })
+}
+
+// ===== Response Helpers =====
+
+// Check if response was successful (2xx)
+fn isSuccess(response) {
+    return response.status >= 200 && response.status < 300
+}
+
+// Check if response was redirect (3xx)
+fn isRedirect(response) {
+    return response.status >= 300 && response.status < 400
+}
+
+// Check if response was client error (4xx)
+fn isClientError(response) {
+    return response.status >= 400 && response.status < 500
+}
+
+// Check if response was server error (5xx)
+fn isServerError(response) {
+    return response.status >= 500 && response.status < 600
+}
+
+// ===== Form Data =====
+
+// URL encode a string
+fn urlEncode(text) {
+    // Placeholder - would encode special characters
+    return text
+}
+
+// Encode form data for POST
+fn formEncode(data) {
+    // Would convert map to key=value&key=value format
+    return str(data)
+}
+
+// ===== Server (Placeholder) =====
+
+// Create HTTP server
+fn createServer(handler) {
+    print("[HTTP] Server creation not yet implemented")
+    return {
+        listen: fn(port) {
+            print("[HTTP] Would listen on port", port)
+        }
+    }
+}
+
+// ===== Middleware Pattern =====
+
+// Create request with middleware applied
+fn withMiddleware(request, middleware) {
+    for (let i = 0; i < len(middleware); i = i + 1) {
+        let mw = middleware[i]
+        // request = mw(request)  -- function call on variable
+    }
+    return request
+}
+
+// Common middleware: Add auth header
+fn withAuth(token) {
+    return {
+        apply: fn(request) {
+            // request.headers.authorization = "Bearer " + token
+            return request
+        }
+    }
+}
+
+// Common middleware: Add content type
+fn withContentType(contentType) {
+    return {
+        apply: fn(request) {
+            // request.headers.contentType = contentType
+            return request
+        }
+    }
+}
+
+// ===== Retry Logic =====
+
+// Fetch with automatic retry
+fn fetchWithRetry(url, maxRetries) {
+    let attempts = 0
+    while (attempts < maxRetries) {
+        try {
+            let response = get(url)
+            if (isSuccess(response)) {
+                return response
+            }
+        } catch (e) {
+            print("[HTTP] Retry attempt", attempts + 1)
+        }
+        attempts = attempts + 1
+    }
+    return {
+        status: 0,
+        headers: {},
+        body: "Max retries exceeded"
+    }
+}

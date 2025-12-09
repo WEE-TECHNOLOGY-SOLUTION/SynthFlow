@@ -248,3 +248,50 @@ void CodeGenerator::visit(InterpolatedString* node) {
     }
     output += "\"";
 }
+
+// ========================================
+// SADK (Agent Development Kit) Visitors
+// ========================================
+
+void CodeGenerator::visit(MapLiteral* node) {
+    output += "{";
+    for (size_t i = 0; i < node->entries.size(); ++i) {
+        if (i > 0) output += ", ";
+        node->entries[i].first->accept(*this);
+        output += ": ";
+        node->entries[i].second->accept(*this);
+    }
+    output += "}";
+}
+
+void CodeGenerator::visit(MemberExpression* node) {
+    node->object->accept(*this);
+    output += "." + node->member;
+}
+
+void CodeGenerator::visit(SelfExpression* node) {
+    (void)node;
+    output += "self";
+}
+
+void CodeGenerator::visit(ImportStatement* node) {
+    output += "import " + node->moduleName;
+    if (!node->modulePath.empty()) {
+        output += " from \"" + node->modulePath + "\"";
+    }
+    if (!node->alias.empty()) {
+        output += " as " + node->alias;
+    }
+    output += ";\n";
+}
+
+void CodeGenerator::visit(StructDeclaration* node) {
+    output += "struct " + node->name + " {\n";
+    for (const auto& field : node->fields) {
+        output += "  " + field.name + ": " + field.typeName + ",\n";
+    }
+    for (const auto& method : node->methods) {
+        method->accept(*this);
+    }
+    output += "}\n";
+}

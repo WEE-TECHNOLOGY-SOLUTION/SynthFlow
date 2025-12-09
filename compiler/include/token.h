@@ -10,6 +10,16 @@ enum class TokenType {
     KW_ARRAY, // Keyword for array type
     KW_MATCH, // Match expression
     
+    // SADK Keywords (Agent Development Kit)
+    KW_IMPORT,   // import statement
+    KW_FROM,     // from clause in import
+    KW_AS,       // alias in import
+    KW_SELF,     // self reference in methods
+    KW_ASYNC,    // async function
+    KW_AWAIT,    // await expression
+    KW_EXTENDS,  // struct inheritance
+    KW_MAP,      // map type (like object/dict)
+    
     // Safety Feature Keywords
     KW_CONST,  // Immutable variables
     KW_TRY,    // Error handling

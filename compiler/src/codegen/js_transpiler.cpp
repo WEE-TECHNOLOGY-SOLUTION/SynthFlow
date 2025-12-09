@@ -305,3 +305,84 @@ void JSTranspiler::visit(InterpolatedString* node) {
     }
     emit("`");
 }
+
+// ========================================
+// SADK (Agent Development Kit) Visitors
+// ========================================
+
+void JSTranspiler::visit(MapLiteral* node) {
+    emit("{");
+    for (size_t i = 0; i < node->entries.size(); ++i) {
+        if (i > 0) emit(", ");
+        node->entries[i].first->accept(*this);
+        emit(": ");
+        node->entries[i].second->accept(*this);
+    }
+    emit("}");
+}
+
+void JSTranspiler::visit(MemberExpression* node) {
+    node->object->accept(*this);
+    emit("." + node->member);
+}
+
+void JSTranspiler::visit(SelfExpression* node) {
+    (void)node;
+    emit("this");  // JavaScript uses 'this' instead of 'self'
+}
+
+void JSTranspiler::visit(ImportStatement* node) {
+    // Convert SynthFlow import to JavaScript import
+    indent();
+    if (node->alias.empty()) {
+        emit("const " + node->moduleName + " = require(\"" + 
+             (node->modulePath.empty() ? node->moduleName : node->modulePath) + "\");\n");
+    } else {
+        emit("const " + node->alias + " = require(\"" + 
+             (node->modulePath.empty() ? node->moduleName : node->modulePath) + "\");\n");
+    }
+}
+
+void JSTranspiler::visit(StructDeclaration* node) {
+    indent();
+    emit("class " + node->name);
+    if (!node->parentStruct.empty()) {
+        emit(" extends " + node->parentStruct);
+    }
+    emit(" {\n");
+    indentLevel++;
+    
+    // Add constructor for fields
+    indent();
+    emit("constructor(");
+    for (size_t i = 0; i < node->fields.size(); ++i) {
+        if (i > 0) emit(", ");
+        emit(node->fields[i].name);
+    }
+    emit(") {\n");
+    indentLevel++;
+    for (const auto& field : node->fields) {
+        indent();
+        emit("this." + field.name + " = " + field.name + ";\n");
+    }
+    indentLevel--;
+    indent();
+    emit("}\n");
+    
+    // Add methods
+    for (const auto& method : node->methods) {
+        indent();
+        emit(method->name + "(");
+        for (size_t i = 0; i < method->parameters.size(); ++i) {
+            if (i > 0) emit(", ");
+            emit(method->parameters[i]);
+        }
+        emit(") ");
+        method->body->accept(*this);
+        emit("\n");
+    }
+    
+    indentLevel--;
+    indent();
+    emit("}\n");
+}

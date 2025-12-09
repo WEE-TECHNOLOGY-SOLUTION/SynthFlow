@@ -40,6 +40,12 @@ private:
     std::unique_ptr<Statement> parseReturnStatement();
     std::unique_ptr<Statement> parseTryStatement();
     
+    // SADK parsing methods (Agent Development Kit)
+    std::unique_ptr<Expression> parseMapLiteral();
+    std::unique_ptr<Expression> parseCallOrMemberExpression(std::unique_ptr<Expression> expr);
+    std::unique_ptr<Statement> parseImportStatement();
+    std::unique_ptr<Statement> parseStructDeclaration();
+    
 public:
     explicit Parser(std::vector<Token> inputTokens) {
         tokens.reserve(inputTokens.size());

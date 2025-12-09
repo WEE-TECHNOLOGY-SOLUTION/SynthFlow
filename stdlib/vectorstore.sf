@@ -1,0 +1,237 @@
+// SynthFlow SADK - Vector Store Module
+// Provides vector storage for RAG (Retrieval-Augmented Generation)
+
+// ===== Vector Store Creation =====
+
+// Create an in-memory vector store
+fn createStore(name) {
+    return {
+        name: name,
+        documents: [],
+        embeddings: [],
+        metadata: []
+    }
+}
+
+// Create store with configuration
+fn createStoreWithConfig(config) {
+    return {
+        name: config.name,
+        documents: [],
+        embeddings: [],
+        metadata: [],
+        embeddingModel: config.embeddingModel,
+        dimensions: config.dimensions
+    }
+}
+
+// ===== Document Management =====
+
+// Add a document to the store
+fn addDocument(store, content, meta) {
+    let doc = {
+        id: len(store.documents),
+        content: content,
+        metadata: meta
+    }
+    
+    // Generate embedding (placeholder)
+    let embedding = generateEmbedding(content)
+    
+    // Store document and embedding
+    // store.documents.push(doc)  -- array push not implemented
+    // store.embeddings.push(embedding)
+    // store.metadata.push(meta)
+    
+    print("[VectorStore:", store.name, "] Added document ID:", doc.id)
+    return doc.id
+}
+
+// Add multiple documents
+fn addDocuments(store, documents) {
+    let ids = []
+    for (let i = 0; i < len(documents); i = i + 1) {
+        let doc = documents[i]
+        let id = addDocument(store, doc.content, doc.metadata)
+        // ids.push(id)
+    }
+    return ids
+}
+
+// Generate embedding for text
+fn generateEmbedding(text) {
+    print("[VectorStore] Generating embedding for:", text)
+    // Would call ai.embed(text)
+    return [0.0, 0.0, 0.0]
+}
+
+// ===== Similarity Search =====
+
+// Search for similar documents
+fn search(store, query, limit) {
+    print("[VectorStore:", store.name, "] Searching:", query)
+    
+    // Generate query embedding
+    let queryEmbedding = generateEmbedding(query)
+    
+    // Calculate similarities
+    let results = []
+    for (let i = 0; i < len(store.documents); i = i + 1) {
+        let similarity = cosineSimilarity(queryEmbedding, store.embeddings[i])
+        // Would add to results with score
+    }
+    
+    // Sort by similarity and return top k
+    // For now, return empty results
+    return results
+}
+
+// Search with minimum similarity threshold
+fn searchWithThreshold(store, query, limit, minScore) {
+    let results = search(store, query, limit * 2)
+    let filtered = []
+    for (let i = 0; i < len(results); i = i + 1) {
+        if (results[i].score >= minScore) {
+            // filtered.push(results[i])
+        }
+    }
+    return filtered
+}
+
+// Cosine similarity between two vectors
+fn cosineSimilarity(a, b) {
+    let dotProduct = 0.0
+    let normA = 0.0
+    let normB = 0.0
+    
+    for (let i = 0; i < len(a); i = i + 1) {
+        dotProduct = dotProduct + a[i] * b[i]
+        normA = normA + a[i] * a[i]
+        normB = normB + b[i] * b[i]
+    }
+    
+    // Would need sqrt function
+    return dotProduct
+}
+
+// ===== Document Retrieval =====
+
+// Get document by ID
+fn getDocument(store, id) {
+    if (id >= 0 && id < len(store.documents)) {
+        return store.documents[id]
+    }
+    return null
+}
+
+// Get multiple documents by IDs
+fn getDocuments(store, ids) {
+    let docs = []
+    for (let i = 0; i < len(ids); i = i + 1) {
+        let doc = getDocument(store, ids[i])
+        if (doc != null) {
+            // docs.push(doc)
+        }
+    }
+    return docs
+}
+
+// Delete document by ID
+fn deleteDocument(store, id) {
+    print("[VectorStore:", store.name, "] Deleting document ID:", id)
+    // Would remove from arrays
+    return true
+}
+
+// ===== Store Operations =====
+
+// Get total document count
+fn count(store) {
+    return len(store.documents)
+}
+
+// Clear all documents
+fn clear(store) {
+    store.documents = []
+    store.embeddings = []
+    store.metadata = []
+    print("[VectorStore:", store.name, "] Cleared")
+}
+
+// ===== Chunking Utilities =====
+
+// Split text into chunks by character count
+fn chunkBySize(text, chunkSize, overlap) {
+    let chunks = []
+    let start = 0
+    
+    while (start < len(text)) {
+        let end = start + chunkSize
+        if (end > len(text)) {
+            end = len(text)
+        }
+        
+        // Would need substring function
+        // let chunk = text.substring(start, end)
+        // chunks.push(chunk)
+        
+        start = start + chunkSize - overlap
+    }
+    
+    return chunks
+}
+
+// Split text into chunks by sentence (placeholder)
+fn chunkBySentence(text, maxSentences) {
+    // Would split by sentence boundaries
+    return [text]
+}
+
+// Split text into chunks by paragraph
+fn chunkByParagraph(text) {
+    // Would split by \n\n
+    return [text]
+}
+
+// ===== RAG Pipeline =====
+
+// Retrieve and augment prompt with relevant context
+fn retrieveContext(store, query, numDocs) {
+    let results = search(store, query, numDocs)
+    let context = ""
+    
+    for (let i = 0; i < len(results); i = i + 1) {
+        context = context + results[i].content + "\n\n"
+    }
+    
+    return context
+}
+
+// Perform RAG query
+fn ragQuery(store, query, numDocs) {
+    print("[VectorStore] RAG Query:", query)
+    
+    // Retrieve relevant documents
+    let context = retrieveContext(store, query, numDocs)
+    
+    // Augment prompt with context
+    let augmentedPrompt = "Based on the following context:\n\n" + context + "\n\nAnswer this question: " + query
+    
+    // Generate response (would call ai.complete)
+    return "[RAG Response - AI integration pending]"
+}
+
+// ===== Persistence (Placeholder) =====
+
+// Save store to file
+fn save(store, path) {
+    print("[VectorStore:", store.name, "] Saving to:", path)
+    // Would serialize and write to file
+}
+
+// Load store from file
+fn load(path) {
+    print("[VectorStore] Loading from:", path)
+    // Would read and deserialize from file
+    return createStore("loaded")
+}

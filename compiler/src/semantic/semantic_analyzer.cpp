@@ -306,6 +306,59 @@ void SemanticAnalyzer::visit(InterpolatedString* node) {
     }
 }
 
+// ========================================
+// SADK (Agent Development Kit) Visitors
+// ========================================
+
+void SemanticAnalyzer::visit(MapLiteral* node) {
+    // Visit all key-value pairs
+    for (auto& entry : node->entries) {
+        if (entry.first) {
+            visitExpression(entry.first.get());
+        }
+        if (entry.second) {
+            visitExpression(entry.second.get());
+        }
+    }
+}
+
+void SemanticAnalyzer::visit(MemberExpression* node) {
+    // Visit object expression
+    if (node->object) {
+        visitExpression(node->object.get());
+    }
+    // Member name is just a string, no need to check
+}
+
+void SemanticAnalyzer::visit(SelfExpression* node) {
+    // 'self' should be available inside struct methods
+    // For now, we don't strictly enforce this
+    (void)node;
+}
+
+void SemanticAnalyzer::visit(ImportStatement* node) {
+    // Import handling - placeholder for now
+    // Future: resolve and load module, add exported symbols to symbol table
+    (void)node;
+}
+
+void SemanticAnalyzer::visit(StructDeclaration* node) {
+    // Check if struct name is already declared
+    if (symbolTable.find(node->name) != symbolTable.end()) {
+        reportError("Redeclaration of struct '" + node->name + "'");
+    }
+    
+    // Add struct to symbol table
+    symbolTable[node->name] = {node->name, false, false, "struct", false};
+    
+    // Visit methods
+    for (auto& method : node->methods) {
+        // Add 'self' to symbol table for method context
+        symbolTable["self"] = {"self", false, false, node->name, false};
+        visitStatement(method.get());
+    }
+}
+
 void SemanticAnalyzer::analyze(const std::vector<std::unique_ptr<Statement>>& statements) {
     for (const auto& stmt : statements) {
         visitStatement(stmt.get());

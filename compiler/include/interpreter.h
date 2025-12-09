@@ -29,6 +29,7 @@ class Value {
 public:
     using ArrayType = std::vector<Value>;
     using FunctionType = std::function<Value(std::vector<Value>&, Interpreter&)>;
+    using MapType = std::map<std::string, Value>;  // SADK: map/object type
     
     std::variant<
         std::monostate,  // null/undefined
@@ -37,7 +38,8 @@ public:
         std::string,     // string
         bool,            // boolean
         std::shared_ptr<ArrayType>,     // array
-        std::shared_ptr<FunctionType>   // function
+        std::shared_ptr<FunctionType>,  // function
+        std::shared_ptr<MapType>        // SADK: map/object
     > data;
     
     // Constructors
@@ -50,6 +52,7 @@ public:
     Value(bool v) : data(v) {}
     Value(std::shared_ptr<ArrayType> v) : data(v) {}
     Value(std::shared_ptr<FunctionType> v) : data(v) {}
+    Value(std::shared_ptr<MapType> v) : data(v) {}  // SADK: map constructor
     
     // Type checks
     bool isNull() const { return std::holds_alternative<std::monostate>(data); }
@@ -59,6 +62,7 @@ public:
     bool isBool() const { return std::holds_alternative<bool>(data); }
     bool isArray() const { return std::holds_alternative<std::shared_ptr<ArrayType>>(data); }
     bool isFunction() const { return std::holds_alternative<std::shared_ptr<FunctionType>>(data); }
+    bool isMap() const { return std::holds_alternative<std::shared_ptr<MapType>>(data); }  // SADK
     bool isNumber() const { return isInt() || isFloat(); }
     
     // Getters
@@ -71,6 +75,7 @@ public:
     bool asBool() const { return std::get<bool>(data); }
     std::shared_ptr<ArrayType> asArray() const { return std::get<std::shared_ptr<ArrayType>>(data); }
     std::shared_ptr<FunctionType> asFunction() const { return std::get<std::shared_ptr<FunctionType>>(data); }
+    std::shared_ptr<MapType> asMap() const { return std::get<std::shared_ptr<MapType>>(data); }  // SADK
     
     // Convert to string for printing
     std::string toString() const;
@@ -149,6 +154,11 @@ public:
     void visit(UpdateExpression* node) override;
     void visit(InterpolatedString* node) override;
     
+    // SADK Expression visitors (Agent Development Kit)
+    void visit(MapLiteral* node) override;
+    void visit(MemberExpression* node) override;
+    void visit(SelfExpression* node) override;
+    
     // Statement visitors
     void visit(VariableDeclaration* node) override;
     void visit(ExpressionStatement* node) override;
@@ -161,6 +171,10 @@ public:
     void visit(FunctionDeclaration* node) override;
     void visit(ReturnStatement* node) override;
     void visit(TryStatement* node) override;
+    
+    // SADK Statement visitors (Agent Development Kit)
+    void visit(ImportStatement* node) override;
+    void visit(StructDeclaration* node) override;
     
 private:
     // Helper to evaluate an expression

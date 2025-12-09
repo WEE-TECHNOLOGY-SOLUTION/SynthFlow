@@ -1,0 +1,276 @@
+// SynthFlow SADK - Agent Module
+// Core agent framework for building AI agents
+
+// ===== Agent Base Structure =====
+
+// Create a new agent with configuration
+fn createAgent(config) {
+    return {
+        name: config.name,
+        model: config.model,
+        description: config.description,
+        instruction: config.instruction,
+        tools: config.tools,
+        memory: [],
+        messageHistory: [],
+        state: {}
+    }
+}
+
+// Create agent with defaults
+fn simpleAgent(name, instruction) {
+    return createAgent({
+        name: name,
+        model: "gemini-2.0-flash",
+        description: name,
+        instruction: instruction,
+        tools: []
+    })
+}
+
+// ===== Agent Execution =====
+
+// Run the agent with input
+fn run(agent, input) {
+    print("[Agent:", agent.name, "] Processing:", input)
+    
+    // Add to message history
+    let userMessage = { role: "user", content: input }
+    // agent.messageHistory.push(userMessage)  -- array push not implemented
+    
+    // Build prompt with instruction and history
+    let systemPrompt = agent.instruction
+    
+    // Process with AI (placeholder)
+    let response = processWithAI(agent, systemPrompt, input)
+    
+    // Store response
+    let assistantMessage = { role: "assistant", content: response }
+    // agent.messageHistory.push(assistantMessage)
+    
+    return response
+}
+
+// Process input with AI model - Now uses real Gemini API!
+fn processWithAI(agent, systemPrompt, userInput) {
+    // Check if API key is set
+    if (!gemini_has_api_key()) {
+        return "[Error: Gemini API key not set. Call gemini_set_api_key('AIzaSyAk6eGZ6IZqsqIoLHUIIMkVxIu9wr4fdEk') first.]"
+    }
+    
+    // Call Gemini API with system instruction and user input
+    let response = gemini_chat(systemPrompt, userInput, agent.model)
+    return response
+}
+
+// Run agent with streaming response
+fn runStreaming(agent, input, onChunk) {
+    print("[Agent:", agent.name, "] Streaming not yet implemented")
+    return run(agent, input)
+}
+
+// ===== Tool System =====
+
+// Create a tool definition
+fn createTool(config) {
+    return {
+        name: config.name,
+        description: config.description,
+        parameters: config.parameters,
+        handler: config.handler
+    }
+}
+
+// Simple tool creation
+fn tool(name, description, handler) {
+    return createTool({
+        name: name,
+        description: description,
+        parameters: {},
+        handler: handler
+    })
+}
+
+// Add tool to agent
+fn addTool(agent, tool) {
+    // agent.tools.push(tool)  -- array push not implemented
+    print("[Agent:", agent.name, "] Added tool:", tool.name)
+    return agent
+}
+
+// Execute a tool by name
+fn executeTool(agent, toolName, args) {
+    for (let i = 0; i < len(agent.tools); i = i + 1) {
+        let t = agent.tools[i]
+        if (t.name == toolName) {
+            print("[Agent:", agent.name, "] Executing tool:", toolName)
+            // return t.handler(args)  -- function call needed
+            return "[Tool Result - Implementation pending]"
+        }
+    }
+    return "[Error: Tool not found: " + toolName + "]"
+}
+
+// ===== Memory System =====
+
+// Add to agent's memory
+fn remember(agent, key, value) {
+    agent.state[key] = value
+    print("[Agent:", agent.name, "] Remembered:", key)
+}
+
+// Recall from memory
+fn recall(agent, key) {
+    if (agent.state[key] != null) {
+        return agent.state[key]
+    }
+    return null
+}
+
+// Clear agent's memory
+fn forget(agent, key) {
+    agent.state[key] = null
+    print("[Agent:", agent.name, "] Forgot:", key)
+}
+
+// Clear all memory
+fn clearMemory(agent) {
+    agent.state = {}
+    agent.messageHistory = []
+    print("[Agent:", agent.name, "] Memory cleared")
+}
+
+// ===== Conversation History =====
+
+// Get conversation history
+fn getHistory(agent) {
+    return agent.messageHistory
+}
+
+// Clear conversation history
+fn clearHistory(agent) {
+    agent.messageHistory = []
+}
+
+// Get last N messages
+fn getRecentHistory(agent, n) {
+    let history = agent.messageHistory
+    let start = len(history) - n
+    if (start < 0) {
+        start = 0
+    }
+    // Would slice the array
+    return history
+}
+
+// ===== Agent Lifecycle =====
+
+// Initialize agent (run setup)
+fn initialize(agent) {
+    print("[Agent:", agent.name, "] Initializing...")
+    agent.state.initialized = true
+    return agent
+}
+
+// Shutdown agent
+fn shutdown(agent) {
+    print("[Agent:", agent.name, "] Shutting down...")
+    clearMemory(agent)
+    agent.state.initialized = false
+    return agent
+}
+
+// Check if agent is initialized
+fn isInitialized(agent) {
+    return agent.state.initialized == true
+}
+
+// ===== Agent Cloning =====
+
+// Clone an agent with new name
+fn clone(agent, newName) {
+    return {
+        name: newName,
+        model: agent.model,
+        description: agent.description,
+        instruction: agent.instruction,
+        tools: agent.tools,
+        memory: [],
+        messageHistory: [],
+        state: {}
+    }
+}
+
+// ===== Multi-Agent Communication =====
+
+// Send message from one agent to another
+fn sendMessage(fromAgent, toAgent, message) {
+    print("[Agent:", fromAgent.name, "] -> [Agent:", toAgent.name, "]:", message)
+    return run(toAgent, message)
+}
+
+// Create agent group
+fn createGroup(name, agents) {
+    return {
+        name: name,
+        agents: agents,
+        coordinator: null
+    }
+}
+
+// Broadcast message to all agents in group
+fn broadcast(group, message) {
+    let responses = []
+    for (let i = 0; i < len(group.agents); i = i + 1) {
+        let agent = group.agents[i]
+        let response = run(agent, message)
+        // responses.push(response)
+    }
+    return responses
+}
+
+// ===== Common Agent Templates =====
+
+// Create a chatbot agent
+fn chatbot(name, personality) {
+    return createAgent({
+        name: name,
+        model: "gemini-2.0-flash",
+        description: "A helpful chatbot",
+        instruction: "You are a helpful assistant named " + name + ". " + personality,
+        tools: []
+    })
+}
+
+// Create a coding assistant
+fn codingAssistant(name) {
+    return createAgent({
+        name: name,
+        model: "gemini-2.0-flash",
+        description: "A coding assistant",
+        instruction: "You are an expert programmer. Help users write clean, efficient code. Explain your solutions clearly.",
+        tools: []
+    })
+}
+
+// Create a research agent
+fn researcher(name, domain) {
+    return createAgent({
+        name: name,
+        model: "gemini-2.0-flash",
+        description: "A research assistant for " + domain,
+        instruction: "You are a research assistant specializing in " + domain + ". Provide accurate, well-sourced information.",
+        tools: []
+    })
+}
+
+// Create a task executor agent
+fn taskExecutor(name) {
+    return createAgent({
+        name: name,
+        model: "gemini-2.0-flash",
+        description: "A task execution agent",
+        instruction: "You are a task execution agent. Break down complex tasks into steps and execute them systematically.",
+        tools: []
+    })
+}
