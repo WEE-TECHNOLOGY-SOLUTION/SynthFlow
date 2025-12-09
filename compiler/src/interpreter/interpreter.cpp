@@ -137,7 +137,7 @@ void Interpreter::registerBuiltins() {
             if (args[0].isFloat()) return Value(static_cast<int64_t>(args[0].asFloat()));
             if (args[0].isString()) {
                 try {
-                    return Value(std::stoll(args[0].asString()));
+                    return Value(static_cast<int64_t>(std::stoll(args[0].asString())));
                 } catch (...) {
                     throw std::runtime_error("Cannot convert string to int");
                 }
