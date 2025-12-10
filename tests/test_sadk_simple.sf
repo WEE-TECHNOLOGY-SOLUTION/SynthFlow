@@ -1,0 +1,9 @@
+# Simple SADK Test - Basic Map Literal
+
+print("Testing map literal...")
+
+# Simple map
+let m = { "key": 42 }
+print(m)
+
+print("Done!")

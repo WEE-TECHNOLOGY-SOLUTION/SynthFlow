@@ -1,0 +1,4 @@
+print("Test 1:")
+let arr = [1]
+print("Array:", arr)
+print("Length:", len(arr))

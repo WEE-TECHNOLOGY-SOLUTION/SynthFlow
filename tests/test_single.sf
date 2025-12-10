@@ -1,0 +1,5 @@
+# Single Gemini API Call
+print("Testing Gemini API...")
+gemini_set_api_key("AIzaSyAk6eGZ6IZqsqIoLHUIIMkVxIu9wr4fdEk")
+let response = gemini_complete("Say hello in one word")
+print("Response:", response)

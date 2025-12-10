@@ -1,0 +1,36 @@
+# Live Gemini API Test
+# Testing with real API key
+
+print("=== Live Gemini API Test ===")
+print("")
+
+# Set the API key
+gemini_set_api_key("AIzaSyAk6eGZ6IZqsqIoLHUIIMkVxIu9wr4fdEk")
+print("API key configured!")
+print("")
+
+# Test 1: Simple completion
+print("--- Test 1: Simple Completion ---")
+let response1 = gemini_complete("What is 2 + 2? Just say the number.")
+print("Response:", response1)
+print("")
+
+# Test 2: Chat with system instruction
+print("--- Test 2: Chat with System ---")
+let response2 = gemini_chat(
+    "You are a helpful assistant. Be very brief.",
+    "What is the capital of France?"
+)
+print("Response:", response2)
+print("")
+
+# Test 3: Code generation
+print("--- Test 3: Code Help ---")
+let response3 = gemini_chat(
+    "You are a programming tutor. Give very short code examples.",
+    "Show me hello world in Python"
+)
+print("Response:", response3)
+print("")
+
+print("=== All Tests Complete! ===")

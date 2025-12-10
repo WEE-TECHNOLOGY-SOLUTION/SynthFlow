@@ -1,0 +1,11 @@
+# Struct test
+struct Point {
+    x: int,
+    y: int
+}
+
+print("Struct defined!")
+let p = Point(10, 20)
+print("Point:", p)
+print("X:", p.x)
+print("Y:", p.y)

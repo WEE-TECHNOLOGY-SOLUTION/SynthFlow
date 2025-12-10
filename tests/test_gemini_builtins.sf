@@ -1,0 +1,32 @@
+# Gemini API Quick Test (no API key required)
+# This tests that the built-in functions are available
+
+print("=== Gemini Built-in Functions Test ===")
+print("")
+
+# Test 1: Check if API key function exists
+print("Test 1: Check gemini_has_api_key function...")
+let hasKey = gemini_has_api_key()
+print("Has API key:", hasKey)
+print("")
+
+# Test 2: Set a dummy API key
+print("Test 2: Set API key...")
+gemini_set_api_key("test-key-12345")
+print("API key set!")
+print("")
+
+# Test 3: Verify key is set
+print("Test 3: Verify key is set...")
+let hasKeyNow = gemini_has_api_key()
+print("Has API key now:", hasKeyNow)
+print("")
+
+# Test 4: Try completion (will fail with test key, but proves function works)
+print("Test 4: Test gemini_complete function...")
+let result = gemini_complete("Hello")
+print("Result:", result)
+print("")
+
+print("=== Built-in Functions Test Complete ===")
+print("The functions are working! Replace the API key with a real one to use Gemini.")

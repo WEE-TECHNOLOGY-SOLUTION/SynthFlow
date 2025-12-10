@@ -1,0 +1,5 @@
+# Map and member access test
+let p = { name: "Alice", age: 30 }
+print("Person:", p)
+print("Name:", p.name)
+print("Age:", p.age)

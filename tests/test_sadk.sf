@@ -1,0 +1,26 @@
+# SADK Test File - Testing Map Literals, Structs, and Member Access
+
+# Test 1: Map Literal
+print("=== Test 1: Map Literals ===")
+let person = { name: "Alice", age: 30, city: "NYC" }
+print(person)
+
+# Test 2: Member Access
+print("=== Test 2: Member Access ===")
+print(person.name)
+print(person.age)
+
+# Test 3: Empty map
+print("=== Test 3: Empty Map ===")
+let empty = {}
+print(empty)
+
+# Test 4: Nested map
+print("=== Test 4: Nested Map ===")
+let config = {
+    name: "MyApp",
+    version: 1
+}
+print(config)
+
+print("=== SADK Tests Complete! ===")

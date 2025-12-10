@@ -1,0 +1,8 @@
+# Simple Gemini test
+print("Start")
+let hasKey = gemini_has_api_key()
+print("Has key:", hasKey)
+gemini_set_api_key("test-key")
+let hasKey2 = gemini_has_api_key()
+print("Has key after set:", hasKey2)
+print("Done")
