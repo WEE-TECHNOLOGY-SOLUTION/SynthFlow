@@ -1,0 +1,80 @@
+// Simple Quantum Demo - working within SynthFlow limitations
+// Demonstrates superposition, entanglement without nested assignment
+
+print("===========================================")
+print(" Quantum Computing in SynthFlow")
+print("===========================================")
+print("")
+
+const SQRT2_INV = 0.70710678118654752440
+
+fn complex(real, imag) {
+    return { real: real, imag: imag }
+}
+
+fn complexAbsSquared(c) {
+    return c.real * c.real + c.imag * c.imag
+}
+
+// Demo 1: Single qubit states
+print("Demo 1: Qubit States")
+print("--------------------")
+
+let zero = complex(1.0, 0.0)
+let one = complex(0.0, 0.0)
+
+print("State |0>:")
+print("  |0⟩ amplitude: " + str(zero.real) + " + " + str(zero.imag) + "i")
+print("  |1⟩ amplitude: " + str(one.real) + " + " + str(one.imag) + "i")
+print("  P(0) = " + str(complexAbsSquared(zero)))
+print("  P(1) = " + str(complexAbsSquared(one)))
+print("")
+
+// Demo 2: Superposition (Hadamard on |0⟩)
+print("Demo 2: Superposition")
+print("---------------------")
+
+// H|0⟩ = (|0⟩ + |1⟩)/√2
+let h0 = complex(SQRT2_INV, 0.0)
+let h1 = complex(SQRT2_INV, 0.0)
+
+print("State H|0⟩ = |+⟩:")
+print("  |0⟩ amplitude: " + str(h0.real))
+print("  |1⟩ amplitude: " + str(h1.real))
+print("  P(0) = " + str(complexAbsSquared(h0)))
+print("  P(1) = " + str(complexAbsSquared(h1)))
+print("  Equal superposition achieved!")
+print("")
+
+// Demo 3: Bell State
+print("Demo 3: Bell State (Entanglement)")
+print("---------------------------------")
+
+// Bell state: (|00⟩ + |11⟩)/√2
+let b00 = complex(SQRT2_INV, 0.0)
+let b01 = complex(0.0, 0.0)
+let b10 = complex(0.0, 0.0)
+let b11 = complex(SQRT2_INV, 0.0)
+
+print("Bell state (|00⟩ + |11⟩)/√2:")
+print("  P(00) = " + str(complexAbsSquared(b00)))
+print("  P(01) = " + str(complexAbsSquared(b01)))
+print("  P(10) = " + str(complexAbsSquared(b10)))
+print("  P(11) = " + str(complexAbsSquared(b11)))
+print("  Qubits are maximally entangled!")
+print("")
+
+// Demo 4: Phase
+print("Demo 4: Complex Amplitudes")
+print("--------------------------")
+
+// State with complex amplitude: (1 + i)/√2
+let ph = complex(SQRT2_INV, SQRT2_INV)
+print("State with complex amplitude:")
+print("  Amplitude: " + str(ph.real) + " + " + str(ph.imag) + "i")
+print("  |z|² = " + str(complexAbsSquared(ph)))
+print("")
+
+print("===========================================")
+print(" All Quantum Demos Complete!")
+print("===========================================")

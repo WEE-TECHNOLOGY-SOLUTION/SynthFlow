@@ -17,6 +17,8 @@ private:
     // Parsing methods
     std::unique_ptr<Expression> parseExpression();
     std::unique_ptr<Expression> parseAssignment();
+    std::unique_ptr<Expression> parseLogicalOr();    // Added for && support
+    std::unique_ptr<Expression> parseLogicalAnd();   // Added for || support
     std::unique_ptr<Expression> parseEquality();
     std::unique_ptr<Expression> parseComparison();
     std::unique_ptr<Expression> parseTerm();

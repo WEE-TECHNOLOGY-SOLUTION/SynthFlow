@@ -1,0 +1,525 @@
+// SynthFlow Quantum Computing Library
+// State vector simulation with quantum gates
+
+// ===== Constants =====
+const PI = 3.14159265358979323846
+const SQRT2_INV = 0.70710678118654752440
+
+// ===== Complex Number Operations =====
+
+fn complex(real, imag) {
+    return { real: real, imag: imag }
+}
+
+fn complexAdd(a, b) {
+    return complex(a.real + b.real, a.imag + b.imag)
+}
+
+fn complexSub(a, b) {
+    return complex(a.real - b.real, a.imag - b.imag)
+}
+
+fn complexMul(a, b) {
+    let r = a.real * b.real - a.imag * b.imag
+    let i = a.real * b.imag + a.imag * b.real
+    return complex(r, i)
+}
+
+fn complexScale(c, s) {
+    return complex(c.real * s, c.imag * s)
+}
+
+fn complexAbsSquared(c) {
+    return c.real * c.real + c.imag * c.imag
+}
+
+// ===== Array Helper =====
+// Simple push function that returns new array with element added
+fn push(arr, elem) {
+    // Use built-in append
+    return append(arr, elem)
+}
+
+// ===== State Vector =====
+
+fn createStateVector(numQubits) {
+    let size = 1
+    for (let i = 0; i < numQubits; i = i + 1) {
+        size = size * 2
+    }
+    
+    let amplitudes = []
+    for (let i = 0; i < size; i = i + 1) {
+        let r = 0.0
+        if (i == 0) {
+            r = 1.0
+        }
+        amplitudes = push(amplitudes, complex(r, 0.0))
+    }
+    
+    return {
+        num_qubits: numQubits,
+        size: size,
+        amplitudes: amplitudes
+    }
+}
+
+fn getProbability(state, index) {
+    let amp = state.amplitudes[index]
+    return complexAbsSquared(amp)
+}
+
+// ===== Single-Qubit Gates =====
+
+fn applyX(state, qubit) {
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx0 = i + j
+            let idx1 = i + j + step
+            let temp = state.amplitudes[idx0]
+            state.amplitudes[idx0] = state.amplitudes[idx1]
+            state.amplitudes[idx1] = temp
+        }
+    }
+    return state
+}
+
+fn applyH(state, qubit) {
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx0 = i + j
+            let idx1 = i + j + step
+            let a0 = state.amplitudes[idx0]
+            let a1 = state.amplitudes[idx1]
+            
+            state.amplitudes[idx0] = complexScale(complexAdd(a0, a1), SQRT2_INV)
+            state.amplitudes[idx1] = complexScale(complexSub(a0, a1), SQRT2_INV)
+        }
+    }
+    return state
+}
+
+// ===== Two-Qubit Gates =====
+
+fn applyCNOT(state, control, target) {
+    let controlStep = 1
+    for (let i = 0; i < control; i = i + 1) {
+        controlStep = controlStep * 2
+    }
+    
+    let targetStep = 1
+    for (let i = 0; i < target; i = i + 1) {
+        targetStep = targetStep * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + 1) {
+        let controlBit = (i / controlStep) % 2
+        if (controlBit == 1) {
+            let targetBit = (i / targetStep) % 2
+            if (targetBit == 0) {
+                let partner = i + targetStep
+                let temp = state.amplitudes[i]
+                state.amplitudes[i] = state.amplitudes[partner]
+                state.amplitudes[partner] = temp
+            }
+        }
+    }
+    return state
+}
+
+// ===== Additional Single-Qubit Gates =====
+
+fn applyY(state, qubit) {
+    // Y gate: |0⟩ → i|1⟩, |1⟩ → -i|0⟩
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx0 = i + j
+            let idx1 = i + j + step
+            let a0 = state.amplitudes[idx0]
+            let a1 = state.amplitudes[idx1]
+            // -i * a1 and i * a0
+            state.amplitudes[idx0] = complex(a1.imag, 0.0 - a1.real)
+            state.amplitudes[idx1] = complex(0.0 - a0.imag, a0.real)
+        }
+    }
+    return state
+}
+
+fn applyZ(state, qubit) {
+    // Z gate: |0⟩ → |0⟩, |1⟩ → -|1⟩
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx1 = i + j + step
+            state.amplitudes[idx1] = complexScale(state.amplitudes[idx1], 0.0 - 1.0)
+        }
+    }
+    return state
+}
+
+fn applyS(state, qubit) {
+    // S gate: |0⟩ → |0⟩, |1⟩ → i|1⟩
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx1 = i + j + step
+            let a = state.amplitudes[idx1]
+            state.amplitudes[idx1] = complex(0.0 - a.imag, a.real)
+        }
+    }
+    return state
+}
+
+fn applyT(state, qubit) {
+    // T gate: |0⟩ → |0⟩, |1⟩ → e^(iπ/4)|1⟩
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    // e^(iπ/4) = cos(π/4) + i*sin(π/4) = (1+i)/√2
+    let c = 0.70710678118654752440
+    let phase = complex(c, c)
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx1 = i + j + step
+            state.amplitudes[idx1] = complexMul(state.amplitudes[idx1], phase)
+        }
+    }
+    return state
+}
+
+fn sin(x) {
+    // Taylor series for sin
+    let term = x
+    let sum = x
+    for (let n = 1; n < 10; n = n + 1) {
+        term = (0.0 - term) * x * x / ((2 * n) * (2 * n + 1))
+        sum = sum + term
+    }
+    return sum
+}
+
+fn cos(x) {
+    return sin(x + PI / 2)
+}
+
+fn applyRx(state, qubit, theta) {
+    // Rx(θ) rotation around X axis
+    let c = cos(theta / 2)
+    let s = sin(theta / 2)
+    
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx0 = i + j
+            let idx1 = i + j + step
+            let a0 = state.amplitudes[idx0]
+            let a1 = state.amplitudes[idx1]
+            
+            let neg_is = complex(0, 0.0 - s)
+            state.amplitudes[idx0] = complexAdd(complexScale(a0, c), complexMul(neg_is, a1))
+            state.amplitudes[idx1] = complexAdd(complexMul(neg_is, a0), complexScale(a1, c))
+        }
+    }
+    return state
+}
+
+fn applyRy(state, qubit, theta) {
+    // Ry(θ) rotation around Y axis
+    let c = cos(theta / 2)
+    let s = sin(theta / 2)
+    
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx0 = i + j
+            let idx1 = i + j + step
+            let a0 = state.amplitudes[idx0]
+            let a1 = state.amplitudes[idx1]
+            
+            state.amplitudes[idx0] = complexSub(complexScale(a0, c), complexScale(a1, s))
+            state.amplitudes[idx1] = complexAdd(complexScale(a0, s), complexScale(a1, c))
+        }
+    }
+    return state
+}
+
+fn applyRz(state, qubit, theta) {
+    // Rz(θ) rotation around Z axis
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    let c = cos(theta / 2)
+    let s = sin(theta / 2)
+    let phaseNeg = complex(c, 0.0 - s)
+    let phasePos = complex(c, s)
+    
+    for (let i = 0; i < state.size; i = i + step * 2) {
+        for (let j = 0; j < step; j = j + 1) {
+            let idx0 = i + j
+            let idx1 = i + j + step
+            state.amplitudes[idx0] = complexMul(state.amplitudes[idx0], phaseNeg)
+            state.amplitudes[idx1] = complexMul(state.amplitudes[idx1], phasePos)
+        }
+    }
+    return state
+}
+
+// ===== Two-Qubit Gates =====
+
+fn applyCZ(state, control, target) {
+    // CZ: apply Z to target if control is |1⟩
+    let controlStep = 1
+    for (let i = 0; i < control; i = i + 1) {
+        controlStep = controlStep * 2
+    }
+    
+    let targetStep = 1
+    for (let i = 0; i < target; i = i + 1) {
+        targetStep = targetStep * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + 1) {
+        let controlBit = (i / controlStep) % 2
+        let targetBit = (i / targetStep) % 2
+        if (controlBit == 1) {
+            if (targetBit == 1) {
+                state.amplitudes[i] = complexScale(state.amplitudes[i], 0.0 - 1.0)
+            }
+        }
+    }
+    return state
+}
+
+fn applySWAP(state, qubit1, qubit2) {
+    // SWAP two qubits
+    let step1 = 1
+    for (let i = 0; i < qubit1; i = i + 1) {
+        step1 = step1 * 2
+    }
+    
+    let step2 = 1
+    for (let i = 0; i < qubit2; i = i + 1) {
+        step2 = step2 * 2
+    }
+    
+    for (let i = 0; i < state.size; i = i + 1) {
+        let bit1 = (i / step1) % 2
+        let bit2 = (i / step2) % 2
+        
+        if (bit1 == 0) {
+            if (bit2 == 1) {
+                let partner = i + step1 - step2
+                let temp = state.amplitudes[i]
+                state.amplitudes[i] = state.amplitudes[partner]
+                state.amplitudes[partner] = temp
+            }
+        }
+    }
+    return state
+}
+
+// ===== Measurement =====
+
+fn measureQubit(state, qubit, seed) {
+    // Measure a single qubit with given random seed
+    let step = 1
+    for (let i = 0; i < qubit; i = i + 1) {
+        step = step * 2
+    }
+    
+    // Calculate probability of measuring |0⟩
+    let prob0 = 0.0
+    for (let i = 0; i < state.size; i = i + 1) {
+        let bit = (i / step) % 2
+        if (bit == 0) {
+            prob0 = prob0 + complexAbsSquared(state.amplitudes[i])
+        }
+    }
+    
+    // Generate pseudo-random number
+    seed = (1103515245 * seed + 12345) % 2147483648
+    let r = float(seed) / 2147483648.0
+    
+    let outcome = 0
+    if (r >= prob0) {
+        outcome = 1
+    }
+    
+    // Collapse state
+    let normFactor = 0.0
+    for (let i = 0; i < state.size; i = i + 1) {
+        let bit = (i / step) % 2
+        if (bit == outcome) {
+            normFactor = normFactor + complexAbsSquared(state.amplitudes[i])
+        }
+    }
+    
+    // Zero out non-measured states and renormalize
+    let scale = 1.0
+    if (normFactor > 0) {
+        scale = 1.0 / qsqrt(normFactor)
+    }
+    
+    for (let i = 0; i < state.size; i = i + 1) {
+        let bit = (i / step) % 2
+        if (bit == outcome) {
+            state.amplitudes[i] = complexScale(state.amplitudes[i], scale)
+        }
+    }
+    for (let i = 0; i < state.size; i = i + 1) {
+        let bit = (i / step) % 2
+        if (bit != outcome) {
+            state.amplitudes[i] = complex(0.0, 0.0)
+        }
+    }
+    
+    return { state: state, outcome: outcome, seed: seed }
+}
+
+fn qsqrt(x) {
+    if (x <= 0) { return 0.0 }
+    let guess = x / 2.0
+    for (let i = 0; i < 20; i = i + 1) {
+        guess = (guess + x / guess) / 2.0
+    }
+    return guess
+}
+
+// ===== Grover's Algorithm =====
+
+fn groverOracle(state, markedState) {
+    // Oracle that marks a specific state with -1 phase
+    state.amplitudes[markedState] = complexScale(state.amplitudes[markedState], 0.0 - 1.0)
+    return state
+}
+
+fn groverDiffusion(state) {
+    // Diffusion operator: 2|ψ⟩⟨ψ| - I
+    let n = state.num_qubits
+    
+    // Apply H to all qubits
+    for (let i = 0; i < n; i = i + 1) {
+        state = applyH(state, i)
+    }
+    
+    // Apply X to all qubits
+    for (let i = 0; i < n; i = i + 1) {
+        state = applyX(state, i)
+    }
+    
+    // Apply phase flip to |11...1⟩
+    let lastIdx = state.size - 1
+    state.amplitudes[lastIdx] = complexScale(state.amplitudes[lastIdx], 0.0 - 1.0)
+    
+    // Apply X to all qubits
+    for (let i = 0; i < n; i = i + 1) {
+        state = applyX(state, i)
+    }
+    
+    // Apply H to all qubits
+    for (let i = 0; i < n; i = i + 1) {
+        state = applyH(state, i)
+    }
+    
+    return state
+}
+
+fn groverSearch(numQubits, markedState, iterations) {
+    // Run Grover's algorithm
+    let state = createSuperposition(numQubits)
+    
+    for (let iter = 0; iter < iterations; iter = iter + 1) {
+        state = groverOracle(state, markedState)
+        state = groverDiffusion(state)
+    }
+    
+    return state
+}
+
+fn optimalGroverIterations(numQubits) {
+    // Optimal number of iterations ≈ π/4 * √N
+    let N = 1
+    for (let i = 0; i < numQubits; i = i + 1) {
+        N = N * 2
+    }
+    return int(PI / 4 * qsqrt(float(N)))
+}
+
+// ===== Common States =====
+
+fn createBellState() {
+    // Create Bell state (|00⟩ + |11⟩)/√2
+    let state = createStateVector(2)
+    state = applyH(state, 0)
+    state = applyCNOT(state, 0, 1)
+    return state
+}
+
+fn createSuperposition(numQubits) {
+    // Create equal superposition |+⟩^⊗n
+    let state = createStateVector(numQubits)
+    for (let i = 0; i < numQubits; i = i + 1) {
+        state = applyH(state, i)
+    }
+    return state
+}
+
+fn createGHZState(numQubits) {
+    // Create GHZ state (|00...0⟩ + |11...1⟩)/√2
+    let state = createStateVector(numQubits)
+    state = applyH(state, 0)
+    for (let i = 1; i < numQubits; i = i + 1) {
+        state = applyCNOT(state, 0, i)
+    }
+    return state
+}
+
+// ===== Utility =====
+
+fn printState(state) {
+    print("Quantum State (" + str(state.num_qubits) + " qubits):")
+    for (let i = 0; i < state.size; i = i + 1) {
+        let amp = state.amplitudes[i]
+        let prob = complexAbsSquared(amp)
+        if (prob > 0.001) {
+            print("  State " + str(i) + ": p=" + str(prob))
+        }
+    }
+}
+

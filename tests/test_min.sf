@@ -1,0 +1,9 @@
+// Simplest possible if
+fn test() {
+    if (true) {
+        print("pass")
+    }
+    return 0
+}
+
+test()

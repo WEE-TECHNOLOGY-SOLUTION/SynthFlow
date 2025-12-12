@@ -102,7 +102,12 @@ Token Lexer::lexIdentifier() {
     // Check if keyword
     auto it = keywords.find(ident);
     TokenType type = (it != keywords.end()) ? it->second : TokenType::IDENTIFIER;
-    return makeToken(type, ident);
+    
+    Token token = makeToken(type, ident);
+    if (type == TokenType::BOOLEAN) {
+        token.value = (ident == "true");
+    }
+    return token;
 }
 
 Token Lexer::lexString() {

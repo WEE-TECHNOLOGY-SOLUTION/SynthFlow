@@ -15,10 +15,39 @@ class Interpreter;
 class Environment;
 
 // Runtime exception for control flow
+// Forward declare Value to use in ReturnException
+class Value;
+
 class ReturnException : public std::exception {
 public:
-    std::variant<std::monostate, int64_t, double, std::string, bool, std::vector<std::variant<std::monostate, int64_t, double, std::string, bool>>> value;
-    ReturnException(decltype(value) v) : value(std::move(v)) {}
+    bool hasValue;
+    // Use optional pointer since Value is forward declared in this scope
+    // We'll store the actual value as a variant in the interpreter
+    std::variant<std::monostate, int64_t, double, std::string, bool> primitiveValue;
+    std::shared_ptr<void> complexValue;  // Can be ArrayType or MapType
+    bool isArray;
+    bool isMap;
+    
+    ReturnException() : hasValue(false), isArray(false), isMap(false) {}
+    ReturnException(int64_t v) : hasValue(true), primitiveValue(v), isArray(false), isMap(false) {}
+    ReturnException(double v) : hasValue(true), primitiveValue(v), isArray(false), isMap(false) {}
+    ReturnException(const std::string& v) : hasValue(true), primitiveValue(v), isArray(false), isMap(false) {}
+    ReturnException(bool v) : hasValue(true), primitiveValue(v), isArray(false), isMap(false) {}
+    
+    // For arrays and maps, we set flags and store as void pointer
+    void setArray(std::shared_ptr<void> arr) {
+        hasValue = true;
+        isArray = true;
+        isMap = false;
+        complexValue = arr;
+    }
+    
+    void setMap(std::shared_ptr<void> m) {
+        hasValue = true;
+        isArray = false;
+        isMap = true;
+        complexValue = m;
+    }
 };
 
 class BreakException : public std::exception {};

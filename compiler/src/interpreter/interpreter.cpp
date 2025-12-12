@@ -297,6 +297,154 @@ void Interpreter::registerBuiltins() {
             return Value(resultMap);
         }
     )));
+    
+    // ===== Array Functions =====
+    
+    // append(array, element) - Append element to array, return new array
+    globalEnv->define("append", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2) {
+                throw std::runtime_error("append() requires array and element arguments");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("append() first argument must be an array");
+            }
+            auto arr = std::make_shared<Value::ArrayType>(*args[0].asArray());
+            arr->push_back(args[1]);
+            return Value(arr);
+        }
+    )));
+    
+    // push(array, element) - Alias for append
+    globalEnv->define("push", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2) {
+                throw std::runtime_error("push() requires array and element arguments");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("push() first argument must be an array");
+            }
+            auto arr = std::make_shared<Value::ArrayType>(*args[0].asArray());
+            arr->push_back(args[1]);
+            return Value(arr);
+        }
+    )));
+    
+    // typeof(value) - Return type of value as string
+    globalEnv->define("typeof", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) return Value("undefined");
+            const Value& v = args[0];
+            if (v.isNull()) return Value("null");
+            if (v.isBool()) return Value("bool");
+            if (v.isInt()) return Value("int");
+            if (v.isFloat()) return Value("float");
+            if (v.isString()) return Value("string");
+            if (v.isArray()) return Value("array");
+            if (v.isMap()) return Value("map");
+            if (v.isFunction()) return Value("function");
+            return Value("unknown");
+        }
+    )));
+    
+    // range(start, end) or range(end) - Create array of integers
+    globalEnv->define("range", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) {
+                throw std::runtime_error("range() requires at least one argument");
+            }
+            int64_t start = 0, end = 0;
+            if (args.size() == 1) {
+                end = args[0].asInt();
+            } else {
+                start = args[0].asInt();
+                end = args[1].asInt();
+            }
+            auto arr = std::make_shared<Value::ArrayType>();
+            for (int64_t i = start; i < end; ++i) {
+                arr->push_back(Value(i));
+            }
+            return Value(arr);
+        }
+    )));
+    
+    // ===== Math Functions =====
+    
+    // abs(x) - Absolute value
+    globalEnv->define("abs", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("abs() requires an argument");
+            if (args[0].isInt()) return Value(std::abs(args[0].asInt()));
+            return Value(std::abs(args[0].asFloat()));
+        }
+    )));
+    
+    // sqrt(x) - Square root
+    globalEnv->define("sqrt", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("sqrt() requires an argument");
+            return Value(std::sqrt(args[0].asFloat()));
+        }
+    )));
+    
+    // pow(base, exp) - Power function
+    globalEnv->define("pow", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2) throw std::runtime_error("pow() requires two arguments");
+            return Value(std::pow(args[0].asFloat(), args[1].asFloat()));
+        }
+    )));
+    
+    // sin(x), cos(x), exp(x), ln(x)
+    globalEnv->define("sin", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("sin() requires an argument");
+            return Value(std::sin(args[0].asFloat()));
+        }
+    )));
+    
+    globalEnv->define("cos", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("cos() requires an argument");
+            return Value(std::cos(args[0].asFloat()));
+        }
+    )));
+    
+    globalEnv->define("exp", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("exp() requires an argument");
+            return Value(std::exp(args[0].asFloat()));
+        }
+    )));
+    
+    globalEnv->define("ln", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("ln() requires an argument");
+            return Value(std::log(args[0].asFloat()));
+        }
+    )));
+    
+    // floor, ceil, round
+    globalEnv->define("floor", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("floor() requires an argument");
+            return Value(static_cast<int64_t>(std::floor(args[0].asFloat())));
+        }
+    )));
+    
+    globalEnv->define("ceil", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("ceil() requires an argument");
+            return Value(static_cast<int64_t>(std::ceil(args[0].asFloat())));
+        }
+    )));
+    
+    globalEnv->define("round", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) throw std::runtime_error("round() requires an argument");
+            return Value(static_cast<int64_t>(std::round(args[0].asFloat())));
+        }
+    )));
 }
 
 // Execute statements
@@ -340,14 +488,20 @@ Value Interpreter::callFunction(const std::string& name, std::vector<Value>& arg
             func.body->accept(*this);
         } catch (const ReturnException& ret) {
             // Handle return value
-            if (std::holds_alternative<int64_t>(ret.value)) {
-                result = Value(std::get<int64_t>(ret.value));
-            } else if (std::holds_alternative<double>(ret.value)) {
-                result = Value(std::get<double>(ret.value));
-            } else if (std::holds_alternative<std::string>(ret.value)) {
-                result = Value(std::get<std::string>(ret.value));
-            } else if (std::holds_alternative<bool>(ret.value)) {
-                result = Value(std::get<bool>(ret.value));
+            if (ret.hasValue) {
+                if (ret.isArray) {
+                    result = Value(std::static_pointer_cast<Value::ArrayType>(ret.complexValue));
+                } else if (ret.isMap) {
+                    result = Value(std::static_pointer_cast<Value::MapType>(ret.complexValue));
+                } else if (std::holds_alternative<int64_t>(ret.primitiveValue)) {
+                    result = Value(std::get<int64_t>(ret.primitiveValue));
+                } else if (std::holds_alternative<double>(ret.primitiveValue)) {
+                    result = Value(std::get<double>(ret.primitiveValue));
+                } else if (std::holds_alternative<std::string>(ret.primitiveValue)) {
+                    result = Value(std::get<std::string>(ret.primitiveValue));
+                } else if (std::holds_alternative<bool>(ret.primitiveValue)) {
+                    result = Value(std::get<bool>(ret.primitiveValue));
+                }
             }
         }
         
@@ -646,19 +800,28 @@ void Interpreter::visit(FunctionDeclaration* node) {
 void Interpreter::visit(ReturnStatement* node) {
     if (node->value) {
         Value val = evaluate(node->value.get());
-        ReturnException ret(std::monostate{});
+        
         if (val.isInt()) {
-            ret.value = val.asInt();
+            throw ReturnException(val.asInt());
         } else if (val.isFloat()) {
-            ret.value = val.asFloat();
+            throw ReturnException(val.asFloat());
         } else if (val.isString()) {
-            ret.value = val.asString();
+            throw ReturnException(val.asString());
         } else if (val.isBool()) {
-            ret.value = val.asBool();
+            throw ReturnException(val.asBool());
+        } else if (val.isArray()) {
+            ReturnException ret;
+            ret.setArray(val.asArray());
+            throw ret;
+        } else if (val.isMap()) {
+            ReturnException ret;
+            ret.setMap(val.asMap());
+            throw ret;
+        } else {
+            throw ReturnException();
         }
-        throw ret;
     }
-    throw ReturnException(std::monostate{});
+    throw ReturnException();
 }
 
 void Interpreter::visit(TryStatement* node) {

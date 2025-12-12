@@ -1,0 +1,47 @@
+// SynthFlow Quantum Computing Example
+// Testing simpler approach
+
+print("===========================================")
+print(" Quantum Computing in SynthFlow")
+print("===========================================")
+print("")
+
+// Constants
+const SQRT2_INV = 0.70710678118654752440
+
+// Test simple function returning map
+fn makeComplex(r, i) {
+    let result = { real: r, imag: i }
+    return result
+}
+
+let test = makeComplex(3.0, 4.0)
+print("Complex: " + str(test.real) + " + " + str(test.imag) + "i")
+
+// If this works, the issue is with array inside map
+fn complexAbsSquared(c) {
+    return c.real * c.real + c.imag * c.imag
+}
+
+let mag = complexAbsSquared(test)
+print("Magnitude squared: " + str(mag))
+
+// Test array inside map
+fn makeState() {
+    let a0 = makeComplex(1.0, 0.0)
+    let a1 = makeComplex(0.0, 0.0)
+    let amps = [a0, a1]
+    let state = { qubits: 1, amps: amps }
+    return state
+}
+
+let s = makeState()
+print("State created with " + str(s.qubits) + " qubit(s)")
+print("Amplitudes array length: " + str(len(s.amps)))
+
+// Access amplitude
+let firstAmp = s.amps[0]
+print("First amplitude: " + str(firstAmp.real) + " + " + str(firstAmp.imag) + "i")
+
+print("")
+print("Basic quantum structures work!")
