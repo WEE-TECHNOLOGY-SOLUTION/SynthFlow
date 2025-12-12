@@ -1,0 +1,10 @@
+{
+    "hidesExplorerArrows": false,
+    "file": "./sf-icon.png",
+    "fileExtensions": {
+        "sf": "./sf-icon.png"
+    },
+    "languageIds": {
+        "synthflow": "./sf-icon.png"
+    }
+}

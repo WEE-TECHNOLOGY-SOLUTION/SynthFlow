@@ -26,6 +26,15 @@ g++ -std=c++17 -Wall -Wextra -O3 -march=native -flto -DNDEBUG -Icompiler/include
     lsp-server/src/main.cpp ^
     -o synthflow-lsp.exe
 
+echo Building SynthFlow MCP...
+g++ -std=c++17 -Wall -Wextra -O3 -march=native -flto -DNDEBUG -Icompiler/include ^
+    compiler/src/lexer/lexer.cpp ^
+    compiler/src/parser/parser.cpp ^
+    compiler/src/ast/ast_visitor.cpp ^
+    compiler/src/semantic/semantic_analyzer.cpp ^
+    mcp-server/src/main.cpp ^
+    -o synthflow-mcp.exe
+
 if %ERRORLEVEL% EQU 0 (
     echo Build successful! Run ./synthflow-0.0.25.exe to use the compiler.
 ) else (

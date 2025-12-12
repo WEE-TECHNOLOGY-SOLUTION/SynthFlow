@@ -59,5 +59,84 @@
             "print(${1:message});"
         ],
         "description": "Print statement"
+    },
+    "Gemini Chat": {
+        "prefix": "gemini",
+        "body": [
+            "set_gemini_api_key(\"${1:API_KEY}\");",
+            "let response = gemini_chat(\"${2:prompt}\");",
+            "print(response);"
+        ],
+        "description": "Gemini AI chat completion"
+    },
+    "Gemini Complete": {
+        "prefix": "geminicomplete",
+        "body": [
+            "let result = gemini_complete(\"${1:prompt}\");"
+        ],
+        "description": "Gemini text completion"
+    },
+    "Import Statement": {
+        "prefix": "import",
+        "body": [
+            "import ${1:module};"
+        ],
+        "description": "Import a module"
+    },
+    "Struct Definition": {
+        "prefix": "struct",
+        "body": [
+            "struct ${1:Name} {",
+            "    ${2:field}: ${3:Type}",
+            "}"
+        ],
+        "description": "Define a struct"
+    },
+    "Quantum Circuit": {
+        "prefix": "qcircuit",
+        "body": [
+            "let qreg = qreg(${1:num_qubits});",
+            "let creg = creg(${1:num_qubits});",
+            "hadamard(qreg[0]);",
+            "cnot(qreg[0], qreg[1]);",
+            "measure(qreg, creg);"
+        ],
+        "description": "Basic quantum circuit"
+    },
+    "ML Model Training": {
+        "prefix": "train",
+        "body": [
+            "let model = ${1:LinearRegression}();",
+            "model.train(${2:X_train}, ${3:y_train});",
+            "let predictions = model.predict(${4:X_test});"
+        ],
+        "description": "Train an ML model"
+    },
+    "Try Catch": {
+        "prefix": "try",
+        "body": [
+            "try {",
+            "    $0",
+            "} catch (${1:error}) {",
+            "    print(${1:error});",
+            "}"
+        ],
+        "description": "Try-catch block"
+    },
+    "Array Creation": {
+        "prefix": "arr",
+        "body": [
+            "let ${1:arr} = [${2:elements}];"
+        ],
+        "description": "Create an array"
+    },
+    "Map Creation": {
+        "prefix": "map",
+        "body": [
+            "let ${1:map} = {",
+            "    \"${2:key}\": ${3:value}",
+            "};"
+        ],
+        "description": "Create a map/dictionary"
     }
 }

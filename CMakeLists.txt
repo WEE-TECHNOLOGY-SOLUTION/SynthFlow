@@ -67,8 +67,12 @@ target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js
 add_executable(synthflow-lsp lsp-server/src/main.cpp)
 target_link_libraries(synthflow-lsp parser semantic ast lexer)
 
+# MCP Server
+add_executable(synthflow-mcp mcp-server/src/main.cpp)
+target_link_libraries(synthflow-mcp parser semantic interpreter ast lexer)
+
 # ------------------------------------------------------------------------------
 # Installation
 # ------------------------------------------------------------------------------
-install(TARGETS synthflow synthflow-lsp lexer parser ast semantic synthflow_codegen interpreter http_client DESTINATION bin)
+install(TARGETS synthflow synthflow-lsp synthflow-mcp lexer parser ast semantic synthflow_codegen interpreter http_client DESTINATION bin)
 install(DIRECTORY compiler/include/ DESTINATION include)

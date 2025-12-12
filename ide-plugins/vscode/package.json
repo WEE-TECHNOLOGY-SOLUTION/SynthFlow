@@ -2,12 +2,9 @@
     "name": "synthflow-language-support",
     "displayName": "SynthFlow Language Support",
     "description": "Syntax highlighting for SynthFlow programming language",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "icon": "icon.png",
     "main": "./out/extension.js",
-    "activationEvents": [
-        "onLanguage:synthflow"
-    ],
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -b",
@@ -22,6 +19,10 @@
         "typescript": "^5.4.0"
     },
     "publisher": "synthflow",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow"
+    },
     "engines": {
         "vscode": "^1.90.0"
     },
@@ -29,6 +30,13 @@
         "Programming Languages"
     ],
     "contributes": {
+        "iconThemes": [
+            {
+                "id": "synthflow-icons",
+                "label": "SynthFlow Icons",
+                "path": "./icons/synthflow-icon-theme.json"
+            }
+        ],
         "languages": [
             {
                 "id": "synthflow",
@@ -39,7 +47,11 @@
                 "extensions": [
                     ".sf"
                 ],
-                "configuration": "./language-configuration.json"
+                "configuration": "./language-configuration.json",
+                "icon": {
+                    "dark": "./icons/sf-icon.png",
+                    "light": "./icons/sf-icon.png"
+                }
             }
         ],
         "configuration": {

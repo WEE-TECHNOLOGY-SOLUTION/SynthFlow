@@ -28,6 +28,10 @@ RequestExecutionLevel admin
 
 ; MUI Settings
 !define MUI_ABORTWARNING
+; TODO: Replace with .ico file when available. For now, using default icons.
+; To use custom icon, convert synthflow-icon.png to .ico format and uncomment:
+; !define MUI_ICON "assets\synthflow-icon.ico"
+; !define MUI_UNICON "assets\synthflow-icon.ico"
 !define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
 

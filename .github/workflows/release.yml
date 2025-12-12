@@ -26,6 +26,98 @@ jobs:
       if: runner.os == 'Windows'
       run: choco install nsis -y
 
+    - name: Package (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        # Create distribution directory
+        mkdir -p dist/synthflow-linux/bin
+        mkdir -p dist/synthflow-linux/docs
+        mkdir -p dist/synthflow-linux/examples
+        mkdir -p dist/synthflow-linux/stdlib
+        
+        # Copy binaries
+        cp build/synthflow dist/synthflow-linux/bin/
+        cp build/synthflow-lsp dist/synthflow-linux/bin/
+        cp build/synthflow-mcp dist/synthflow-linux/bin/
+        
+        # Make binaries executable
+        chmod +x dist/synthflow-linux/bin/*
+        
+        # Copy root files
+        cp README.md dist/synthflow-linux/
+        cp LICENSE dist/synthflow-linux/
+        cp VERSION dist/synthflow-linux/
+        
+        # Copy docs and examples
+        cp docs/*.md dist/synthflow-linux/docs/ || true
+        cp examples/*.sf dist/synthflow-linux/examples/ || true
+        cp examples/*.synth dist/synthflow-linux/examples/ || true
+        cp stdlib/*.sf dist/synthflow-linux/stdlib/ || true
+        
+        # Create install script
+        cat > dist/synthflow-linux/install.sh << 'EOF'
+        #!/bin/bash
+        INSTALL_DIR="/usr/local/synthflow"
+        sudo mkdir -p "$INSTALL_DIR"
+        sudo cp -r bin/* "$INSTALL_DIR/"
+        sudo ln -sf "$INSTALL_DIR/synthflow" /usr/local/bin/synthflow
+        sudo ln -sf "$INSTALL_DIR/synthflow-lsp" /usr/local/bin/synthflow-lsp
+        sudo ln -sf "$INSTALL_DIR/synthflow-mcp" /usr/local/bin/synthflow-mcp
+        echo "SynthFlow installed to $INSTALL_DIR"
+        EOF
+        chmod +x dist/synthflow-linux/install.sh
+        
+        # Create tar.gz archive
+        cd dist
+        tar -czvf ../synthflow-linux-x64.tar.gz synthflow-linux/
+        cd ..
+
+    - name: Package (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # Create distribution directory
+        mkdir -p dist/synthflow-macos/bin
+        mkdir -p dist/synthflow-macos/docs
+        mkdir -p dist/synthflow-macos/examples
+        mkdir -p dist/synthflow-macos/stdlib
+        
+        # Copy binaries
+        cp build/synthflow dist/synthflow-macos/bin/
+        cp build/synthflow-lsp dist/synthflow-macos/bin/
+        cp build/synthflow-mcp dist/synthflow-macos/bin/
+        
+        # Make binaries executable
+        chmod +x dist/synthflow-macos/bin/*
+        
+        # Copy root files
+        cp README.md dist/synthflow-macos/
+        cp LICENSE dist/synthflow-macos/
+        cp VERSION dist/synthflow-macos/
+        
+        # Copy docs and examples
+        cp docs/*.md dist/synthflow-macos/docs/ || true
+        cp examples/*.sf dist/synthflow-macos/examples/ || true
+        cp examples/*.synth dist/synthflow-macos/examples/ || true
+        cp stdlib/*.sf dist/synthflow-macos/stdlib/ || true
+        
+        # Create install script
+        cat > dist/synthflow-macos/install.sh << 'EOF'
+        #!/bin/bash
+        INSTALL_DIR="/usr/local/synthflow"
+        sudo mkdir -p "$INSTALL_DIR"
+        sudo cp -r bin/* "$INSTALL_DIR/"
+        sudo ln -sf "$INSTALL_DIR/synthflow" /usr/local/bin/synthflow
+        sudo ln -sf "$INSTALL_DIR/synthflow-lsp" /usr/local/bin/synthflow-lsp
+        sudo ln -sf "$INSTALL_DIR/synthflow-mcp" /usr/local/bin/synthflow-mcp
+        echo "SynthFlow installed to $INSTALL_DIR"
+        EOF
+        chmod +x dist/synthflow-macos/install.sh
+        
+        # Create tar.gz archive
+        cd dist
+        tar -czvf ../synthflow-macos-x64.tar.gz synthflow-macos/
+        cd ..
+
     - name: Package (Windows)
       if: runner.os == 'Windows'
       run: |
@@ -33,9 +125,11 @@ jobs:
         mkdir dist\synthflow-windows\bin
         mkdir dist\synthflow-windows\docs
         mkdir dist\synthflow-windows\examples
+        mkdir dist\synthflow-windows\stdlib
         
         copy build\Release\synthflow.exe dist\synthflow-windows\bin\
         copy build\Release\synthflow-lsp.exe dist\synthflow-windows\bin\
+        copy build\Release\synthflow-mcp.exe dist\synthflow-windows\bin\
         
         # Copy root files
         copy README.md dist\synthflow-windows\
@@ -52,6 +146,7 @@ jobs:
         copy docs\*.md dist\synthflow-windows\docs\
         copy examples\*.sf dist\synthflow-windows\examples\
         copy examples\*.synth dist\synthflow-windows\examples\ || echo No .synth files found
+        xcopy /E /I stdlib\*.sf dist\synthflow-windows\stdlib\ || echo No stdlib files found
         
         # Create Zip
         7z a synthflow-windows-x64.zip dist\synthflow-windows\*
@@ -60,14 +155,28 @@ jobs:
         mkdir releases
         & "C:\Program Files (x86)\NSIS\makensis.exe" packaging/synthflow-installer.nsi
 
-    - name: Upload Artifacts
+    - name: Upload Linux Artifacts
+      if: runner.os == 'Linux'
       uses: actions/upload-artifact@v4
       with:
-        name: synthflow-${{ runner.os }}
+        name: synthflow-Linux
+        path: synthflow-linux-x64.tar.gz
+
+    - name: Upload macOS Artifacts
+      if: runner.os == 'macOS'
+      uses: actions/upload-artifact@v4
+      with:
+        name: synthflow-macOS
+        path: synthflow-macos-x64.tar.gz
+
+    - name: Upload Windows Artifacts
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: synthflow-Windows
         path: |
-          synthflow-*.zip
+          synthflow-windows-x64.zip
           releases/*.exe
-          synthflow-*.tar.gz
 
   publish-release:
     needs: build-release
@@ -80,14 +189,16 @@ jobs:
       with:
         merge-multiple: true
     
+    - name: List downloaded artifacts
+      run: ls -la
+    
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
           synthflow-windows-x64.zip
           releases/*.exe
-          synthflow-Linux-x64.tar.gz
-          synthflow-Linux-x64.tar.gz
-          synthflow-macOS-x64.tar.gz
+          synthflow-linux-x64.tar.gz
+          synthflow-macos-x64.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

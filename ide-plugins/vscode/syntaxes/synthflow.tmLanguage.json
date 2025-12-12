@@ -26,7 +26,19 @@
             "patterns": [
                 {
                     "name": "keyword.control.synthflow",
-                    "match": "\\b(fn|let|if|else|while|return|type|struct|enum|intent|true|false|break|continue|for|array)\\b"
+                    "match": "\\b(fn|let|if|else|while|return|type|struct|enum|intent|true|false|break|continue|for|array|import|export|class|match|async|await|try|catch|throw)\\b"
+                },
+                {
+                    "name": "keyword.other.ai.synthflow",
+                    "match": "\\b(gemini_complete|gemini_chat|set_gemini_api_key|has_gemini_api_key|agent|model|train|predict|evaluate|pipeline)\\b"
+                },
+                {
+                    "name": "keyword.other.quantum.synthflow",
+                    "match": "\\b(qubit|qreg|creg|hadamard|cnot|measure|pauliX|pauliY|pauliZ|phase|tgate|swap|ccnot|circuit)\\b"
+                },
+                {
+                    "name": "storage.type.synthflow",
+                    "match": "\\b(Int|Float|String|Bool|Tensor|Array|Map|Set|Option|Result|Void)\\b"
                 }
             ]
         },
