@@ -1,0 +1,384 @@
+// SynthFlow Feature Store Library
+// Feature management and serving for ML
+
+// ===== Feature Store =====
+
+fn createFeatureStore(storagePath: string) -> map {
+    return {
+        "storage_path": storagePath,
+        "feature_groups": {},
+        "feature_views": {},
+        "entities": {}
+    }
+}
+
+// ===== Entities =====
+
+fn createEntity(name: string, joinKey: string, description: string) -> map {
+    return {
+        "name": name,
+        "join_key": joinKey,
+        "description": description,
+        "created_at": getCurrentTimestamp()
+    }
+}
+
+fn registerEntity(store: map, entity: map) -> map {
+    store.entities[entity.name] = entity
+    return store
+}
+
+// ===== Feature Groups =====
+
+fn createFeatureGroup(name: string, entities: array, schema: map, source: map) -> map {
+    return {
+        "name": name,
+        "entities": entities,
+        "schema": schema,  // Feature name -> type mapping
+        "source": source,  // Data source configuration
+        "features": {},
+        "created_at": getCurrentTimestamp(),
+        "updated_at": null
+    }
+}
+
+fn registerFeatureGroup(store: map, featureGroup: map) -> map {
+    store.feature_groups[featureGroup.name] = featureGroup
+    return store
+}
+
+fn ingestFeatures(store: map, groupName: string, data: array, entityColumn: string) -> map {
+    let group = store.feature_groups[groupName]
+    
+    for (let i = 0; i < len(data); i = i + 1) {
+        let row = data[i]
+        let entityId = str(row[entityColumn])
+        
+        if (!hasKey(group.features, entityId)) {
+            group.features[entityId] = []
+        }
+        
+        group.features[entityId] = append(group.features[entityId], {
+            "values": row,
+            "timestamp": getCurrentTimestamp()
+        })
+    }
+    
+    group.updated_at = getCurrentTimestamp()
+    store.feature_groups[groupName] = group
+    
+    return store
+}
+
+// ===== Feature Views =====
+
+fn createFeatureView(name: string, entities: array, features: array, ttl: int) -> map {
+    return {
+        "name": name,
+        "entities": entities,
+        "features": features,  // Array of {group: "group_name", feature: "feature_name"}
+        "ttl": ttl,  // Time-to-live in seconds
+        "created_at": getCurrentTimestamp()
+    }
+}
+
+fn registerFeatureView(store: map, view: map) -> map {
+    store.feature_views[view.name] = view
+    return store
+}
+
+// Get features for an entity
+fn getOnlineFeatures(store: map, viewName: string, entityIds: array) -> map {
+    let view = store.feature_views[viewName]
+    let result = {
+        "entity_ids": entityIds,
+        "features": {}
+    }
+    
+    for (let i = 0; i < len(view.features); i = i + 1) {
+        let featureRef = view.features[i]
+        let featureName = featureRef.group + "_" + featureRef.feature
+        result.features[featureName] = []
+    }
+    
+    for (let e = 0; e < len(entityIds); e = e + 1) {
+        let entityId = str(entityIds[e])
+        
+        for (let i = 0; i < len(view.features); i = i + 1) {
+            let featureRef = view.features[i]
+            let group = store.feature_groups[featureRef.group]
+            let featureName = featureRef.group + "_" + featureRef.feature
+            
+            let value = null
+            if (hasKey(group.features, entityId)) {
+                let history = group.features[entityId]
+                // Get latest value
+                let latest = history[len(history) - 1]
+                if (hasKey(latest.values, featureRef.feature)) {
+                    value = latest.values[featureRef.feature]
+                }
+            }
+            
+            result.features[featureName] = append(result.features[featureName], value)
+        }
+    }
+    
+    return result
+}
+
+// Get historical features for training
+fn getHistoricalFeatures(store: map, viewName: string, entityDf: map, timestamps: array) -> map {
+    let view = store.feature_views[viewName]
+    let result = {
+        "entity_ids": [],
+        "timestamps": timestamps,
+        "features": {}
+    }
+    
+    // Initialize feature columns
+    for (let i = 0; i < len(view.features); i = i + 1) {
+        let featureRef = view.features[i]
+        let featureName = featureRef.group + "_" + featureRef.feature
+        result.features[featureName] = []
+    }
+    
+    // For each entity and timestamp
+    for (let e = 0; e < len(entityDf.entity_ids); e = e + 1) {
+        let entityId = str(entityDf.entity_ids[e])
+        let timestamp = timestamps[e]
+        result.entity_ids = append(result.entity_ids, entityId)
+        
+        for (let i = 0; i < len(view.features); i = i + 1) {
+            let featureRef = view.features[i]
+            let group = store.feature_groups[featureRef.group]
+            let featureName = featureRef.group + "_" + featureRef.feature
+            
+            let value = null
+            if (hasKey(group.features, entityId)) {
+                let history = group.features[entityId]
+                // Find value at or before timestamp
+                for (let j = len(history) - 1; j >= 0; j = j - 1) {
+                    // Simplified: just get latest
+                    if (hasKey(history[j].values, featureRef.feature)) {
+                        value = history[j].values[featureRef.feature]
+                        break
+                    }
+                }
+            }
+            
+            result.features[featureName] = append(result.features[featureName], value)
+        }
+    }
+    
+    return result
+}
+
+// ===== Feature Transformations =====
+
+fn createTransformation(name: string, inputFeatures: array, transformFn: fn) -> map {
+    return {
+        "name": name,
+        "input_features": inputFeatures,
+        "transform_fn": transformFn
+    }
+}
+
+fn applyTransformation(store: map, groupName: string, transformation: map, outputFeatureName: string) -> map {
+    let group = store.feature_groups[groupName]
+    
+    let entityIds = getKeys(group.features)
+    for (let i = 0; i < len(entityIds); i = i + 1) {
+        let entityId = entityIds[i]
+        let history = group.features[entityId]
+        
+        for (let j = 0; j < len(history); j = j + 1) {
+            let values = history[j].values
+            
+            // Gather input values
+            let inputs = []
+            for (let k = 0; k < len(transformation.input_features); k = k + 1) {
+                let featureName = transformation.input_features[k]
+                if (hasKey(values, featureName)) {
+                    inputs = append(inputs, values[featureName])
+                }
+            }
+            
+            // Apply transformation
+            if (len(inputs) == len(transformation.input_features)) {
+                let transformed = transformation.transform_fn(inputs)
+                history[j].values[outputFeatureName] = transformed
+            }
+        }
+        
+        group.features[entityId] = history
+    }
+    
+    store.feature_groups[groupName] = group
+    return store
+}
+
+// ===== Feature Statistics =====
+
+fn getFeatureStatistics(store: map, groupName: string, featureName: string) -> map {
+    let group = store.feature_groups[groupName]
+    
+    let values = []
+    let entityIds = getKeys(group.features)
+    
+    for (let i = 0; i < len(entityIds); i = i + 1) {
+        let history = group.features[entityIds[i]]
+        for (let j = 0; j < len(history); j = j + 1) {
+            if (hasKey(history[j].values, featureName)) {
+                let val = history[j].values[featureName]
+                if (typeof(val) == "int" || typeof(val) == "float") {
+                    values = append(values, val)
+                }
+            }
+        }
+    }
+    
+    if (len(values) == 0) {
+        return {"error": "No numeric values found"}
+    }
+    
+    // Calculate statistics
+    let sum = 0.0
+    let min_val = values[0]
+    let max_val = values[0]
+    
+    for (let i = 0; i < len(values); i = i + 1) {
+        sum = sum + values[i]
+        if (values[i] < min_val) { min_val = values[i] }
+        if (values[i] > max_val) { max_val = values[i] }
+    }
+    
+    let mean = sum / len(values)
+    
+    let sumSq = 0.0
+    for (let i = 0; i < len(values); i = i + 1) {
+        let diff = values[i] - mean
+        sumSq = sumSq + diff * diff
+    }
+    let std = sqrt(sumSq / len(values))
+    
+    // Percentiles
+    let sorted = sortArray(values)
+    let p25 = sorted[int(len(sorted) * 0.25)]
+    let p50 = sorted[int(len(sorted) * 0.50)]
+    let p75 = sorted[int(len(sorted) * 0.75)]
+    
+    return {
+        "feature_name": featureName,
+        "count": len(values),
+        "mean": mean,
+        "std": std,
+        "min": min_val,
+        "max": max_val,
+        "p25": p25,
+        "p50": p50,
+        "p75": p75
+    }
+}
+
+// ===== Feature Validation =====
+
+fn createFeatureValidator(featureName: string, rules: array) -> map {
+    return {
+        "feature_name": featureName,
+        "rules": rules  // Array of {type: "range", min: 0, max: 100} or {type: "not_null"}
+    }
+}
+
+fn validateFeature(validator: map, value: any) -> map {
+    let errors = []
+    
+    for (let i = 0; i < len(validator.rules); i = i + 1) {
+        let rule = validator.rules[i]
+        
+        if (rule.type == "not_null") {
+            if (value == null) {
+                errors = append(errors, "Value is null")
+            }
+        } else if (rule.type == "range") {
+            if (typeof(value) == "int" || typeof(value) == "float") {
+                if (value < rule.min || value > rule.max) {
+                    errors = append(errors, "Value " + str(value) + " out of range [" + str(rule.min) + ", " + str(rule.max) + "]")
+                }
+            }
+        } else if (rule.type == "positive") {
+            if (typeof(value) == "int" || typeof(value) == "float") {
+                if (value <= 0) {
+                    errors = append(errors, "Value must be positive")
+                }
+            }
+        } else if (rule.type == "categorical") {
+            let found = false
+            for (let j = 0; j < len(rule.allowed_values); j = j + 1) {
+                if (value == rule.allowed_values[j]) {
+                    found = true
+                    break
+                }
+            }
+            if (!found) {
+                errors = append(errors, "Value not in allowed categories")
+            }
+        }
+    }
+    
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors
+    }
+}
+
+// ===== Persistence =====
+
+fn saveFeatureStore(store: map, filePath: string) -> bool {
+    let json = toJSON(store)
+    write_file(filePath, json)
+    return true
+}
+
+fn loadFeatureStore(filePath: string) -> map {
+    let json = read_file(filePath)
+    return parseJSON(json)
+}
+
+// ===== Utility Functions =====
+
+fn getCurrentTimestamp() -> string {
+    return "timestamp"
+}
+
+fn getKeys(m: map) -> array {
+    return []
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true
+}
+
+fn toJSON(obj: any) -> string {
+    return str(obj)
+}
+
+fn parseJSON(s: string) -> map {
+    return {}
+}
+
+fn sortArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    for (let i = 0; i < len(result) - 1; i = i + 1) {
+        for (let j = 0; j < len(result) - i - 1; j = j + 1) {
+            if (result[j] > result[j + 1]) {
+                let temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+            }
+        }
+    }
+    return result
+}

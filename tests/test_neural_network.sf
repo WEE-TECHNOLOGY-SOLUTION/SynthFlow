@@ -1,0 +1,56 @@
+// Test suite for Neural Network module
+import neural_network
+import array
+
+print("Testing Neural Network Module...")
+
+// 1. Layer Creation
+print("- Testing Layers")
+let dense = neural_network.Dense(2, 3) // Input 2, Output 3
+if (len(dense.weights) != 2 || len(dense.weights[0]) != 3) {
+    print("FAIL: Dense weights shape")
+}
+
+// 2. Activation Functions
+print("- Testing Activations")
+let relu_out = neural_network.relu([[-1.0, 2.0]])
+if (relu_out[0][0] != 0.0 || relu_out[0][1] != 2.0) {
+    print("FAIL: ReLU")
+}
+
+let sigmoid_out = neural_network.sigmoid([[0.0]])
+if (sigmoid_out[0][0] != 0.5) {
+    print("FAIL: Sigmoid")
+}
+
+// 3. Forward Pass (Simple MLP)
+print("- Testing MLP Configuration")
+// Create simple XOR-like network structure manually (mocking standard lib structure)
+let model = neural_network.createMLPClassifier(2, [4], 1) // 2 -> 4 -> 1
+
+// Check structure
+if (len(model.layers) < 2) { print("FAIL: Model layer count") }
+
+// 4. Training Loop Simulation (Single Step)
+print("- Testing Training Step")
+let X = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
+let y = [[0.0], [1.0], [1.0], [0.0]]
+
+// Using 'fit' from library
+// We use a very small epochs count just to verify it runs without crashing
+model = neural_network.compile(model, "mse", 0.1)
+model = neural_network.fit(model, X, y, 2, 4, false) 
+
+if (model.history["loss"][0] > 0.0) {
+    // Just checking we have history recorded
+    print("Training step execution: OK") 
+} else {
+    print("FAIL: No training history")
+}
+
+// 5. Prediction
+print("- Testing Prediction")
+let preds = neural_network.predict(model, X)
+if (len(preds) != 4) { print("FAIL: Prediction output shape") }
+
+print("Neural Network Module Tests Complete")

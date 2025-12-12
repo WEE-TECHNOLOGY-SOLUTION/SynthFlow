@@ -1,0 +1,305 @@
+// SynthFlow Model Persistence Library
+// Save and load trained ML models
+
+// ===== Model Serialization =====
+
+// Serialize model to JSON string
+fn serializeModel(model: map) -> string {
+    return toJSON(model)
+}
+
+// Deserialize model from JSON string
+fn deserializeModel(jsonStr: string) -> map {
+    return parseJSON(jsonStr)
+}
+
+// Save model to file
+fn saveModel(model: map, filePath: string) -> bool {
+    let jsonStr = serializeModel(model)
+    write_file(filePath, jsonStr)
+    return true
+}
+
+// Load model from file
+fn loadModel(filePath: string) -> map {
+    let jsonStr = read_file(filePath)
+    return deserializeModel(jsonStr)
+}
+
+// ===== Model Versioning =====
+
+fn createModelVersion(model: map, version: string, metadata: map) -> map {
+    return {
+        "model": model,
+        "version": version,
+        "created_at": getCurrentTimestamp(),
+        "metadata": metadata
+    }
+}
+
+fn saveModelVersioned(model: map, basePath: string, version: string, metadata: map) -> string {
+    let versionedModel = createModelVersion(model, version, metadata)
+    let filePath = basePath + "_v" + version + ".sfmodel"
+    saveModel(versionedModel, filePath)
+    return filePath
+}
+
+// ===== Model Registry =====
+
+fn createModelRegistry(basePath: string) -> map {
+    return {
+        "base_path": basePath,
+        "models": {},
+        "versions": {}
+    }
+}
+
+fn registerModel(registry: map, name: string, model: map, version: string, metadata: map) -> map {
+    let filePath = registry.base_path + "/" + name + "_v" + version + ".sfmodel"
+    
+    if (!hasKey(registry.models, name)) {
+        registry.models[name] = []
+    }
+    
+    registry.models[name] = append(registry.models[name], version)
+    
+    if (!hasKey(registry.versions, name)) {
+        registry.versions[name] = {}
+    }
+    
+    registry.versions[name][version] = {
+        "path": filePath,
+        "metadata": metadata,
+        "created_at": getCurrentTimestamp()
+    }
+    
+    saveModel(model, filePath)
+    
+    return registry
+}
+
+fn getModel(registry: map, name: string, version: string) -> map {
+    let info = registry.versions[name][version]
+    return loadModel(info.path)
+}
+
+fn getLatestModel(registry: map, name: string) -> map {
+    let versions = registry.models[name]
+    let latest = versions[len(versions) - 1]
+    return getModel(registry, name, latest)
+}
+
+fn listModels(registry: map) -> array {
+    return keys(registry.models)
+}
+
+fn listVersions(registry: map, name: string) -> array {
+    return registry.models[name]
+}
+
+// ===== Model Checkpointing =====
+
+fn createCheckpointer(checkpointDir: string, maxCheckpoints: int) -> map {
+    return {
+        "checkpoint_dir": checkpointDir,
+        "max_checkpoints": maxCheckpoints,
+        "checkpoints": [],
+        "best_metric": -999999.0,
+        "best_checkpoint": ""
+    }
+}
+
+fn saveCheckpoint(checkpointer: map, model: map, epoch: int, metric: float) -> map {
+    let filename = checkpointer.checkpoint_dir + "/checkpoint_epoch_" + str(epoch) + ".sfmodel"
+    
+    saveModel({
+        "model": model,
+        "epoch": epoch,
+        "metric": metric
+    }, filename)
+    
+    checkpointer.checkpoints = append(checkpointer.checkpoints, {
+        "path": filename,
+        "epoch": epoch,
+        "metric": metric
+    })
+    
+    // Track best
+    if (metric > checkpointer.best_metric) {
+        checkpointer.best_metric = metric
+        checkpointer.best_checkpoint = filename
+    }
+    
+    // Remove old checkpoints if exceeding max
+    while (len(checkpointer.checkpoints) > checkpointer.max_checkpoints) {
+        // Remove oldest (but not best)
+        for (let i = 0; i < len(checkpointer.checkpoints); i = i + 1) {
+            if (checkpointer.checkpoints[i].path != checkpointer.best_checkpoint) {
+                // Remove checkpoint file and from list
+                checkpointer.checkpoints = removeAt(checkpointer.checkpoints, i)
+                break
+            }
+        }
+    }
+    
+    return checkpointer
+}
+
+fn loadBestCheckpoint(checkpointer: map) -> map {
+    return loadModel(checkpointer.best_checkpoint)
+}
+
+fn loadCheckpoint(checkpointer: map, epoch: int) -> map {
+    for (let i = 0; i < len(checkpointer.checkpoints); i = i + 1) {
+        if (checkpointer.checkpoints[i].epoch == epoch) {
+            return loadModel(checkpointer.checkpoints[i].path)
+        }
+    }
+    return {}
+}
+
+// ===== Early Stopping =====
+
+fn createEarlyStopping(patience: int, minDelta: float, mode: string) -> map {
+    return {
+        "patience": patience,
+        "min_delta": minDelta,
+        "mode": mode,  // "min" or "max"
+        "best_metric": 0.0,
+        "counter": 0,
+        "should_stop": false,
+        "best_model": {}
+    }
+}
+
+fn checkEarlyStopping(es: map, metric: float, model: map) -> map {
+    let improved = false
+    
+    if (es.mode == "min") {
+        if (metric < es.best_metric - es.min_delta) {
+            improved = true
+        }
+    } else {
+        if (metric > es.best_metric + es.min_delta) {
+            improved = true
+        }
+    }
+    
+    if (improved || es.counter == 0) {
+        es.best_metric = metric
+        es.counter = 0
+        es.best_model = model
+    } else {
+        es.counter = es.counter + 1
+    }
+    
+    if (es.counter >= es.patience) {
+        es.should_stop = true
+    }
+    
+    return es
+}
+
+// ===== Model Export Formats =====
+
+// Export model as ONNX-like JSON structure
+fn exportONNXLike(model: map, inputShape: array, outputShape: array) -> map {
+    return {
+        "format": "synthflow-onnx-like",
+        "version": "1.0",
+        "input": {
+            "name": "input",
+            "shape": inputShape
+        },
+        "output": {
+            "name": "output",
+            "shape": outputShape
+        },
+        "model": model
+    }
+}
+
+// Export model weights only
+fn exportWeights(model: map) -> map {
+    let weights = {}
+    
+    if (hasKey(model, "weights")) {
+        weights.weights = model.weights
+    }
+    if (hasKey(model, "bias")) {
+        weights.bias = model.bias
+    }
+    if (hasKey(model, "layers")) {
+        weights.layers = []
+        for (let i = 0; i < len(model.layers); i = i + 1) {
+            let layer = model.layers[i]
+            let layerWeights = {}
+            if (hasKey(layer, "weights")) {
+                layerWeights.weights = layer.weights
+            }
+            if (hasKey(layer, "bias")) {
+                layerWeights.bias = layer.bias
+            }
+            weights.layers = append(weights.layers, layerWeights)
+        }
+    }
+    
+    return weights
+}
+
+// Import weights into model
+fn importWeights(model: map, weights: map) -> map {
+    if (hasKey(weights, "weights")) {
+        model.weights = weights.weights
+    }
+    if (hasKey(weights, "bias")) {
+        model.bias = weights.bias
+    }
+    if (hasKey(weights, "layers") && hasKey(model, "layers")) {
+        for (let i = 0; i < len(weights.layers); i = i + 1) {
+            if (hasKey(weights.layers[i], "weights")) {
+                model.layers[i].weights = weights.layers[i].weights
+            }
+            if (hasKey(weights.layers[i], "bias")) {
+                model.layers[i].bias = weights.layers[i].bias
+            }
+        }
+    }
+    
+    return model
+}
+
+// ===== Utility Functions =====
+
+fn getCurrentTimestamp() -> string {
+    // Would use datetime module
+    return "timestamp"
+}
+
+fn toJSON(obj: any) -> string {
+    // Would use json module
+    return str(obj)
+}
+
+fn parseJSON(jsonStr: string) -> map {
+    // Would use json module
+    return {}
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true
+}
+
+fn keys(m: map) -> array {
+    return []
+}
+
+fn removeAt(arr: array, idx: int) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (i != idx) {
+            result = append(result, arr[i])
+        }
+    }
+    return result
+}

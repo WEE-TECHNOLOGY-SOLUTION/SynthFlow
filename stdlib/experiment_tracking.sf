@@ -1,0 +1,404 @@
+// SynthFlow Experiment Tracking Library
+// Track ML experiments, parameters, and results
+
+// ===== Experiment Tracker =====
+
+fn createExperimentTracker(projectName: string, storagePath: string) -> map {
+    return {
+        "project_name": projectName,
+        "storage_path": storagePath,
+        "experiments": [],
+        "current_experiment": null,
+        "run_id_counter": 0
+    }
+}
+
+// Start a new experiment run
+fn startRun(tracker: map, runName: string, tags: map) -> map {
+    tracker.run_id_counter = tracker.run_id_counter + 1
+    
+    let run = {
+        "run_id": tracker.run_id_counter,
+        "run_name": runName,
+        "status": "running",
+        "start_time": getCurrentTimestamp(),
+        "end_time": null,
+        "tags": tags,
+        "params": {},
+        "metrics": {},
+        "artifacts": [],
+        "logs": []
+    }
+    
+    tracker.current_experiment = run
+    return tracker
+}
+
+// Log a parameter
+fn logParam(tracker: map, key: string, value: any) -> map {
+    if (tracker.current_experiment != null) {
+        tracker.current_experiment.params[key] = value
+    }
+    return tracker
+}
+
+// Log multiple parameters
+fn logParams(tracker: map, params: map) -> map {
+    if (tracker.current_experiment != null) {
+        let keys = getKeys(params)
+        for (let i = 0; i < len(keys); i = i + 1) {
+            tracker.current_experiment.params[keys[i]] = params[keys[i]]
+        }
+    }
+    return tracker
+}
+
+// Log a metric
+fn logMetric(tracker: map, key: string, value: float, step: int) -> map {
+    if (tracker.current_experiment != null) {
+        if (!hasKey(tracker.current_experiment.metrics, key)) {
+            tracker.current_experiment.metrics[key] = []
+        }
+        tracker.current_experiment.metrics[key] = append(
+            tracker.current_experiment.metrics[key],
+            {"step": step, "value": value, "timestamp": getCurrentTimestamp()}
+        )
+    }
+    return tracker
+}
+
+// Log multiple metrics
+fn logMetrics(tracker: map, metrics: map, step: int) -> map {
+    let keys = getKeys(metrics)
+    for (let i = 0; i < len(keys); i = i + 1) {
+        tracker = logMetric(tracker, keys[i], metrics[keys[i]], step)
+    }
+    return tracker
+}
+
+// Log an artifact (file path)
+fn logArtifact(tracker: map, artifactPath: string, artifactType: string) -> map {
+    if (tracker.current_experiment != null) {
+        tracker.current_experiment.artifacts = append(
+            tracker.current_experiment.artifacts,
+            {
+                "path": artifactPath,
+                "type": artifactType,
+                "timestamp": getCurrentTimestamp()
+            }
+        )
+    }
+    return tracker
+}
+
+// Log a model
+fn logModel(tracker: map, model: map, modelName: string) -> map {
+    if (tracker.current_experiment != null) {
+        let modelPath = tracker.storage_path + "/" + 
+                        str(tracker.current_experiment.run_id) + "/" + 
+                        modelName + ".sfmodel"
+        
+        // Save model to path
+        saveModel(model, modelPath)
+        
+        tracker = logArtifact(tracker, modelPath, "model")
+    }
+    return tracker
+}
+
+// Add a log message
+fn logMessage(tracker: map, message: string) -> map {
+    if (tracker.current_experiment != null) {
+        tracker.current_experiment.logs = append(
+            tracker.current_experiment.logs,
+            {"message": message, "timestamp": getCurrentTimestamp()}
+        )
+    }
+    return tracker
+}
+
+// End the current run
+fn endRun(tracker: map, status: string) -> map {
+    if (tracker.current_experiment != null) {
+        tracker.current_experiment.status = status
+        tracker.current_experiment.end_time = getCurrentTimestamp()
+        tracker.experiments = append(tracker.experiments, tracker.current_experiment)
+        tracker.current_experiment = null
+    }
+    return tracker
+}
+
+// ===== Experiment Comparison =====
+
+fn compareExperiments(tracker: map, runIds: array) -> map {
+    let comparison = {
+        "runs": [],
+        "params_diff": {},
+        "metrics_comparison": {}
+    }
+    
+    // Get experiments by run IDs
+    for (let i = 0; i < len(runIds); i = i + 1) {
+        for (let j = 0; j < len(tracker.experiments); j = j + 1) {
+            if (tracker.experiments[j].run_id == runIds[i]) {
+                comparison.runs = append(comparison.runs, tracker.experiments[j])
+            }
+        }
+    }
+    
+    if (len(comparison.runs) < 2) {
+        return comparison
+    }
+    
+    // Compare parameters
+    let allParams = {}
+    for (let i = 0; i < len(comparison.runs); i = i + 1) {
+        let params = comparison.runs[i].params
+        let paramKeys = getKeys(params)
+        for (let j = 0; j < len(paramKeys); j = j + 1) {
+            let key = paramKeys[j]
+            if (!hasKey(allParams, key)) {
+                allParams[key] = []
+            }
+            allParams[key] = append(allParams[key], {
+                "run_id": comparison.runs[i].run_id,
+                "value": params[key]
+            })
+        }
+    }
+    comparison.params_diff = allParams
+    
+    // Compare final metrics
+    let allMetrics = {}
+    for (let i = 0; i < len(comparison.runs); i = i + 1) {
+        let metrics = comparison.runs[i].metrics
+        let metricKeys = getKeys(metrics)
+        for (let j = 0; j < len(metricKeys); j = j + 1) {
+            let key = metricKeys[j]
+            let values = metrics[key]
+            let finalValue = values[len(values) - 1].value
+            
+            if (!hasKey(allMetrics, key)) {
+                allMetrics[key] = []
+            }
+            allMetrics[key] = append(allMetrics[key], {
+                "run_id": comparison.runs[i].run_id,
+                "value": finalValue
+            })
+        }
+    }
+    comparison.metrics_comparison = allMetrics
+    
+    return comparison
+}
+
+// Find best experiment by metric
+fn getBestRun(tracker: map, metricName: string, mode: string) -> map {
+    let bestRun = null
+    let bestValue = 0.0
+    
+    if (mode == "max") {
+        bestValue = -999999.0
+    } else {
+        bestValue = 999999.0
+    }
+    
+    for (let i = 0; i < len(tracker.experiments); i = i + 1) {
+        let exp = tracker.experiments[i]
+        if (hasKey(exp.metrics, metricName)) {
+            let values = exp.metrics[metricName]
+            let finalValue = values[len(values) - 1].value
+            
+            let isBetter = false
+            if (mode == "max" && finalValue > bestValue) {
+                isBetter = true
+            } else if (mode == "min" && finalValue < bestValue) {
+                isBetter = true
+            }
+            
+            if (isBetter) {
+                bestValue = finalValue
+                bestRun = exp
+            }
+        }
+    }
+    
+    return bestRun
+}
+
+// ===== Experiment Search =====
+
+fn searchExperiments(tracker: map, filters: map) -> array {
+    let results = []
+    
+    for (let i = 0; i < len(tracker.experiments); i = i + 1) {
+        let exp = tracker.experiments[i]
+        let matches = true
+        
+        // Check status filter
+        if (hasKey(filters, "status")) {
+            if (exp.status != filters.status) {
+                matches = false
+            }
+        }
+        
+        // Check tag filters
+        if (hasKey(filters, "tags") && matches) {
+            let filterTags = filters.tags
+            let tagKeys = getKeys(filterTags)
+            for (let j = 0; j < len(tagKeys); j = j + 1) {
+                let key = tagKeys[j]
+                if (!hasKey(exp.tags, key) || exp.tags[key] != filterTags[key]) {
+                    matches = false
+                    break
+                }
+            }
+        }
+        
+        // Check param filters
+        if (hasKey(filters, "params") && matches) {
+            let filterParams = filters.params
+            let paramKeys = getKeys(filterParams)
+            for (let j = 0; j < len(paramKeys); j = j + 1) {
+                let key = paramKeys[j]
+                if (!hasKey(exp.params, key) || exp.params[key] != filterParams[key]) {
+                    matches = false
+                    break
+                }
+            }
+        }
+        
+        if (matches) {
+            results = append(results, exp)
+        }
+    }
+    
+    return results
+}
+
+// ===== Experiment Persistence =====
+
+fn saveTracker(tracker: map, filePath: string) -> bool {
+    let json = toJSON(tracker)
+    write_file(filePath, json)
+    return true
+}
+
+fn loadTracker(filePath: string) -> map {
+    let json = read_file(filePath)
+    return parseJSON(json)
+}
+
+// Export experiments to DataFrame-like format
+fn exportToDataFrame(tracker: map) -> map {
+    let columns = ["run_id", "run_name", "status", "start_time", "end_time"]
+    let data = {}
+    
+    for (let i = 0; i < len(columns); i = i + 1) {
+        data[columns[i]] = []
+    }
+    
+    // Collect all param and metric names
+    let allParamNames = []
+    let allMetricNames = []
+    
+    for (let i = 0; i < len(tracker.experiments); i = i + 1) {
+        let exp = tracker.experiments[i]
+        
+        let paramKeys = getKeys(exp.params)
+        for (let j = 0; j < len(paramKeys); j = j + 1) {
+            if (!contains(allParamNames, paramKeys[j])) {
+                allParamNames = append(allParamNames, paramKeys[j])
+            }
+        }
+        
+        let metricKeys = getKeys(exp.metrics)
+        for (let j = 0; j < len(metricKeys); j = j + 1) {
+            if (!contains(allMetricNames, metricKeys[j])) {
+                allMetricNames = append(allMetricNames, metricKeys[j])
+            }
+        }
+    }
+    
+    // Add param and metric columns
+    for (let i = 0; i < len(allParamNames); i = i + 1) {
+        columns = append(columns, "param_" + allParamNames[i])
+        data["param_" + allParamNames[i]] = []
+    }
+    
+    for (let i = 0; i < len(allMetricNames); i = i + 1) {
+        columns = append(columns, "metric_" + allMetricNames[i])
+        data["metric_" + allMetricNames[i]] = []
+    }
+    
+    // Populate data
+    for (let i = 0; i < len(tracker.experiments); i = i + 1) {
+        let exp = tracker.experiments[i]
+        
+        data["run_id"] = append(data["run_id"], exp.run_id)
+        data["run_name"] = append(data["run_name"], exp.run_name)
+        data["status"] = append(data["status"], exp.status)
+        data["start_time"] = append(data["start_time"], exp.start_time)
+        data["end_time"] = append(data["end_time"], exp.end_time)
+        
+        for (let j = 0; j < len(allParamNames); j = j + 1) {
+            let key = allParamNames[j]
+            let val = null
+            if (hasKey(exp.params, key)) {
+                val = exp.params[key]
+            }
+            data["param_" + key] = append(data["param_" + key], val)
+        }
+        
+        for (let j = 0; j < len(allMetricNames); j = j + 1) {
+            let key = allMetricNames[j]
+            let val = null
+            if (hasKey(exp.metrics, key)) {
+                let values = exp.metrics[key]
+                val = values[len(values) - 1].value
+            }
+            data["metric_" + key] = append(data["metric_" + key], val)
+        }
+    }
+    
+    return {
+        "columns": columns,
+        "data": data,
+        "length": len(tracker.experiments)
+    }
+}
+
+// ===== Utility Functions =====
+
+fn getCurrentTimestamp() -> string {
+    return "timestamp"
+}
+
+fn getKeys(m: map) -> array {
+    return []
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true
+}
+
+fn toJSON(obj: any) -> string {
+    return str(obj)
+}
+
+fn parseJSON(s: string) -> map {
+    return {}
+}
+
+fn saveModel(model: map, path: string) -> bool {
+    return true
+}
+
+fn contains(arr: array, item: any) -> bool {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == item) {
+            return true
+        }
+    }
+    return false
+}

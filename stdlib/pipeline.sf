@@ -1,0 +1,399 @@
+// SynthFlow ML Pipeline Library
+// Pipeline orchestration for ML workflows
+
+// ===== Pipeline Definition =====
+
+fn createPipeline(name: string) -> map {
+    return {
+        "name": name,
+        "steps": [],
+        "params": {},
+        "artifacts": {},
+        "status": "not_started",
+        "start_time": null,
+        "end_time": null,
+        "logs": []
+    }
+}
+
+// Add a step to the pipeline
+fn addStep(pipeline: map, stepName: string, stepFn: fn, inputs: array, outputs: array) -> map {
+    pipeline.steps = append(pipeline.steps, {
+        "name": stepName,
+        "function": stepFn,
+        "inputs": inputs,
+        "outputs": outputs,
+        "status": "pending",
+        "start_time": null,
+        "end_time": null,
+        "error": null
+    })
+    return pipeline
+}
+
+// Set pipeline parameters
+fn setParams(pipeline: map, params: map) -> map {
+    pipeline.params = params
+    return pipeline
+}
+
+// ===== Pipeline Execution =====
+
+fn runPipeline(pipeline: map) -> map {
+    pipeline.status = "running"
+    pipeline.start_time = getCurrentTimestamp()
+    
+    logMessage(pipeline, "Pipeline " + pipeline.name + " started")
+    
+    for (let i = 0; i < len(pipeline.steps); i = i + 1) {
+        let step = pipeline.steps[i]
+        
+        logMessage(pipeline, "Starting step: " + step.name)
+        step.status = "running"
+        step.start_time = getCurrentTimestamp()
+        
+        // Gather inputs
+        let inputValues = []
+        for (let j = 0; j < len(step.inputs); j = j + 1) {
+            let inputName = step.inputs[j]
+            if (hasKey(pipeline.artifacts, inputName)) {
+                inputValues = append(inputValues, pipeline.artifacts[inputName])
+            } else if (hasKey(pipeline.params, inputName)) {
+                inputValues = append(inputValues, pipeline.params[inputName])
+            } else {
+                step.status = "failed"
+                step.error = "Missing input: " + inputName
+                pipeline.status = "failed"
+                logMessage(pipeline, "Step " + step.name + " failed: " + step.error)
+                return pipeline
+            }
+        }
+        
+        // Execute step
+        let result = executeStep(step.function, inputValues)
+        
+        if (result.success) {
+            // Store outputs
+            if (len(step.outputs) == 1) {
+                pipeline.artifacts[step.outputs[0]] = result.value
+            } else if (len(step.outputs) > 1) {
+                // Assume result is array/tuple
+                for (let j = 0; j < len(step.outputs); j = j + 1) {
+                    pipeline.artifacts[step.outputs[j]] = result.value[j]
+                }
+            }
+            
+            step.status = "completed"
+            step.end_time = getCurrentTimestamp()
+            logMessage(pipeline, "Step " + step.name + " completed")
+        } else {
+            step.status = "failed"
+            step.error = result.error
+            step.end_time = getCurrentTimestamp()
+            pipeline.status = "failed"
+            logMessage(pipeline, "Step " + step.name + " failed: " + result.error)
+            return pipeline
+        }
+        
+        pipeline.steps[i] = step
+    }
+    
+    pipeline.status = "completed"
+    pipeline.end_time = getCurrentTimestamp()
+    logMessage(pipeline, "Pipeline " + pipeline.name + " completed successfully")
+    
+    return pipeline
+}
+
+fn executeStep(stepFn: fn, inputs: array) -> map {
+    // In real implementation, this would call the function
+    // and catch any errors
+    let result = stepFn(inputs)
+    return {
+        "success": true,
+        "value": result,
+        "error": null
+    }
+}
+
+fn logMessage(pipeline: map, message: string) -> map {
+    pipeline.logs = append(pipeline.logs, {
+        "timestamp": getCurrentTimestamp(),
+        "message": message
+    })
+    return pipeline
+}
+
+// ===== Predefined Pipeline Steps =====
+
+// Data loading step
+fn createLoadDataStep(filePath: string, fileType: string) -> fn {
+    return fn(inputs: array) {
+        if (fileType == "csv") {
+            // Would use dataframe module
+            return readCSV(filePath)
+        }
+        return null
+    }
+}
+
+// Train-test split step
+fn createSplitStep(testSize: float, randomState: int) -> fn {
+    return fn(inputs: array) {
+        let data = inputs[0]
+        return trainTestSplit(data.X, data.y, testSize, randomState)
+    }
+}
+
+// Preprocessing step
+fn createPreprocessStep(scalerType: string) -> fn {
+    return fn(inputs: array) {
+        let X_train = inputs[0]
+        let X_test = inputs[1]
+        
+        let scaler = null
+        if (scalerType == "standard") {
+            scaler = createStandardScaler()
+        } else if (scalerType == "minmax") {
+            scaler = createMinMaxScaler()
+        }
+        
+        scaler = fit(scaler, X_train)
+        let X_train_scaled = transform(scaler, X_train)
+        let X_test_scaled = transform(scaler, X_test)
+        
+        return [X_train_scaled, X_test_scaled, scaler]
+    }
+}
+
+// Model training step
+fn createTrainStep(modelType: string, modelParams: map) -> fn {
+    return fn(inputs: array) {
+        let X_train = inputs[0]
+        let y_train = inputs[1]
+        
+        let model = null
+        if (modelType == "random_forest") {
+            model = createRandomForest(modelParams.n_estimators, modelParams.max_depth, modelParams.min_samples_split)
+        } else if (modelType == "logistic_regression") {
+            model = createLogisticRegression(modelParams.learning_rate, modelParams.max_iterations)
+        } else if (modelType == "neural_network") {
+            model = createMLPClassifier(modelParams.input_size, modelParams.hidden_sizes, modelParams.output_size)
+        }
+        
+        model = fit(model, X_train, y_train)
+        return model
+    }
+}
+
+// Model evaluation step
+fn createEvaluateStep(metrics: array) -> fn {
+    return fn(inputs: array) {
+        let model = inputs[0]
+        let X_test = inputs[1]
+        let y_test = inputs[2]
+        
+        let y_pred = predict(model, X_test)
+        
+        let results = {}
+        for (let i = 0; i < len(metrics); i = i + 1) {
+            if (metrics[i] == "accuracy") {
+                results.accuracy = accuracy(y_test, y_pred)
+            } else if (metrics[i] == "f1") {
+                results.f1 = f1Score(y_test, y_pred)
+            } else if (metrics[i] == "precision") {
+                results.precision = precision(y_test, y_pred)
+            } else if (metrics[i] == "recall") {
+                results.recall = recall(y_test, y_pred)
+            }
+        }
+        
+        return results
+    }
+}
+
+// Model saving step
+fn createSaveModelStep(outputPath: string) -> fn {
+    return fn(inputs: array) {
+        let model = inputs[0]
+        saveModel(model, outputPath)
+        return outputPath
+    }
+}
+
+// ===== Pipeline Templates =====
+
+// Create a standard classification pipeline
+fn createClassificationPipeline(name: string, modelType: string, modelParams: map) -> map {
+    let pipeline = createPipeline(name)
+    
+    pipeline = addStep(pipeline, "load_data", 
+        fn(inputs) { return inputs[0] },
+        ["data"], ["dataset"])
+    
+    pipeline = addStep(pipeline, "split_data",
+        createSplitStep(0.2, 42),
+        ["dataset"], ["X_train", "X_test", "y_train", "y_test"])
+    
+    pipeline = addStep(pipeline, "preprocess",
+        createPreprocessStep("standard"),
+        ["X_train", "X_test"], ["X_train_scaled", "X_test_scaled", "scaler"])
+    
+    pipeline = addStep(pipeline, "train",
+        createTrainStep(modelType, modelParams),
+        ["X_train_scaled", "y_train"], ["model"])
+    
+    pipeline = addStep(pipeline, "evaluate",
+        createEvaluateStep(["accuracy", "f1", "precision", "recall"]),
+        ["model", "X_test_scaled", "y_test"], ["metrics"])
+    
+    return pipeline
+}
+
+// Create a standard regression pipeline
+fn createRegressionPipeline(name: string, modelType: string, modelParams: map) -> map {
+    let pipeline = createPipeline(name)
+    
+    pipeline = addStep(pipeline, "load_data",
+        fn(inputs) { return inputs[0] },
+        ["data"], ["dataset"])
+    
+    pipeline = addStep(pipeline, "split_data",
+        createSplitStep(0.2, 42),
+        ["dataset"], ["X_train", "X_test", "y_train", "y_test"])
+    
+    pipeline = addStep(pipeline, "preprocess",
+        createPreprocessStep("standard"),
+        ["X_train", "X_test"], ["X_train_scaled", "X_test_scaled", "scaler"])
+    
+    pipeline = addStep(pipeline, "train",
+        fn(inputs) {
+            let X = inputs[0]
+            let y = inputs[1]
+            let model = createLinearRegression()
+            model = linearRegressionFitGD(model, X, y, 0.01, 1000)
+            return model
+        },
+        ["X_train_scaled", "y_train"], ["model"])
+    
+    pipeline = addStep(pipeline, "evaluate",
+        fn(inputs) {
+            let model = inputs[0]
+            let X = inputs[1]
+            let y = inputs[2]
+            let pred = linearRegressionPredict(model, X)
+            return {
+                "mse": meanSquaredError(y, pred),
+                "r2": r2Score(y, pred),
+                "mae": meanAbsoluteError(y, pred)
+            }
+        },
+        ["model", "X_test_scaled", "y_test"], ["metrics"])
+    
+    return pipeline
+}
+
+// ===== Pipeline Persistence =====
+
+fn savePipeline(pipeline: map, filePath: string) -> bool {
+    let json = toJSON(pipeline)
+    write_file(filePath, json)
+    return true
+}
+
+fn loadPipeline(filePath: string) -> map {
+    let json = read_file(filePath)
+    return parseJSON(json)
+}
+
+// ===== Pipeline Scheduling =====
+
+fn createScheduler() -> map {
+    return {
+        "jobs": [],
+        "running": false
+    }
+}
+
+fn scheduleJob(scheduler: map, pipeline: map, cronExpr: string) -> map {
+    scheduler.jobs = append(scheduler.jobs, {
+        "pipeline": pipeline,
+        "cron": cronExpr,
+        "last_run": null,
+        "next_run": null,
+        "status": "scheduled"
+    })
+    return scheduler
+}
+
+// ===== Pipeline Monitoring =====
+
+fn getPipelineStatus(pipeline: map) -> map {
+    let completedSteps = 0
+    let failedSteps = 0
+    let pendingSteps = 0
+    
+    for (let i = 0; i < len(pipeline.steps); i = i + 1) {
+        if (pipeline.steps[i].status == "completed") {
+            completedSteps = completedSteps + 1
+        } else if (pipeline.steps[i].status == "failed") {
+            failedSteps = failedSteps + 1
+        } else if (pipeline.steps[i].status == "pending") {
+            pendingSteps = pendingSteps + 1
+        }
+    }
+    
+    return {
+        "name": pipeline.name,
+        "status": pipeline.status,
+        "total_steps": len(pipeline.steps),
+        "completed_steps": completedSteps,
+        "failed_steps": failedSteps,
+        "pending_steps": pendingSteps,
+        "progress": float(completedSteps) / len(pipeline.steps) * 100,
+        "start_time": pipeline.start_time,
+        "end_time": pipeline.end_time,
+        "logs": pipeline.logs
+    }
+}
+
+// ===== Utility Functions =====
+
+fn getCurrentTimestamp() -> string {
+    return "timestamp"
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true
+}
+
+fn toJSON(obj: any) -> string {
+    return str(obj)
+}
+
+fn parseJSON(s: string) -> map {
+    return {}
+}
+
+// Placeholder function references
+fn readCSV(path: string) -> map { return {} }
+fn trainTestSplit(X: array, y: array, ts: float, rs: int) -> map { return {} }
+fn createStandardScaler() -> map { return {} }
+fn createMinMaxScaler() -> map { return {} }
+fn fit(model: map, X: array) -> map { return model }
+fn transform(model: map, X: array) -> array { return X }
+fn predict(model: map, X: array) -> array { return [] }
+fn accuracy(y_true: array, y_pred: array) -> float { return 0.0 }
+fn f1Score(y_true: array, y_pred: array) -> float { return 0.0 }
+fn precision(y_true: array, y_pred: array) -> float { return 0.0 }
+fn recall(y_true: array, y_pred: array) -> float { return 0.0 }
+fn meanSquaredError(y_true: array, y_pred: array) -> float { return 0.0 }
+fn r2Score(y_true: array, y_pred: array) -> float { return 0.0 }
+fn meanAbsoluteError(y_true: array, y_pred: array) -> float { return 0.0 }
+fn saveModel(model: map, path: string) -> bool { return true }
+fn createRandomForest(n: int, d: int, m: int) -> map { return {} }
+fn createLogisticRegression(lr: float, mi: int) -> map { return {} }
+fn createMLPClassifier(i: int, h: array, o: int) -> map { return {} }
+fn createLinearRegression() -> map { return {} }
+fn linearRegressionFitGD(m: map, X: array, y: array, lr: float, it: int) -> map { return m }
+fn linearRegressionPredict(m: map, X: array) -> array { return [] }

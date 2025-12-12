@@ -1,0 +1,651 @@
+// SynthFlow Neural Network Library
+// Deep learning framework with layers, activations, losses, and optimizers
+
+// ===== Tensor Operations (using 2D arrays) =====
+
+fn zeros2d(rows: int, cols: int) -> array {
+    let result = []
+    for (let i = 0; i < rows; i = i + 1) {
+        let row = []
+        for (let j = 0; j < cols; j = j + 1) {
+            row = append(row, 0.0)
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+fn randomNormal2d(rows: int, cols: int, scale: float, seed: int) -> array {
+    let result = []
+    for (let i = 0; i < rows; i = i + 1) {
+        let row = []
+        for (let j = 0; j < cols; j = j + 1) {
+            // Box-Muller transform for normal distribution
+            seed = (1103515245 * seed + 12345) % 2147483648
+            let u1 = float(seed) / 2147483648.0 + 0.0001
+            seed = (1103515245 * seed + 12345) % 2147483648
+            let u2 = float(seed) / 2147483648.0
+            let z = sqrt(-2.0 * ln(u1)) * cos(2.0 * 3.14159 * u2)
+            row = append(row, z * scale)
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+// ===== Activation Functions =====
+
+fn relu(x: float) -> float {
+    if (x > 0) { return x }
+    return 0.0
+}
+
+fn reluDerivative(x: float) -> float {
+    if (x > 0) { return 1.0 }
+    return 0.0
+}
+
+fn sigmoid(x: float) -> float {
+    if (x < -100) { return 0.0 }
+    if (x > 100) { return 1.0 }
+    return 1.0 / (1.0 + exp(-x))
+}
+
+fn sigmoidDerivative(x: float) -> float {
+    let s = sigmoid(x)
+    return s * (1.0 - s)
+}
+
+fn tanh(x: float) -> float {
+    return (exp(x) - exp(-x)) / (exp(x) + exp(-x))
+}
+
+fn tanhDerivative(x: float) -> float {
+    let t = tanh(x)
+    return 1.0 - t * t
+}
+
+fn leakyRelu(x: float, alpha: float) -> float {
+    if (x > 0) { return x }
+    return alpha * x
+}
+
+fn leakyReluDerivative(x: float, alpha: float) -> float {
+    if (x > 0) { return 1.0 }
+    return alpha
+}
+
+fn softmax(x: array) -> array {
+    // Find max for numerical stability
+    let max_val = x[0]
+    for (let i = 1; i < len(x); i = i + 1) {
+        if (x[i] > max_val) { max_val = x[i] }
+    }
+    
+    let exp_sum = 0.0
+    let exps = []
+    for (let i = 0; i < len(x); i = i + 1) {
+        let e = exp(x[i] - max_val)
+        exps = append(exps, e)
+        exp_sum = exp_sum + e
+    }
+    
+    let result = []
+    for (let i = 0; i < len(exps); i = i + 1) {
+        result = append(result, exps[i] / exp_sum)
+    }
+    return result
+}
+
+// Apply activation to array
+fn activateArray(x: array, activation: string) -> array {
+    let result = []
+    for (let i = 0; i < len(x); i = i + 1) {
+        let val = x[i]
+        if (activation == "relu") {
+            result = append(result, relu(val))
+        } else if (activation == "sigmoid") {
+            result = append(result, sigmoid(val))
+        } else if (activation == "tanh") {
+            result = append(result, tanh(val))
+        } else if (activation == "leaky_relu") {
+            result = append(result, leakyRelu(val, 0.01))
+        } else {
+            result = append(result, val)  // linear
+        }
+    }
+    return result
+}
+
+fn activateDerivativeArray(x: array, activation: string) -> array {
+    let result = []
+    for (let i = 0; i < len(x); i = i + 1) {
+        let val = x[i]
+        if (activation == "relu") {
+            result = append(result, reluDerivative(val))
+        } else if (activation == "sigmoid") {
+            result = append(result, sigmoidDerivative(val))
+        } else if (activation == "tanh") {
+            result = append(result, tanhDerivative(val))
+        } else if (activation == "leaky_relu") {
+            result = append(result, leakyReluDerivative(val, 0.01))
+        } else {
+            result = append(result, 1.0)  // linear
+        }
+    }
+    return result
+}
+
+// ===== Loss Functions =====
+
+// Mean Squared Error Loss
+fn mseLoss(y_true: array, y_pred: array) -> float {
+    let loss = 0.0
+    for (let i = 0; i < len(y_true); i = i + 1) {
+        let diff = y_true[i] - y_pred[i]
+        loss = loss + diff * diff
+    }
+    return loss / len(y_true)
+}
+
+fn mseLossGradient(y_true: array, y_pred: array) -> array {
+    let grad = []
+    let n = len(y_true)
+    for (let i = 0; i < n; i = i + 1) {
+        grad = append(grad, 2.0 * (y_pred[i] - y_true[i]) / n)
+    }
+    return grad
+}
+
+// Binary Cross-Entropy Loss
+fn binaryCrossEntropyLoss(y_true: array, y_pred: array) -> float {
+    let loss = 0.0
+    let n = len(y_true)
+    for (let i = 0; i < n; i = i + 1) {
+        let p = y_pred[i]
+        // Clip for numerical stability
+        if (p < 1e-15) { p = 1e-15 }
+        if (p > 1 - 1e-15) { p = 1 - 1e-15 }
+        loss = loss - (y_true[i] * ln(p) + (1 - y_true[i]) * ln(1 - p))
+    }
+    return loss / n
+}
+
+fn binaryCrossEntropyGradient(y_true: array, y_pred: array) -> array {
+    let grad = []
+    let n = len(y_true)
+    for (let i = 0; i < n; i = i + 1) {
+        let p = y_pred[i]
+        if (p < 1e-15) { p = 1e-15 }
+        if (p > 1 - 1e-15) { p = 1 - 1e-15 }
+        grad = append(grad, (p - y_true[i]) / (p * (1 - p)) / n)
+    }
+    return grad
+}
+
+// Categorical Cross-Entropy Loss
+fn categoricalCrossEntropyLoss(y_true: array, y_pred: array) -> float {
+    let loss = 0.0
+    for (let i = 0; i < len(y_true); i = i + 1) {
+        let p = y_pred[i]
+        if (p < 1e-15) { p = 1e-15 }
+        loss = loss - y_true[i] * ln(p)
+    }
+    return loss
+}
+
+fn categoricalCrossEntropyGradient(y_true: array, y_pred: array) -> array {
+    let grad = []
+    for (let i = 0; i < len(y_true); i = i + 1) {
+        // For softmax + cross-entropy, gradient is simply y_pred - y_true
+        grad = append(grad, y_pred[i] - y_true[i])
+    }
+    return grad
+}
+
+// ===== Dense Layer =====
+
+fn createDenseLayer(inputSize: int, outputSize: int, activation: string) -> map {
+    // Xavier/Glorot initialization
+    let scale = sqrt(2.0 / (inputSize + outputSize))
+    
+    return {
+        "type": "dense",
+        "input_size": inputSize,
+        "output_size": outputSize,
+        "activation": activation,
+        "weights": randomNormal2d(inputSize, outputSize, scale, 42),
+        "bias": zeros(outputSize),
+        "last_input": [],
+        "last_z": [],
+        "last_output": [],
+        "dW": zeros2d(inputSize, outputSize),
+        "db": zeros(outputSize)
+    }
+}
+
+fn zeros(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, 0.0)
+    }
+    return result
+}
+
+fn denseForward(layer: map, input: array) -> array {
+    layer.last_input = input
+    
+    // z = input @ weights + bias
+    let z = []
+    for (let j = 0; j < layer.output_size; j = j + 1) {
+        let sum = layer.bias[j]
+        for (let i = 0; i < layer.input_size; i = i + 1) {
+            sum = sum + input[i] * layer.weights[i][j]
+        }
+        z = append(z, sum)
+    }
+    
+    layer.last_z = z
+    
+    // Apply activation
+    let output = []
+    if (layer.activation == "softmax") {
+        output = softmax(z)
+    } else {
+        output = activateArray(z, layer.activation)
+    }
+    
+    layer.last_output = output
+    return output
+}
+
+fn denseBackward(layer: map, grad: array) -> array {
+    // If softmax was used with cross-entropy, grad already includes activation derivative
+    let delta = []
+    if (layer.activation != "softmax") {
+        let activation_grad = activateDerivativeArray(layer.last_z, layer.activation)
+        for (let i = 0; i < len(grad); i = i + 1) {
+            delta = append(delta, grad[i] * activation_grad[i])
+        }
+    } else {
+        delta = grad
+    }
+    
+    // Compute gradients
+    for (let i = 0; i < layer.input_size; i = i + 1) {
+        for (let j = 0; j < layer.output_size; j = j + 1) {
+            layer.dW[i][j] = layer.dW[i][j] + layer.last_input[i] * delta[j]
+        }
+    }
+    
+    for (let j = 0; j < layer.output_size; j = j + 1) {
+        layer.db[j] = layer.db[j] + delta[j]
+    }
+    
+    // Compute gradient for previous layer
+    let input_grad = []
+    for (let i = 0; i < layer.input_size; i = i + 1) {
+        let sum = 0.0
+        for (let j = 0; j < layer.output_size; j = j + 1) {
+            sum = sum + layer.weights[i][j] * delta[j]
+        }
+        input_grad = append(input_grad, sum)
+    }
+    
+    return input_grad
+}
+
+// ===== Dropout Layer =====
+
+fn createDropoutLayer(rate: float) -> map {
+    return {
+        "type": "dropout",
+        "rate": rate,
+        "mask": [],
+        "training": true
+    }
+}
+
+fn dropoutForward(layer: map, input: array, seed: int) -> array {
+    if (!layer.training) {
+        return input
+    }
+    
+    let output = []
+    layer.mask = []
+    
+    for (let i = 0; i < len(input); i = i + 1) {
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let p = float(seed) / 2147483648.0
+        
+        if (p < layer.rate) {
+            layer.mask = append(layer.mask, 0.0)
+            output = append(output, 0.0)
+        } else {
+            layer.mask = append(layer.mask, 1.0 / (1.0 - layer.rate))
+            output = append(output, input[i] / (1.0 - layer.rate))
+        }
+    }
+    
+    return output
+}
+
+fn dropoutBackward(layer: map, grad: array) -> array {
+    let output = []
+    for (let i = 0; i < len(grad); i = i + 1) {
+        output = append(output, grad[i] * layer.mask[i])
+    }
+    return output
+}
+
+// ===== Batch Normalization Layer =====
+
+fn createBatchNormLayer(size: int) -> map {
+    let gamma = []
+    let beta = []
+    for (let i = 0; i < size; i = i + 1) {
+        gamma = append(gamma, 1.0)
+        beta = append(beta, 0.0)
+    }
+    
+    return {
+        "type": "batchnorm",
+        "size": size,
+        "gamma": gamma,
+        "beta": beta,
+        "running_mean": zeros(size),
+        "running_var": ones(size),
+        "eps": 1e-5,
+        "momentum": 0.1,
+        "training": true,
+        "last_input": [],
+        "last_normalized": [],
+        "last_mean": [],
+        "last_var": []
+    }
+}
+
+fn ones(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, 1.0)
+    }
+    return result
+}
+
+// ===== Neural Network Model =====
+
+fn createNeuralNetwork() -> map {
+    return {
+        "layers": [],
+        "loss": "mse",
+        "learning_rate": 0.01,
+        "is_compiled": false
+    }
+}
+
+fn addLayer(model: map, layer: map) -> map {
+    model.layers = append(model.layers, layer)
+    return model
+}
+
+fn compile(model: map, loss: string, learningRate: float) -> map {
+    model.loss = loss
+    model.learning_rate = learningRate
+    model.is_compiled = true
+    return model
+}
+
+fn forward(model: map, input: array) -> array {
+    let output = input
+    for (let i = 0; i < len(model.layers); i = i + 1) {
+        let layer = model.layers[i]
+        if (layer.type == "dense") {
+            output = denseForward(layer, output)
+        } else if (layer.type == "dropout") {
+            output = dropoutForward(layer, output, i * 1000)
+        }
+        model.layers[i] = layer
+    }
+    return output
+}
+
+fn backward(model: map, loss_grad: array) -> map {
+    let grad = loss_grad
+    for (let i = len(model.layers) - 1; i >= 0; i = i - 1) {
+        let layer = model.layers[i]
+        if (layer.type == "dense") {
+            grad = denseBackward(layer, grad)
+        } else if (layer.type == "dropout") {
+            grad = dropoutBackward(layer, grad)
+        }
+        model.layers[i] = layer
+    }
+    return model
+}
+
+fn updateWeights(model: map, batchSize: int) -> map {
+    for (let i = 0; i < len(model.layers); i = i + 1) {
+        let layer = model.layers[i]
+        if (layer.type == "dense") {
+            // Update weights and bias
+            for (let j = 0; j < layer.input_size; j = j + 1) {
+                for (let k = 0; k < layer.output_size; k = k + 1) {
+                    layer.weights[j][k] = layer.weights[j][k] - model.learning_rate * layer.dW[j][k] / batchSize
+                    layer.dW[j][k] = 0.0
+                }
+            }
+            for (let j = 0; j < layer.output_size; j = j + 1) {
+                layer.bias[j] = layer.bias[j] - model.learning_rate * layer.db[j] / batchSize
+                layer.db[j] = 0.0
+            }
+        }
+        model.layers[i] = layer
+    }
+    return model
+}
+
+fn fit(model: map, X: array, y: array, epochs: int, batchSize: int, verbose: bool) -> map {
+    let n_samples = len(X)
+    let history = { "loss": [] }
+    
+    for (let epoch = 0; epoch < epochs; epoch = epoch + 1) {
+        let epoch_loss = 0.0
+        
+        for (let batch_start = 0; batch_start < n_samples; batch_start = batch_start + batchSize) {
+            let batch_end = batch_start + batchSize
+            if (batch_end > n_samples) { batch_end = n_samples }
+            let actual_batch_size = batch_end - batch_start
+            
+            let batch_loss = 0.0
+            
+            for (let i = batch_start; i < batch_end; i = i + 1) {
+                // Forward pass
+                let output = forward(model, X[i])
+                
+                // Compute loss
+                let loss = 0.0
+                let loss_grad = []
+                
+                if (model.loss == "mse") {
+                    loss = mseLoss(y[i], output)
+                    loss_grad = mseLossGradient(y[i], output)
+                } else if (model.loss == "binary_crossentropy") {
+                    loss = binaryCrossEntropyLoss(y[i], output)
+                    loss_grad = binaryCrossEntropyGradient(y[i], output)
+                } else if (model.loss == "categorical_crossentropy") {
+                    loss = categoricalCrossEntropyLoss(y[i], output)
+                    loss_grad = categoricalCrossEntropyGradient(y[i], output)
+                }
+                
+                batch_loss = batch_loss + loss
+                
+                // Backward pass
+                model = backward(model, loss_grad)
+            }
+            
+            // Update weights
+            model = updateWeights(model, actual_batch_size)
+            epoch_loss = epoch_loss + batch_loss
+        }
+        
+        epoch_loss = epoch_loss / n_samples
+        history.loss = append(history.loss, epoch_loss)
+        
+        if (verbose) {
+            print("Epoch " + str(epoch + 1) + "/" + str(epochs) + " - Loss: " + str(epoch_loss))
+        }
+    }
+    
+    model.history = history
+    return model
+}
+
+fn predict(model: map, X: array) -> array {
+    // Set all dropout layers to evaluation mode
+    for (let i = 0; i < len(model.layers); i = i + 1) {
+        if (model.layers[i].type == "dropout") {
+            model.layers[i].training = false
+        }
+    }
+    
+    let predictions = []
+    for (let i = 0; i < len(X); i = i + 1) {
+        let output = forward(model, X[i])
+        predictions = append(predictions, output)
+    }
+    
+    // Set back to training mode
+    for (let i = 0; i < len(model.layers); i = i + 1) {
+        if (model.layers[i].type == "dropout") {
+            model.layers[i].training = true
+        }
+    }
+    
+    return predictions
+}
+
+// ===== Helper Functions for Classification =====
+
+fn predictClasses(model: map, X: array) -> array {
+    let probs = predict(model, X)
+    let classes = []
+    
+    for (let i = 0; i < len(probs); i = i + 1) {
+        if (len(probs[i]) == 1) {
+            // Binary classification
+            if (probs[i][0] >= 0.5) {
+                classes = append(classes, 1)
+            } else {
+                classes = append(classes, 0)
+            }
+        } else {
+            // Multi-class classification
+            let max_idx = 0
+            let max_val = probs[i][0]
+            for (let j = 1; j < len(probs[i]); j = j + 1) {
+                if (probs[i][j] > max_val) {
+                    max_val = probs[i][j]
+                    max_idx = j
+                }
+            }
+            classes = append(classes, max_idx)
+        }
+    }
+    
+    return classes
+}
+
+// ===== Model Summary =====
+
+fn summary(model: map) -> string {
+    let result = "Neural Network Summary\n"
+    result = result + "======================\n"
+    
+    let total_params = 0
+    
+    for (let i = 0; i < len(model.layers); i = i + 1) {
+        let layer = model.layers[i]
+        result = result + "Layer " + str(i + 1) + ": " + layer.type
+        
+        if (layer.type == "dense") {
+            let params = layer.input_size * layer.output_size + layer.output_size
+            total_params = total_params + params
+            result = result + " (" + str(layer.input_size) + " -> " + str(layer.output_size) + ")"
+            result = result + " [" + layer.activation + "]"
+            result = result + " Params: " + str(params)
+        } else if (layer.type == "dropout") {
+            result = result + " (rate=" + str(layer.rate) + ")"
+        }
+        
+        result = result + "\n"
+    }
+    
+    result = result + "======================\n"
+    result = result + "Total Parameters: " + str(total_params) + "\n"
+    
+    return result
+}
+
+// ===== Convenience Functions =====
+
+// Create a simple MLP for classification
+fn createMLPClassifier(inputSize: int, hiddenSizes: array, outputSize: int) -> map {
+    let model = createNeuralNetwork()
+    
+    let prev_size = inputSize
+    for (let i = 0; i < len(hiddenSizes); i = i + 1) {
+        model = addLayer(model, createDenseLayer(prev_size, hiddenSizes[i], "relu"))
+        prev_size = hiddenSizes[i]
+    }
+    
+    // Output layer
+    if (outputSize == 1) {
+        model = addLayer(model, createDenseLayer(prev_size, outputSize, "sigmoid"))
+    } else {
+        model = addLayer(model, createDenseLayer(prev_size, outputSize, "softmax"))
+    }
+    
+    return model
+}
+
+// Create a simple MLP for regression
+fn createMLPRegressor(inputSize: int, hiddenSizes: array, outputSize: int) -> map {
+    let model = createNeuralNetwork()
+    
+    let prev_size = inputSize
+    for (let i = 0; i < len(hiddenSizes); i = i + 1) {
+        model = addLayer(model, createDenseLayer(prev_size, hiddenSizes[i], "relu"))
+        prev_size = hiddenSizes[i]
+    }
+    
+    // Output layer (linear for regression)
+    model = addLayer(model, createDenseLayer(prev_size, outputSize, "linear"))
+    
+    return model
+}
+
+// ===== Optimizers (in the future these can be made more sophisticated) =====
+
+fn createSGD(learningRate: float) -> map {
+    return {
+        "type": "sgd",
+        "learning_rate": learningRate
+    }
+}
+
+fn createAdam(learningRate: float, beta1: float, beta2: float) -> map {
+    return {
+        "type": "adam",
+        "learning_rate": learningRate,
+        "beta1": beta1,
+        "beta2": beta2,
+        "eps": 1e-8,
+        "m": [],
+        "v": [],
+        "t": 0
+    }
+}
+
+// Note: Full Adam optimizer would require storing m and v for each parameter
+// This is a simplified version

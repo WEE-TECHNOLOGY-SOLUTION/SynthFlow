@@ -1,0 +1,461 @@
+// SynthFlow Model Serving Library
+// REST API generation and model serving infrastructure
+
+// ===== Model Server Configuration =====
+
+fn createModelServer(host: string, port: int) -> map {
+    return {
+        "host": host,
+        "port": port,
+        "models": {},
+        "routes": [],
+        "middleware": [],
+        "is_running": false,
+        "request_count": 0,
+        "version": "1.0.0"
+    }
+}
+
+// Register a model for serving
+fn registerEndpoint(server: map, name: string, model: map, preprocessFn: fn, postprocessFn: fn) -> map {
+    server.models[name] = {
+        "model": model,
+        "preprocess": preprocessFn,
+        "postprocess": postprocessFn,
+        "request_count": 0,
+        "total_latency_ms": 0
+    }
+    
+    // Add routes
+    server.routes = append(server.routes, {
+        "method": "POST",
+        "path": "/predict/" + name,
+        "handler": "predict",
+        "model_name": name
+    })
+    
+    server.routes = append(server.routes, {
+        "method": "POST",
+        "path": "/batch_predict/" + name,
+        "handler": "batch_predict",
+        "model_name": name
+    })
+    
+    return server
+}
+
+// Generate API documentation
+fn generateAPIDoc(server: map) -> map {
+    let endpoints = []
+    
+    // Health endpoint
+    endpoints = append(endpoints, {
+        "path": "/health",
+        "method": "GET",
+        "description": "Health check endpoint",
+        "response": {
+            "status": "healthy",
+            "version": server.version
+        }
+    })
+    
+    // Model endpoints
+    let modelNames = keys(server.models)
+    for (let i = 0; i < len(modelNames); i = i + 1) {
+        let name = modelNames[i]
+        
+        endpoints = append(endpoints, {
+            "path": "/predict/" + name,
+            "method": "POST",
+            "description": "Single prediction for " + name,
+            "request_body": {
+                "type": "object",
+                "properties": {
+                    "features": {
+                        "type": "array",
+                        "description": "Input features"
+                    }
+                }
+            },
+            "response": {
+                "type": "object",
+                "properties": {
+                    "prediction": "Model output",
+                    "latency_ms": "Request latency"
+                }
+            }
+        })
+        
+        endpoints = append(endpoints, {
+            "path": "/batch_predict/" + name,
+            "method": "POST",
+            "description": "Batch prediction for " + name,
+            "request_body": {
+                "type": "object",
+                "properties": {
+                    "batch": {
+                        "type": "array",
+                        "description": "Array of input features"
+                    }
+                }
+            },
+            "response": {
+                "type": "object",
+                "properties": {
+                    "predictions": "Array of model outputs",
+                    "latency_ms": "Request latency"
+                }
+            }
+        })
+    }
+    
+    // Metadata endpoint
+    endpoints = append(endpoints, {
+        "path": "/metadata",
+        "method": "GET",
+        "description": "Server and model metadata"
+    })
+    
+    // Metrics endpoint
+    endpoints = append(endpoints, {
+        "path": "/metrics",
+        "method": "GET",
+        "description": "Performance metrics"
+    })
+    
+    return {
+        "openapi": "3.0.0",
+        "info": {
+            "title": "SynthFlow Model Server",
+            "version": server.version
+        },
+        "paths": endpoints
+    }
+}
+
+// ===== Request Handling =====
+
+fn handleRequest(server: map, method: string, path: string, body: map) -> map {
+    let startTime = getTimeMs()
+    
+    // Health check
+    if (path == "/health" && method == "GET") {
+        return {
+            "status": 200,
+            "body": {
+                "status": "healthy",
+                "version": server.version,
+                "models_loaded": len(keys(server.models))
+            }
+        }
+    }
+    
+    // Metadata
+    if (path == "/metadata" && method == "GET") {
+        let modelInfo = {}
+        let modelNames = keys(server.models)
+        for (let i = 0; i < len(modelNames); i = i + 1) {
+            let name = modelNames[i]
+            modelInfo[name] = {
+                "request_count": server.models[name].request_count,
+                "avg_latency_ms": 0
+            }
+            if (server.models[name].request_count > 0) {
+                modelInfo[name].avg_latency_ms = server.models[name].total_latency_ms / server.models[name].request_count
+            }
+        }
+        return {
+            "status": 200,
+            "body": {
+                "host": server.host,
+                "port": server.port,
+                "models": modelInfo
+            }
+        }
+    }
+    
+    // Metrics
+    if (path == "/metrics" && method == "GET") {
+        return {
+            "status": 200,
+            "body": getMetrics(server)
+        }
+    }
+    
+    // Prediction endpoints
+    for (let i = 0; i < len(server.routes); i = i + 1) {
+        let route = server.routes[i]
+        if (route.method == method && route.path == path) {
+            let modelData = server.models[route.model_name]
+            
+            if (route.handler == "predict") {
+                // Single prediction
+                let input = body.features
+                
+                // Preprocess
+                if (modelData.preprocess != null) {
+                    input = modelData.preprocess(input)
+                }
+                
+                // Predict (depends on model type)
+                let prediction = modelPredict(modelData.model, input)
+                
+                // Postprocess
+                if (modelData.postprocess != null) {
+                    prediction = modelData.postprocess(prediction)
+                }
+                
+                let latency = getTimeMs() - startTime
+                modelData.request_count = modelData.request_count + 1
+                modelData.total_latency_ms = modelData.total_latency_ms + latency
+                
+                return {
+                    "status": 200,
+                    "body": {
+                        "prediction": prediction,
+                        "latency_ms": latency
+                    }
+                }
+            } else if (route.handler == "batch_predict") {
+                // Batch prediction
+                let batch = body.batch
+                let predictions = []
+                
+                for (let j = 0; j < len(batch); j = j + 1) {
+                    let input = batch[j]
+                    
+                    if (modelData.preprocess != null) {
+                        input = modelData.preprocess(input)
+                    }
+                    
+                    let prediction = modelPredict(modelData.model, input)
+                    
+                    if (modelData.postprocess != null) {
+                        prediction = modelData.postprocess(prediction)
+                    }
+                    
+                    predictions = append(predictions, prediction)
+                }
+                
+                let latency = getTimeMs() - startTime
+                modelData.request_count = modelData.request_count + len(batch)
+                modelData.total_latency_ms = modelData.total_latency_ms + latency
+                
+                return {
+                    "status": 200,
+                    "body": {
+                        "predictions": predictions,
+                        "batch_size": len(batch),
+                        "latency_ms": latency
+                    }
+                }
+            }
+        }
+    }
+    
+    return {
+        "status": 404,
+        "body": {
+            "error": "Not found"
+        }
+    }
+}
+
+// Generic model predict function
+fn modelPredict(model: map, input: any) -> any {
+    // Detect model type and call appropriate predict function
+    if (hasKey(model, "layers")) {
+        // Neural network
+        return forward(model, input)
+    } else if (hasKey(model, "tree")) {
+        // Decision tree or random forest
+        return predictSingle(model.tree, input)
+    } else if (hasKey(model, "weights") && hasKey(model, "bias")) {
+        // Linear model
+        let result = model.bias
+        for (let i = 0; i < len(model.weights); i = i + 1) {
+            result = result + model.weights[i] * input[i]
+        }
+        return result
+    } else if (hasKey(model, "centroids")) {
+        // K-Means
+        let minDist = 999999.0
+        let cluster = 0
+        for (let c = 0; c < len(model.centroids); c = c + 1) {
+            let dist = 0.0
+            for (let j = 0; j < len(input); j = j + 1) {
+                let diff = input[j] - model.centroids[c][j]
+                dist = dist + diff * diff
+            }
+            if (dist < minDist) {
+                minDist = dist
+                cluster = c
+            }
+        }
+        return cluster
+    }
+    
+    return null
+}
+
+// ===== Metrics Collection =====
+
+fn getMetrics(server: map) -> map {
+    let metrics = {
+        "total_requests": server.request_count,
+        "models": {}
+    }
+    
+    let modelNames = keys(server.models)
+    for (let i = 0; i < len(modelNames); i = i + 1) {
+        let name = modelNames[i]
+        let modelData = server.models[name]
+        metrics.models[name] = {
+            "requests": modelData.request_count,
+            "total_latency_ms": modelData.total_latency_ms,
+            "avg_latency_ms": 0
+        }
+        if (modelData.request_count > 0) {
+            metrics.models[name].avg_latency_ms = modelData.total_latency_ms / modelData.request_count
+        }
+    }
+    
+    return metrics
+}
+
+// ===== Input Validation =====
+
+fn createInputValidator(schema: map) -> map {
+    return {
+        "schema": schema
+    }
+}
+
+fn validateInput(validator: map, input: any) -> map {
+    let errors = []
+    let schema = validator.schema
+    
+    // Check type
+    if (hasKey(schema, "type")) {
+        let expectedType = schema.type
+        let actualType = typeof(input)
+        
+        if (expectedType == "array" && actualType != "array") {
+            errors = append(errors, "Expected array, got " + actualType)
+        } else if (expectedType == "number" && actualType != "int" && actualType != "float") {
+            errors = append(errors, "Expected number, got " + actualType)
+        }
+    }
+    
+    // Check shape for arrays
+    if (hasKey(schema, "shape") && typeof(input) == "array") {
+        let expectedShape = schema.shape
+        let actualLen = len(input)
+        
+        if (len(expectedShape) > 0 && expectedShape[0] != actualLen) {
+            errors = append(errors, "Expected length " + str(expectedShape[0]) + ", got " + str(actualLen))
+        }
+    }
+    
+    // Check min/max for numbers
+    if (hasKey(schema, "min") && (typeof(input) == "int" || typeof(input) == "float")) {
+        if (input < schema.min) {
+            errors = append(errors, "Value " + str(input) + " is less than minimum " + str(schema.min))
+        }
+    }
+    
+    if (hasKey(schema, "max") && (typeof(input) == "int" || typeof(input) == "float")) {
+        if (input > schema.max) {
+            errors = append(errors, "Value " + str(input) + " is greater than maximum " + str(schema.max))
+        }
+    }
+    
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors
+    }
+}
+
+// ===== Response Formatting =====
+
+fn formatPredictionResponse(prediction: any, latencyMs: float, modelName: string) -> map {
+    return {
+        "model": modelName,
+        "prediction": prediction,
+        "latency_ms": latencyMs,
+        "timestamp": getCurrentTimestamp()
+    }
+}
+
+fn formatErrorResponse(statusCode: int, message: string) -> map {
+    return {
+        "status": statusCode,
+        "error": message,
+        "timestamp": getCurrentTimestamp()
+    }
+}
+
+// ===== Middleware =====
+
+fn addMiddleware(server: map, middleware: fn) -> map {
+    server.middleware = append(server.middleware, middleware)
+    return server
+}
+
+// Logging middleware
+fn loggingMiddleware(request: map, response: map) -> map {
+    print("[" + getCurrentTimestamp() + "] " + request.method + " " + request.path + " -> " + str(response.status))
+    return response
+}
+
+// Rate limiting middleware state
+fn createRateLimiter(maxRequests: int, windowSeconds: int) -> map {
+    return {
+        "max_requests": maxRequests,
+        "window_seconds": windowSeconds,
+        "requests": {}
+    }
+}
+
+fn checkRateLimit(limiter: map, clientId: string) -> bool {
+    // Simplified rate limiting
+    if (!hasKey(limiter.requests, clientId)) {
+        limiter.requests[clientId] = 1
+        return true
+    }
+    
+    if (limiter.requests[clientId] >= limiter.max_requests) {
+        return false
+    }
+    
+    limiter.requests[clientId] = limiter.requests[clientId] + 1
+    return true
+}
+
+// ===== Utility Functions =====
+
+fn getTimeMs() -> float {
+    return 0.0  // Would use datetime
+}
+
+fn getCurrentTimestamp() -> string {
+    return "timestamp"
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true
+}
+
+fn keys(m: map) -> array {
+    return []
+}
+
+fn forward(model: map, input: array) -> array {
+    // Neural network forward pass - would import from neural_network
+    return []
+}
+
+fn predictSingle(tree: map, x: array) -> any {
+    // Decision tree predict - would import from classification
+    return null
+}

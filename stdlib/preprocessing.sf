@@ -1,0 +1,733 @@
+// SynthFlow ML Preprocessing Library
+// Data preprocessing for machine learning
+
+// ===== Standard Scaler =====
+// Z-score normalization: (x - mean) / std
+
+struct StandardScaler {
+    mean: array,
+    std: array,
+    is_fitted: bool
+}
+
+fn createStandardScaler() -> map {
+    return {
+        "mean": [],
+        "std": [],
+        "is_fitted": false
+    }
+}
+
+fn standardScalerFit(scaler: map, X: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    scaler.mean = zeros(n_features)
+    scaler.std = zeros(n_features)
+    
+    // Calculate mean for each feature
+    for (let j = 0; j < n_features; j = j + 1) {
+        let sum = 0.0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            sum = sum + X[i][j]
+        }
+        scaler.mean[j] = sum / n_samples
+    }
+    
+    // Calculate std for each feature
+    for (let j = 0; j < n_features; j = j + 1) {
+        let sumSq = 0.0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let diff = X[i][j] - scaler.mean[j]
+            sumSq = sumSq + diff * diff
+        }
+        scaler.std[j] = sqrt(sumSq / n_samples)
+        if (scaler.std[j] == 0) {
+            scaler.std[j] = 1.0  // Prevent division by zero
+        }
+    }
+    
+    scaler.is_fitted = true
+    return scaler
+}
+
+fn standardScalerTransform(scaler: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            result[i][j] = (X[i][j] - scaler.mean[j]) / scaler.std[j]
+        }
+    }
+    
+    return result
+}
+
+fn standardScalerFitTransform(scaler: map, X: array) -> array {
+    scaler = standardScalerFit(scaler, X)
+    return standardScalerTransform(scaler, X)
+}
+
+fn standardScalerInverseTransform(scaler: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            result[i][j] = X[i][j] * scaler.std[j] + scaler.mean[j]
+        }
+    }
+    
+    return result
+}
+
+// ===== MinMax Scaler =====
+// Scale to range [0, 1]: (x - min) / (max - min)
+
+fn createMinMaxScaler() -> map {
+    return {
+        "min": [],
+        "max": [],
+        "is_fitted": false
+    }
+}
+
+fn minMaxScalerFit(scaler: map, X: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    scaler.min = []
+    scaler.max = []
+    
+    for (let j = 0; j < n_features; j = j + 1) {
+        let minVal = X[0][j]
+        let maxVal = X[0][j]
+        for (let i = 1; i < n_samples; i = i + 1) {
+            if (X[i][j] < minVal) { minVal = X[i][j] }
+            if (X[i][j] > maxVal) { maxVal = X[i][j] }
+        }
+        scaler.min = append(scaler.min, minVal)
+        scaler.max = append(scaler.max, maxVal)
+    }
+    
+    scaler.is_fitted = true
+    return scaler
+}
+
+fn minMaxScalerTransform(scaler: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            let range = scaler.max[j] - scaler.min[j]
+            if (range == 0) { range = 1.0 }
+            result[i][j] = (X[i][j] - scaler.min[j]) / range
+        }
+    }
+    
+    return result
+}
+
+fn minMaxScalerFitTransform(scaler: map, X: array) -> array {
+    scaler = minMaxScalerFit(scaler, X)
+    return minMaxScalerTransform(scaler, X)
+}
+
+fn minMaxScalerInverseTransform(scaler: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            let range = scaler.max[j] - scaler.min[j]
+            result[i][j] = X[i][j] * range + scaler.min[j]
+        }
+    }
+    
+    return result
+}
+
+// ===== MaxAbs Scaler =====
+// Scale by maximum absolute value
+
+fn createMaxAbsScaler() -> map {
+    return {
+        "max_abs": [],
+        "is_fitted": false
+    }
+}
+
+fn maxAbsScalerFit(scaler: map, X: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    scaler.max_abs = []
+    
+    for (let j = 0; j < n_features; j = j + 1) {
+        let maxAbs = 0.0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let absVal = abs(X[i][j])
+            if (absVal > maxAbs) { maxAbs = absVal }
+        }
+        if (maxAbs == 0) { maxAbs = 1.0 }
+        scaler.max_abs = append(scaler.max_abs, maxAbs)
+    }
+    
+    scaler.is_fitted = true
+    return scaler
+}
+
+fn maxAbsScalerTransform(scaler: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            result[i][j] = X[i][j] / scaler.max_abs[j]
+        }
+    }
+    
+    return result
+}
+
+// ===== Robust Scaler =====
+// Scale using median and IQR (resistant to outliers)
+
+fn createRobustScaler() -> map {
+    return {
+        "median": [],
+        "iqr": [],
+        "is_fitted": false
+    }
+}
+
+fn robustScalerFit(scaler: map, X: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    scaler.median = []
+    scaler.iqr = []
+    
+    for (let j = 0; j < n_features; j = j + 1) {
+        // Extract column and sort
+        let col = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            col = append(col, X[i][j])
+        }
+        col = sort(col)
+        
+        // Calculate median
+        let med = 0.0
+        if (n_samples % 2 == 0) {
+            med = (col[n_samples / 2 - 1] + col[n_samples / 2]) / 2.0
+        } else {
+            med = col[n_samples / 2]
+        }
+        
+        // Calculate IQR (Q3 - Q1)
+        let q1_idx = int(n_samples * 0.25)
+        let q3_idx = int(n_samples * 0.75)
+        let iqr = col[q3_idx] - col[q1_idx]
+        if (iqr == 0) { iqr = 1.0 }
+        
+        scaler.median = append(scaler.median, med)
+        scaler.iqr = append(scaler.iqr, iqr)
+    }
+    
+    scaler.is_fitted = true
+    return scaler
+}
+
+fn robustScalerTransform(scaler: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            result[i][j] = (X[i][j] - scaler.median[j]) / scaler.iqr[j]
+        }
+    }
+    
+    return result
+}
+
+// ===== Normalizer =====
+// Normalize samples to unit norm (L2)
+
+fn createNormalizer() -> map {
+    return {
+        "norm": "l2"
+    }
+}
+
+fn normalizerTransform(normalizer: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        // Calculate L2 norm
+        let norm = 0.0
+        for (let j = 0; j < n_features; j = j + 1) {
+            norm = norm + X[i][j] * X[i][j]
+        }
+        norm = sqrt(norm)
+        if (norm == 0) { norm = 1.0 }
+        
+        // Normalize row
+        for (let j = 0; j < n_features; j = j + 1) {
+            result[i][j] = X[i][j] / norm
+        }
+    }
+    
+    return result
+}
+
+// ===== Label Encoder =====
+// Encode categorical labels as integers
+
+fn createLabelEncoder() -> map {
+    return {
+        "classes": [],
+        "class_to_int": {},
+        "int_to_class": [],
+        "is_fitted": false
+    }
+}
+
+fn labelEncoderFit(encoder: map, y: array) -> map {
+    // Find unique classes
+    let classes = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        let found = false
+        for (let j = 0; j < len(classes); j = j + 1) {
+            if (classes[j] == y[i]) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            classes = append(classes, y[i])
+        }
+    }
+    
+    encoder.classes = classes
+    encoder.int_to_class = classes
+    encoder.class_to_int = {}
+    
+    for (let i = 0; i < len(classes); i = i + 1) {
+        encoder.class_to_int[str(classes[i])] = i
+    }
+    
+    encoder.is_fitted = true
+    return encoder
+}
+
+fn labelEncoderTransform(encoder: map, y: array) -> array {
+    let result = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        let key = str(y[i])
+        result = append(result, encoder.class_to_int[key])
+    }
+    return result
+}
+
+fn labelEncoderFitTransform(encoder: map, y: array) -> array {
+    encoder = labelEncoderFit(encoder, y)
+    return labelEncoderTransform(encoder, y)
+}
+
+fn labelEncoderInverseTransform(encoder: map, y: array) -> array {
+    let result = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        result = append(result, encoder.int_to_class[y[i]])
+    }
+    return result
+}
+
+// ===== One-Hot Encoder =====
+// Convert categorical to binary columns
+
+fn createOneHotEncoder() -> map {
+    return {
+        "categories": [],
+        "n_categories": 0,
+        "is_fitted": false
+    }
+}
+
+fn oneHotEncoderFit(encoder: map, y: array) -> map {
+    // Find unique categories
+    let categories = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        let found = false
+        for (let j = 0; j < len(categories); j = j + 1) {
+            if (categories[j] == y[i]) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            categories = append(categories, y[i])
+        }
+    }
+    
+    encoder.categories = categories
+    encoder.n_categories = len(categories)
+    encoder.is_fitted = true
+    return encoder
+}
+
+fn oneHotEncoderTransform(encoder: map, y: array) -> array {
+    let n_samples = len(y)
+    let n_cats = encoder.n_categories
+    let result = zeros2d(n_samples, n_cats)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        // Find category index
+        for (let j = 0; j < n_cats; j = j + 1) {
+            if (encoder.categories[j] == y[i]) {
+                result[i][j] = 1.0
+                break
+            }
+        }
+    }
+    
+    return result
+}
+
+fn oneHotEncoderFitTransform(encoder: map, y: array) -> array {
+    encoder = oneHotEncoderFit(encoder, y)
+    return oneHotEncoderTransform(encoder, y)
+}
+
+// ===== Ordinal Encoder =====
+// Encode ordinal categorical variables
+
+fn createOrdinalEncoder(categories: array) -> map {
+    return {
+        "categories": categories,
+        "is_fitted": true
+    }
+}
+
+fn ordinalEncoderTransform(encoder: map, y: array) -> array {
+    let result = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        let idx = -1
+        for (let j = 0; j < len(encoder.categories); j = j + 1) {
+            if (encoder.categories[j] == y[i]) {
+                idx = j
+                break
+            }
+        }
+        result = append(result, idx)
+    }
+    return result
+}
+
+// ===== Binarizer =====
+// Threshold features to binary values
+
+fn createBinarizer(threshold: float) -> map {
+    return {
+        "threshold": threshold
+    }
+}
+
+fn binarizerTransform(binarizer: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            if (X[i][j] > binarizer.threshold) {
+                result[i][j] = 1.0
+            } else {
+                result[i][j] = 0.0
+            }
+        }
+    }
+    
+    return result
+}
+
+// ===== Polynomial Features =====
+// Generate polynomial and interaction features
+
+fn createPolynomialFeatures(degree: int) -> map {
+    return {
+        "degree": degree
+    }
+}
+
+fn polynomialFeaturesTransform(pf: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // For degree 2: [1, x1, x2, x1^2, x1*x2, x2^2]
+    // Simplified: just add squared features
+    let result = []
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = [1.0]  // Bias term
+        
+        // Original features
+        for (let j = 0; j < n_features; j = j + 1) {
+            row = append(row, X[i][j])
+        }
+        
+        // Squared features
+        if (pf.degree >= 2) {
+            for (let j = 0; j < n_features; j = j + 1) {
+                row = append(row, X[i][j] * X[i][j])
+            }
+            
+            // Interaction features
+            for (let j = 0; j < n_features; j = j + 1) {
+                for (let k = j + 1; k < n_features; k = k + 1) {
+                    row = append(row, X[i][j] * X[i][k])
+                }
+            }
+        }
+        
+        result = append(result, row)
+    }
+    
+    return result
+}
+
+// ===== Simple Imputer =====
+// Fill missing values
+
+fn createSimpleImputer(strategy: string) -> map {
+    return {
+        "strategy": strategy,  // "mean", "median", "most_frequent", "constant"
+        "statistics": [],
+        "fill_value": 0.0,
+        "is_fitted": false
+    }
+}
+
+fn simpleImputerFit(imputer: map, X: array) -> map {
+    let n_features = len(X[0])
+    imputer.statistics = []
+    
+    for (let j = 0; j < n_features; j = j + 1) {
+        // Collect non-null values
+        let values = []
+        for (let i = 0; i < len(X); i = i + 1) {
+            if (X[i][j] != null) {
+                values = append(values, X[i][j])
+            }
+        }
+        
+        let stat = 0.0
+        if (imputer.strategy == "mean") {
+            let sum = 0.0
+            for (let k = 0; k < len(values); k = k + 1) {
+                sum = sum + values[k]
+            }
+            stat = sum / len(values)
+        } else if (imputer.strategy == "median") {
+            let sorted = sort(values)
+            let n = len(sorted)
+            if (n % 2 == 0) {
+                stat = (sorted[n/2-1] + sorted[n/2]) / 2
+            } else {
+                stat = sorted[n/2]
+            }
+        } else if (imputer.strategy == "constant") {
+            stat = imputer.fill_value
+        }
+        
+        imputer.statistics = append(imputer.statistics, stat)
+    }
+    
+    imputer.is_fitted = true
+    return imputer
+}
+
+fn simpleImputerTransform(imputer: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let result = zeros2d(n_samples, n_features)
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            if (X[i][j] == null) {
+                result[i][j] = imputer.statistics[j]
+            } else {
+                result[i][j] = X[i][j]
+            }
+        }
+    }
+    
+    return result
+}
+
+// ===== Train-Test Split =====
+// Split data into training and testing sets
+
+fn trainTestSplit(X: array, y: array, testSize: float, randomState: int) -> map {
+    let n_samples = len(X)
+    let n_test = int(n_samples * testSize)
+    let n_train = n_samples - n_test
+    
+    // Generate shuffled indices
+    let indices = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        indices = append(indices, i)
+    }
+    
+    // Fisher-Yates shuffle
+    let seed = randomState
+    for (let i = n_samples - 1; i > 0; i = i - 1) {
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let j = seed % (i + 1)
+        let temp = indices[i]
+        indices[i] = indices[j]
+        indices[j] = temp
+    }
+    
+    // Split
+    let X_train = []
+    let X_test = []
+    let y_train = []
+    let y_test = []
+    
+    for (let i = 0; i < n_train; i = i + 1) {
+        X_train = append(X_train, X[indices[i]])
+        y_train = append(y_train, y[indices[i]])
+    }
+    
+    for (let i = n_train; i < n_samples; i = i + 1) {
+        X_test = append(X_test, X[indices[i]])
+        y_test = append(y_test, y[indices[i]])
+    }
+    
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test
+    }
+}
+
+// ===== Feature Selection =====
+
+// Variance Threshold - remove low variance features
+fn createVarianceThreshold(threshold: float) -> map {
+    return {
+        "threshold": threshold,
+        "variances": [],
+        "mask": [],
+        "is_fitted": false
+    }
+}
+
+fn varianceThresholdFit(vt: map, X: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    vt.variances = []
+    vt.mask = []
+    
+    for (let j = 0; j < n_features; j = j + 1) {
+        // Calculate mean
+        let sum = 0.0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            sum = sum + X[i][j]
+        }
+        let mean = sum / n_samples
+        
+        // Calculate variance
+        let sumSq = 0.0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let diff = X[i][j] - mean
+            sumSq = sumSq + diff * diff
+        }
+        let variance = sumSq / n_samples
+        
+        vt.variances = append(vt.variances, variance)
+        vt.mask = append(vt.mask, variance > vt.threshold)
+    }
+    
+    vt.is_fitted = true
+    return vt
+}
+
+fn varianceThresholdTransform(vt: map, X: array) -> array {
+    let n_samples = len(X)
+    let result = []
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = []
+        for (let j = 0; j < len(vt.mask); j = j + 1) {
+            if (vt.mask[j]) {
+                row = append(row, X[i][j])
+            }
+        }
+        result = append(result, row)
+    }
+    
+    return result
+}
+
+// ===== K-Fold Cross Validation =====
+
+fn kFold(n_samples: int, n_folds: int) -> array {
+    let fold_size = int(n_samples / n_folds)
+    let folds = []
+    
+    for (let i = 0; i < n_folds; i = i + 1) {
+        let test_start = i * fold_size
+        let test_end = test_start + fold_size
+        if (i == n_folds - 1) {
+            test_end = n_samples
+        }
+        
+        let train_indices = []
+        let test_indices = []
+        
+        for (let j = 0; j < n_samples; j = j + 1) {
+            if (j >= test_start && j < test_end) {
+                test_indices = append(test_indices, j)
+            } else {
+                train_indices = append(train_indices, j)
+            }
+        }
+        
+        folds = append(folds, {
+            "train": train_indices,
+            "test": test_indices
+        })
+    }
+    
+    return folds
+}
+
+// Get X and y subsets by indices
+fn getSubset(X: array, y: array, indices: array) -> map {
+    let X_subset = []
+    let y_subset = []
+    
+    for (let i = 0; i < len(indices); i = i + 1) {
+        X_subset = append(X_subset, X[indices[i]])
+        y_subset = append(y_subset, y[indices[i]])
+    }
+    
+    return {
+        "X": X_subset,
+        "y": y_subset
+    }
+}

@@ -1,0 +1,470 @@
+// SynthFlow Model Monitoring Library
+// Production model monitoring and drift detection
+
+// ===== Prediction Logger =====
+
+fn createPredictionLogger(logPath: string) -> map {
+    return {
+        "log_path": logPath,
+        "predictions": [],
+        "buffer_size": 1000,
+        "flush_interval": 60
+    }
+}
+
+fn logPrediction(logger: map, input: array, prediction: any, timestamp: string, metadata: map) -> map {
+    logger.predictions = append(logger.predictions, {
+        "input": input,
+        "prediction": prediction,
+        "timestamp": timestamp,
+        "metadata": metadata
+    })
+    
+    // Flush if buffer is full
+    if (len(logger.predictions) >= logger.buffer_size) {
+        logger = flushPredictions(logger)
+    }
+    
+    return logger
+}
+
+fn flushPredictions(logger: map) -> map {
+    // Write predictions to file
+    let content = toJSON(logger.predictions)
+    append_file(logger.log_path, content + "\n")
+    logger.predictions = []
+    return logger
+}
+
+// ===== Data Drift Detection =====
+
+fn createDriftDetector(referenceData: array, featureNames: array) -> map {
+    // Calculate reference statistics
+    let n_features = len(referenceData[0])
+    let stats = []
+    
+    for (let j = 0; j < n_features; j = j + 1) {
+        let values = []
+        for (let i = 0; i < len(referenceData); i = i + 1) {
+            values = append(values, referenceData[i][j])
+        }
+        
+        // Calculate mean and std
+        let mean = arrayMean(values)
+        let std = arrayStd(values)
+        let min_val = arrayMin(values)
+        let max_val = arrayMax(values)
+        
+        // Calculate percentiles
+        let sorted = sort(values)
+        let p25 = sorted[int(len(sorted) * 0.25)]
+        let p50 = sorted[int(len(sorted) * 0.50)]
+        let p75 = sorted[int(len(sorted) * 0.75)]
+        
+        stats = append(stats, {
+            "name": featureNames[j],
+            "mean": mean,
+            "std": std,
+            "min": min_val,
+            "max": max_val,
+            "p25": p25,
+            "p50": p50,
+            "p75": p75
+        })
+    }
+    
+    return {
+        "reference_stats": stats,
+        "feature_names": featureNames,
+        "drift_threshold": 0.1,  // 10% change threshold
+        "is_fitted": true
+    }
+}
+
+fn detectDrift(detector: map, currentData: array) -> map {
+    let n_features = len(currentData[0])
+    let driftResults = []
+    let overallDrift = false
+    
+    for (let j = 0; j < n_features; j = j + 1) {
+        let values = []
+        for (let i = 0; i < len(currentData); i = i + 1) {
+            values = append(values, currentData[i][j])
+        }
+        
+        let currentMean = arrayMean(values)
+        let currentStd = arrayStd(values)
+        
+        let refStats = detector.reference_stats[j]
+        
+        // Calculate relative changes
+        let meanChange = 0.0
+        if (refStats.mean != 0) {
+            meanChange = abs(currentMean - refStats.mean) / abs(refStats.mean)
+        }
+        
+        let stdChange = 0.0
+        if (refStats.std != 0) {
+            stdChange = abs(currentStd - refStats.std) / refStats.std
+        }
+        
+        let isDrifted = meanChange > detector.drift_threshold || stdChange > detector.drift_threshold
+        if (isDrifted) {
+            overallDrift = true
+        }
+        
+        driftResults = append(driftResults, {
+            "feature": refStats.name,
+            "reference_mean": refStats.mean,
+            "current_mean": currentMean,
+            "mean_change": meanChange,
+            "reference_std": refStats.std,
+            "current_std": currentStd,
+            "std_change": stdChange,
+            "is_drifted": isDrifted
+        })
+    }
+    
+    return {
+        "overall_drift": overallDrift,
+        "feature_drift": driftResults,
+        "timestamp": getCurrentTimestamp()
+    }
+}
+
+// ===== Model Performance Monitoring =====
+
+fn createPerformanceMonitor(windowSize: int) -> map {
+    return {
+        "window_size": windowSize,
+        "predictions": [],
+        "actuals": [],
+        "timestamps": [],
+        "alerts": []
+    }
+}
+
+fn recordPrediction(monitor: map, prediction: any, actual: any, timestamp: string) -> map {
+    monitor.predictions = append(monitor.predictions, prediction)
+    monitor.actuals = append(monitor.actuals, actual)
+    monitor.timestamps = append(monitor.timestamps, timestamp)
+    
+    // Keep only window_size entries
+    while (len(monitor.predictions) > monitor.window_size) {
+        monitor.predictions = removeFirst(monitor.predictions)
+        monitor.actuals = removeFirst(monitor.actuals)
+        monitor.timestamps = removeFirst(monitor.timestamps)
+    }
+    
+    return monitor
+}
+
+fn getPerformanceMetrics(monitor: map, metricType: string) -> map {
+    if (len(monitor.predictions) == 0) {
+        return {"error": "No predictions recorded"}
+    }
+    
+    let metrics = {}
+    
+    if (metricType == "classification") {
+        let correct = 0
+        for (let i = 0; i < len(monitor.predictions); i = i + 1) {
+            if (monitor.predictions[i] == monitor.actuals[i]) {
+                correct = correct + 1
+            }
+        }
+        metrics.accuracy = float(correct) / len(monitor.predictions)
+    } else if (metricType == "regression") {
+        let sumSq = 0.0
+        let sumAbs = 0.0
+        for (let i = 0; i < len(monitor.predictions); i = i + 1) {
+            let diff = monitor.predictions[i] - monitor.actuals[i]
+            sumSq = sumSq + diff * diff
+            sumAbs = sumAbs + abs(diff)
+        }
+        metrics.mse = sumSq / len(monitor.predictions)
+        metrics.rmse = sqrt(metrics.mse)
+        metrics.mae = sumAbs / len(monitor.predictions)
+    }
+    
+    metrics.sample_size = len(monitor.predictions)
+    metrics.timestamp = getCurrentTimestamp()
+    
+    return metrics
+}
+
+// ===== Alerting =====
+
+fn createAlertRule(name: string, metric: string, threshold: float, comparison: string) -> map {
+    return {
+        "name": name,
+        "metric": metric,
+        "threshold": threshold,
+        "comparison": comparison,  // "gt", "lt", "gte", "lte"
+        "enabled": true
+    }
+}
+
+fn checkAlert(rule: map, metricValue: float) -> map {
+    let triggered = false
+    
+    if (rule.comparison == "gt") {
+        triggered = metricValue > rule.threshold
+    } else if (rule.comparison == "lt") {
+        triggered = metricValue < rule.threshold
+    } else if (rule.comparison == "gte") {
+        triggered = metricValue >= rule.threshold
+    } else if (rule.comparison == "lte") {
+        triggered = metricValue <= rule.threshold
+    }
+    
+    return {
+        "rule_name": rule.name,
+        "triggered": triggered,
+        "metric_value": metricValue,
+        "threshold": rule.threshold,
+        "timestamp": getCurrentTimestamp()
+    }
+}
+
+fn createAlertManager(rules: array) -> map {
+    return {
+        "rules": rules,
+        "alerts": [],
+        "notification_channels": []
+    }
+}
+
+fn evaluateAlerts(manager: map, metrics: map) -> map {
+    let triggeredAlerts = []
+    
+    for (let i = 0; i < len(manager.rules); i = i + 1) {
+        let rule = manager.rules[i]
+        if (hasKey(metrics, rule.metric)) {
+            let alertResult = checkAlert(rule, metrics[rule.metric])
+            if (alertResult.triggered) {
+                triggeredAlerts = append(triggeredAlerts, alertResult)
+            }
+        }
+    }
+    
+    manager.alerts = append(manager.alerts, triggeredAlerts)
+    
+    return {
+        "triggered_count": len(triggeredAlerts),
+        "alerts": triggeredAlerts
+    }
+}
+
+// ===== Model Health Dashboard =====
+
+fn createHealthDashboard(modelName: string) -> map {
+    return {
+        "model_name": modelName,
+        "status": "healthy",
+        "last_prediction_time": null,
+        "predictions_count": 0,
+        "average_latency_ms": 0,
+        "error_rate": 0,
+        "drift_status": "no_drift",
+        "performance_metrics": {},
+        "alerts": []
+    }
+}
+
+fn updateDashboard(dashboard: map, predictionLatency: float, isError: bool) -> map {
+    dashboard.predictions_count = dashboard.predictions_count + 1
+    dashboard.last_prediction_time = getCurrentTimestamp()
+    
+    // Update average latency
+    let oldTotal = dashboard.average_latency_ms * (dashboard.predictions_count - 1)
+    dashboard.average_latency_ms = (oldTotal + predictionLatency) / dashboard.predictions_count
+    
+    // Update error rate (simple moving average)
+    let errorVal = 0.0
+    if (isError) { errorVal = 1.0 }
+    let alpha = 0.1  // Smoothing factor
+    dashboard.error_rate = alpha * errorVal + (1 - alpha) * dashboard.error_rate
+    
+    // Update status based on error rate
+    if (dashboard.error_rate > 0.1) {
+        dashboard.status = "degraded"
+    } else if (dashboard.error_rate > 0.3) {
+        dashboard.status = "unhealthy"
+    } else {
+        dashboard.status = "healthy"
+    }
+    
+    return dashboard
+}
+
+fn getDashboardSummary(dashboard: map) -> map {
+    return {
+        "model_name": dashboard.model_name,
+        "status": dashboard.status,
+        "predictions_count": dashboard.predictions_count,
+        "average_latency_ms": dashboard.average_latency_ms,
+        "error_rate": dashboard.error_rate,
+        "drift_status": dashboard.drift_status,
+        "last_prediction": dashboard.last_prediction_time,
+        "active_alerts": len(dashboard.alerts)
+    }
+}
+
+// ===== Statistical Tests for Drift =====
+
+// Kolmogorov-Smirnov test statistic (simplified)
+fn ksTest(sample1: array, sample2: array) -> float {
+    let sorted1 = sort(sample1)
+    let sorted2 = sort(sample2)
+    let n1 = len(sorted1)
+    let n2 = len(sorted2)
+    
+    // Compute maximum difference in CDFs
+    let maxDiff = 0.0
+    let i = 0
+    let j = 0
+    
+    while (i < n1 && j < n2) {
+        if (sorted1[i] < sorted2[j]) {
+            i = i + 1
+        } else if (sorted1[i] > sorted2[j]) {
+            j = j + 1
+        } else {
+            i = i + 1
+            j = j + 1
+        }
+        
+        let cdf1 = float(i) / n1
+        let cdf2 = float(j) / n2
+        let diff = abs(cdf1 - cdf2)
+        if (diff > maxDiff) {
+            maxDiff = diff
+        }
+    }
+    
+    return maxDiff
+}
+
+// Population Stability Index (PSI)
+fn calculatePSI(expected: array, actual: array, buckets: int) -> float {
+    // Create histogram buckets
+    let minVal = arrayMin(expected)
+    let maxVal = arrayMax(expected)
+    let range = maxVal - minVal
+    let bucketSize = range / buckets
+    
+    let expectedCounts = zeros(buckets)
+    let actualCounts = zeros(buckets)
+    
+    for (let i = 0; i < len(expected); i = i + 1) {
+        let bucket = int((expected[i] - minVal) / bucketSize)
+        if (bucket >= buckets) { bucket = buckets - 1 }
+        expectedCounts[bucket] = expectedCounts[bucket] + 1
+    }
+    
+    for (let i = 0; i < len(actual); i = i + 1) {
+        let bucket = int((actual[i] - minVal) / bucketSize)
+        if (bucket >= buckets) { bucket = buckets - 1 }
+        actualCounts[bucket] = actualCounts[bucket] + 1
+    }
+    
+    // Calculate PSI
+    let psi = 0.0
+    for (let i = 0; i < buckets; i = i + 1) {
+        let expPct = (expectedCounts[i] + 0.0001) / len(expected)
+        let actPct = (actualCounts[i] + 0.0001) / len(actual)
+        psi = psi + (actPct - expPct) * ln(actPct / expPct)
+    }
+    
+    return psi
+}
+
+// ===== Utility Functions =====
+
+fn arrayMean(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let sum = 0.0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        sum = sum + arr[i]
+    }
+    return sum / len(arr)
+}
+
+fn arrayStd(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let mean = arrayMean(arr)
+    let sumSq = 0.0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let diff = arr[i] - mean
+        sumSq = sumSq + diff * diff
+    }
+    return sqrt(sumSq / len(arr))
+}
+
+fn arrayMin(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let result = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] < result) { result = arr[i] }
+    }
+    return result
+}
+
+fn arrayMax(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let result = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] > result) { result = arr[i] }
+    }
+    return result
+}
+
+fn sort(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    for (let i = 0; i < len(result) - 1; i = i + 1) {
+        for (let j = 0; j < len(result) - i - 1; j = j + 1) {
+            if (result[j] > result[j + 1]) {
+                let temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+            }
+        }
+    }
+    return result
+}
+
+fn zeros(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, 0.0)
+    }
+    return result
+}
+
+fn removeFirst(arr: array) -> array {
+    let result = []
+    for (let i = 1; i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    return result
+}
+
+fn getCurrentTimestamp() -> string {
+    return "timestamp"
+}
+
+fn toJSON(obj: any) -> string {
+    return str(obj)
+}
+
+fn append_file(path: string, content: string) {
+    // Would append to file
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true
+}

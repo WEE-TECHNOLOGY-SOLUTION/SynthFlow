@@ -1,0 +1,596 @@
+// SynthFlow ML Clustering Library
+// Unsupervised clustering algorithms
+
+// ===== K-Means Clustering =====
+// Partition data into k clusters
+
+fn createKMeans(k: int, maxIterations: int) -> map {
+    return {
+        "k": k,
+        "max_iterations": maxIterations,
+        "centroids": [],
+        "labels": [],
+        "inertia": 0.0,
+        "is_fitted": false
+    }
+}
+
+fn kmeansFit(model: map, X: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Initialize centroids randomly (using first k points + small random perturbation)
+    model.centroids = []
+    let seed = 42
+    for (let i = 0; i < model.k; i = i + 1) {
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let idx = seed % n_samples
+        let centroid = []
+        for (let j = 0; j < n_features; j = j + 1) {
+            centroid = append(centroid, X[idx][j])
+        }
+        model.centroids = append(model.centroids, centroid)
+    }
+    
+    model.labels = zeros(n_samples)
+    
+    for (let iter = 0; iter < model.max_iterations; iter = iter + 1) {
+        // Assign points to nearest centroid
+        let old_labels = model.labels
+        model.labels = []
+        
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let minDist = 999999.0
+            let closestCluster = 0
+            
+            for (let c = 0; c < model.k; c = c + 1) {
+                let dist = 0.0
+                for (let j = 0; j < n_features; j = j + 1) {
+                    let diff = X[i][j] - model.centroids[c][j]
+                    dist = dist + diff * diff
+                }
+                
+                if (dist < minDist) {
+                    minDist = dist
+                    closestCluster = c
+                }
+            }
+            
+            model.labels = append(model.labels, closestCluster)
+        }
+        
+        // Update centroids
+        for (let c = 0; c < model.k; c = c + 1) {
+            let count = 0
+            let newCentroid = zeros(n_features)
+            
+            for (let i = 0; i < n_samples; i = i + 1) {
+                if (model.labels[i] == c) {
+                    count = count + 1
+                    for (let j = 0; j < n_features; j = j + 1) {
+                        newCentroid[j] = newCentroid[j] + X[i][j]
+                    }
+                }
+            }
+            
+            if (count > 0) {
+                for (let j = 0; j < n_features; j = j + 1) {
+                    model.centroids[c][j] = newCentroid[j] / count
+                }
+            }
+        }
+        
+        // Check convergence
+        let changed = false
+        for (let i = 0; i < n_samples; i = i + 1) {
+            if (model.labels[i] != old_labels[i]) {
+                changed = true
+                break
+            }
+        }
+        if (!changed) { break }
+    }
+    
+    // Calculate inertia (sum of squared distances to centroids)
+    model.inertia = 0.0
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let c = int(model.labels[i])
+        for (let j = 0; j < n_features; j = j + 1) {
+            let diff = X[i][j] - model.centroids[c][j]
+            model.inertia = model.inertia + diff * diff
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn kmeansPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        let minDist = 999999.0
+        let closestCluster = 0
+        
+        for (let c = 0; c < len(model.centroids); c = c + 1) {
+            let dist = 0.0
+            for (let j = 0; j < len(X[i]); j = j + 1) {
+                let diff = X[i][j] - model.centroids[c][j]
+                dist = dist + diff * diff
+            }
+            
+            if (dist < minDist) {
+                minDist = dist
+                closestCluster = c
+            }
+        }
+        
+        predictions = append(predictions, closestCluster)
+    }
+    
+    return predictions
+}
+
+fn kmeansFitPredict(model: map, X: array) -> array {
+    model = kmeansFit(model, X)
+    return model.labels
+}
+
+// ===== DBSCAN =====
+// Density-based clustering
+
+fn createDBSCAN(eps: float, minSamples: int) -> map {
+    return {
+        "eps": eps,
+        "min_samples": minSamples,
+        "labels": [],
+        "is_fitted": false
+    }
+}
+
+fn euclideanDistancePoints(a: array, b: array) -> float {
+    let sum = 0.0
+    for (let i = 0; i < len(a); i = i + 1) {
+        let diff = a[i] - b[i]
+        sum = sum + diff * diff
+    }
+    return sqrt(sum)
+}
+
+fn dbscanFitPredict(model: map, X: array) -> array {
+    let n_samples = len(X)
+    
+    // -1 = unvisited, 0 = noise, 1+ = cluster id
+    model.labels = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        model.labels = append(model.labels, -1)
+    }
+    
+    let cluster_id = 0
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        if (model.labels[i] != -1) { continue }
+        
+        // Find neighbors
+        let neighbors = []
+        for (let j = 0; j < n_samples; j = j + 1) {
+            if (euclideanDistancePoints(X[i], X[j]) <= model.eps) {
+                neighbors = append(neighbors, j)
+            }
+        }
+        
+        if (len(neighbors) < model.min_samples) {
+            model.labels[i] = 0  // Mark as noise
+        } else {
+            cluster_id = cluster_id + 1
+            model.labels[i] = cluster_id
+            
+            // Expand cluster
+            let seeds = []
+            for (let n = 0; n < len(neighbors); n = n + 1) {
+                if (neighbors[n] != i) {
+                    seeds = append(seeds, neighbors[n])
+                }
+            }
+            
+            let seed_idx = 0
+            while (seed_idx < len(seeds)) {
+                let q = seeds[seed_idx]
+                
+                if (model.labels[q] == 0) {
+                    model.labels[q] = cluster_id
+                }
+                
+                if (model.labels[q] != -1) {
+                    seed_idx = seed_idx + 1
+                    continue
+                }
+                
+                model.labels[q] = cluster_id
+                
+                // Find q's neighbors
+                let q_neighbors = []
+                for (let j = 0; j < n_samples; j = j + 1) {
+                    if (euclideanDistancePoints(X[q], X[j]) <= model.eps) {
+                        q_neighbors = append(q_neighbors, j)
+                    }
+                }
+                
+                if (len(q_neighbors) >= model.min_samples) {
+                    for (let n = 0; n < len(q_neighbors); n = n + 1) {
+                        // Add to seeds if not already processed
+                        let already_in = false
+                        for (let s = 0; s < len(seeds); s = s + 1) {
+                            if (seeds[s] == q_neighbors[n]) {
+                                already_in = true
+                                break
+                            }
+                        }
+                        if (!already_in) {
+                            seeds = append(seeds, q_neighbors[n])
+                        }
+                    }
+                }
+                
+                seed_idx = seed_idx + 1
+            }
+        }
+    }
+    
+    model.is_fitted = true
+    return model.labels
+}
+
+// ===== Agglomerative (Hierarchical) Clustering =====
+
+fn createAgglomerative(nClusters: int, linkage: string) -> map {
+    return {
+        "n_clusters": nClusters,
+        "linkage": linkage,  // "single", "complete", "average"
+        "labels": [],
+        "is_fitted": false
+    }
+}
+
+fn agglomerativeFitPredict(model: map, X: array) -> array {
+    let n_samples = len(X)
+    
+    // Initialize each point as its own cluster
+    let clusters = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        clusters = append(clusters, [i])
+    }
+    
+    // Compute distance matrix
+    let distances = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = []
+        for (let j = 0; j < n_samples; j = j + 1) {
+            if (i == j) {
+                row = append(row, 999999.0)
+            } else {
+                row = append(row, euclideanDistancePoints(X[i], X[j]))
+            }
+        }
+        distances = append(distances, row)
+    }
+    
+    // Merge clusters until we have n_clusters
+    while (len(clusters) > model.n_clusters) {
+        // Find closest pair of clusters
+        let minDist = 999999.0
+        let merge_i = 0
+        let merge_j = 1
+        
+        for (let i = 0; i < len(clusters); i = i + 1) {
+            for (let j = i + 1; j < len(clusters); j = j + 1) {
+                // Calculate distance between clusters
+                let dist = 999999.0
+                
+                if (model.linkage == "single") {
+                    // Minimum distance
+                    dist = 999999.0
+                    for (let a = 0; a < len(clusters[i]); a = a + 1) {
+                        for (let b = 0; b < len(clusters[j]); b = b + 1) {
+                            let d = distances[clusters[i][a]][clusters[j][b]]
+                            if (d < dist) { dist = d }
+                        }
+                    }
+                } else if (model.linkage == "complete") {
+                    // Maximum distance
+                    dist = 0.0
+                    for (let a = 0; a < len(clusters[i]); a = a + 1) {
+                        for (let b = 0; b < len(clusters[j]); b = b + 1) {
+                            let d = distances[clusters[i][a]][clusters[j][b]]
+                            if (d > dist) { dist = d }
+                        }
+                    }
+                } else {
+                    // Average distance
+                    let sum = 0.0
+                    let count = 0
+                    for (let a = 0; a < len(clusters[i]); a = a + 1) {
+                        for (let b = 0; b < len(clusters[j]); b = b + 1) {
+                            sum = sum + distances[clusters[i][a]][clusters[j][b]]
+                            count = count + 1
+                        }
+                    }
+                    dist = sum / count
+                }
+                
+                if (dist < minDist) {
+                    minDist = dist
+                    merge_i = i
+                    merge_j = j
+                }
+            }
+        }
+        
+        // Merge clusters
+        let merged = []
+        for (let k = 0; k < len(clusters[merge_i]); k = k + 1) {
+            merged = append(merged, clusters[merge_i][k])
+        }
+        for (let k = 0; k < len(clusters[merge_j]); k = k + 1) {
+            merged = append(merged, clusters[merge_j][k])
+        }
+        
+        // Update clusters list
+        let new_clusters = []
+        for (let k = 0; k < len(clusters); k = k + 1) {
+            if (k != merge_i && k != merge_j) {
+                new_clusters = append(new_clusters, clusters[k])
+            }
+        }
+        new_clusters = append(new_clusters, merged)
+        clusters = new_clusters
+    }
+    
+    // Assign labels
+    model.labels = zeros(n_samples)
+    for (let c = 0; c < len(clusters); c = c + 1) {
+        for (let i = 0; i < len(clusters[c]); i = i + 1) {
+            model.labels[clusters[c][i]] = c
+        }
+    }
+    
+    model.is_fitted = true
+    return model.labels
+}
+
+// ===== Gaussian Mixture Model =====
+
+fn createGaussianMixture(nComponents: int, maxIterations: int) -> map {
+    return {
+        "n_components": nComponents,
+        "max_iterations": maxIterations,
+        "means": [],
+        "covariances": [],
+        "weights": [],
+        "is_fitted": false
+    }
+}
+
+fn gaussianMixtureFitPredict(model: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    let k = model.n_components
+    
+    // Initialize with K-Means
+    let kmeans = createKMeans(k, 10)
+    kmeans = kmeansFit(kmeans, X)
+    
+    model.means = kmeans.centroids
+    model.weights = []
+    for (let c = 0; c < k; c = c + 1) {
+        model.weights = append(model.weights, 1.0 / k)
+    }
+    
+    // Initialize covariances (diagonal, identity-like)
+    model.covariances = []
+    for (let c = 0; c < k; c = c + 1) {
+        let cov = []
+        for (let i = 0; i < n_features; i = i + 1) {
+            cov = append(cov, 1.0)  // Diagonal variance
+        }
+        model.covariances = append(model.covariances, cov)
+    }
+    
+    // EM Algorithm
+    for (let iter = 0; iter < model.max_iterations; iter = iter + 1) {
+        // E-step: compute responsibilities
+        let responsibilities = []
+        
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let probs = []
+            let total = 0.0
+            
+            for (let c = 0; c < k; c = c + 1) {
+                // Compute Gaussian probability (simplified diagonal)
+                let prob = model.weights[c]
+                for (let j = 0; j < n_features; j = j + 1) {
+                    let diff = X[i][j] - model.means[c][j]
+                    let var_j = model.covariances[c][j]
+                    prob = prob * exp(-0.5 * diff * diff / var_j) / sqrt(2 * 3.14159 * var_j)
+                }
+                probs = append(probs, prob)
+                total = total + prob
+            }
+            
+            // Normalize
+            let resp = []
+            for (let c = 0; c < k; c = c + 1) {
+                if (total > 0) {
+                    resp = append(resp, probs[c] / total)
+                } else {
+                    resp = append(resp, 1.0 / k)
+                }
+            }
+            responsibilities = append(responsibilities, resp)
+        }
+        
+        // M-step: update parameters
+        for (let c = 0; c < k; c = c + 1) {
+            let Nk = 0.0
+            for (let i = 0; i < n_samples; i = i + 1) {
+                Nk = Nk + responsibilities[i][c]
+            }
+            
+            if (Nk > 0) {
+                // Update weight
+                model.weights[c] = Nk / n_samples
+                
+                // Update mean
+                for (let j = 0; j < n_features; j = j + 1) {
+                    let sum = 0.0
+                    for (let i = 0; i < n_samples; i = i + 1) {
+                        sum = sum + responsibilities[i][c] * X[i][j]
+                    }
+                    model.means[c][j] = sum / Nk
+                }
+                
+                // Update variance (diagonal)
+                for (let j = 0; j < n_features; j = j + 1) {
+                    let sum = 0.0
+                    for (let i = 0; i < n_samples; i = i + 1) {
+                        let diff = X[i][j] - model.means[c][j]
+                        sum = sum + responsibilities[i][c] * diff * diff
+                    }
+                    model.covariances[c][j] = sum / Nk + 1e-6  // Add small value for stability
+                }
+            }
+        }
+    }
+    
+    // Predict labels (argmax of responsibilities)
+    let labels = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let probs = []
+        for (let c = 0; c < k; c = c + 1) {
+            let prob = model.weights[c]
+            for (let j = 0; j < n_features; j = j + 1) {
+                let diff = X[i][j] - model.means[c][j]
+                let var_j = model.covariances[c][j]
+                prob = prob * exp(-0.5 * diff * diff / var_j) / sqrt(2 * 3.14159 * var_j)
+            }
+            probs = append(probs, prob)
+        }
+        
+        let maxProb = probs[0]
+        let label = 0
+        for (let c = 1; c < k; c = c + 1) {
+            if (probs[c] > maxProb) {
+                maxProb = probs[c]
+                label = c
+            }
+        }
+        labels = append(labels, label)
+    }
+    
+    model.is_fitted = true
+    return labels
+}
+
+// ===== Mean Shift Clustering =====
+
+fn createMeanShift(bandwidth: float, maxIterations: int) -> map {
+    return {
+        "bandwidth": bandwidth,
+        "max_iterations": maxIterations,
+        "cluster_centers": [],
+        "labels": [],
+        "is_fitted": false
+    }
+}
+
+fn meanShiftFitPredict(model: map, X: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Initialize centers at each point
+    let centers = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let center = []
+        for (let j = 0; j < n_features; j = j + 1) {
+            center = append(center, X[i][j])
+        }
+        centers = append(centers, center)
+    }
+    
+    // Shift each center towards mean of points within bandwidth
+    for (let iter = 0; iter < model.max_iterations; iter = iter + 1) {
+        let new_centers = []
+        
+        for (let i = 0; i < len(centers); i = i + 1) {
+            let sum = zeros(n_features)
+            let count = 0
+            
+            for (let j = 0; j < n_samples; j = j + 1) {
+                let dist = euclideanDistancePoints(centers[i], X[j])
+                if (dist <= model.bandwidth) {
+                    count = count + 1
+                    for (let k = 0; k < n_features; k = k + 1) {
+                        sum[k] = sum[k] + X[j][k]
+                    }
+                }
+            }
+            
+            if (count > 0) {
+                let new_center = []
+                for (let k = 0; k < n_features; k = k + 1) {
+                    new_center = append(new_center, sum[k] / count)
+                }
+                new_centers = append(new_centers, new_center)
+            } else {
+                new_centers = append(new_centers, centers[i])
+            }
+        }
+        
+        centers = new_centers
+    }
+    
+    // Merge close centers
+    let unique_centers = []
+    for (let i = 0; i < len(centers); i = i + 1) {
+        let is_unique = true
+        for (let j = 0; j < len(unique_centers); j = j + 1) {
+            if (euclideanDistancePoints(centers[i], unique_centers[j]) < model.bandwidth / 2) {
+                is_unique = false
+                break
+            }
+        }
+        if (is_unique) {
+            unique_centers = append(unique_centers, centers[i])
+        }
+    }
+    
+    model.cluster_centers = unique_centers
+    
+    // Assign labels
+    model.labels = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let minDist = 999999.0
+        let label = 0
+        for (let c = 0; c < len(unique_centers); c = c + 1) {
+            let dist = euclideanDistancePoints(X[i], unique_centers[c])
+            if (dist < minDist) {
+                minDist = dist
+                label = c
+            }
+        }
+        model.labels = append(model.labels, label)
+    }
+    
+    model.is_fitted = true
+    return model.labels
+}
+
+// ===== Utility Functions =====
+
+fn zeros(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, 0.0)
+    }
+    return result
+}

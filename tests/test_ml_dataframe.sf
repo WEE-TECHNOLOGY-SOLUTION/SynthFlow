@@ -1,0 +1,66 @@
+// Test suite for DataFrame module
+import dataframe
+import array
+
+print("Testing DataFrame Module...")
+
+// 1. Creation
+print("- Testing Creation")
+let data = {
+    "id": [1, 2, 3, 4],
+    "name": ["Alice", "Bob", "Charlie", "David"],
+    "age": [25, 30, 35, 40],
+    "salary": [50000.0, 60000.0, 75000.0, 80000.0]
+}
+
+let df = dataframe.createDataFrame(data)
+
+let shape = dataframe.shape(df)
+if (shape[0] != 4) { print("FAIL: rows count") }
+if (shape[1] != 4) { print("FAIL: cols count") }
+
+let cols = dataframe.columns(df)
+if (len(cols) != 4) { print("FAIL: columns list") }
+
+// 2. Access
+print("- Testing Access")
+let ages = dataframe.getColumn(df, "age")
+if (len(ages) != 4 || ages[0] != 25) { print("FAIL: getColumn") }
+
+let row = dataframe.iloc(df, 1) // Bob
+if (row["name"] != "Bob") { print("FAIL: iloc name") }
+if (row["salary"] != 60000.0) { print("FAIL: iloc salary") }
+
+// 3. Manipulation
+print("- Testing Manipulation")
+// Filter: age > 30
+let senior = dataframe.filter(df, fn(row) {
+    return row["age"] > 30
+})
+let s_shape = dataframe.shape(senior)
+if (s_shape[0] != 2) { print("FAIL: filter count") } // Charlie, David
+
+// Sort by salary desc
+let sorted = dataframe.sort(df, "salary", false)
+let top = dataframe.iloc(sorted, 0)
+if (top["name"] != "David") { print("FAIL: sort") }
+
+// 4. Aggregation
+print("- Testing Aggregation")
+let counts = dataframe.valueCounts(df, "age")
+if (len(dataframe.shape(counts)) != 2) { print("FAIL: valueCounts") }
+
+let grouped = dataframe.groupBy(df, "id") // Should be unique
+// (Simple group check)
+
+// 5. Modification
+print("- Testing Modification")
+let df2 = dataframe.addColumn(df, "bonus", [500.0, 600.0, 750.0, 800.0])
+let bonuses = dataframe.getColumn(df2, "bonus")
+if (bonuses[0] != 500.0) { print("FAIL: addColumn") }
+
+let df3 = dataframe.dropColumn(df2, "salary")
+let cols3 = dataframe.columns(df3)
+if (len(cols3) != 4) { print("FAIL: dropColumn (len)") } // id, name, age, bonus
+
+print("DataFrame Module Tests Complete")

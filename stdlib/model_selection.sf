@@ -1,0 +1,373 @@
+// SynthFlow Hyperparameter Tuning Library
+// Grid Search and Random Search for model optimization
+
+// ===== Grid Search =====
+
+fn createGridSearchCV(paramGrid: map, cv: int, scoring: string) -> map {
+    return {
+        "param_grid": paramGrid,
+        "cv": cv,
+        "scoring": scoring,
+        "best_params": {},
+        "best_score": -999999.0,
+        "cv_results": [],
+        "is_fitted": false
+    }
+}
+
+// Generate all parameter combinations
+fn generateParamCombinations(paramGrid: map) -> array {
+    let keys = getKeys(paramGrid)
+    let combinations = [{}]
+    
+    for (let k = 0; k < len(keys); k = k + 1) {
+        let key = keys[k]
+        let values = paramGrid[key]
+        let newCombinations = []
+        
+        for (let i = 0; i < len(combinations); i = i + 1) {
+            for (let j = 0; j < len(values); j = j + 1) {
+                let combo = copyMap(combinations[i])
+                combo[key] = values[j]
+                newCombinations = append(newCombinations, combo)
+            }
+        }
+        
+        combinations = newCombinations
+    }
+    
+    return combinations
+}
+
+// Cross-validation score
+fn crossValScoreInternal(X: array, y: array, cv: int, fitFn: fn, predictFn: fn, scoreFn: fn, params: map) -> float {
+    let n = len(X)
+    let fold_size = int(n / cv)
+    let scores = []
+    
+    for (let fold = 0; fold < cv; fold = fold + 1) {
+        let test_start = fold * fold_size
+        let test_end = test_start + fold_size
+        if (fold == cv - 1) { test_end = n }
+        
+        // Split data
+        let X_train = []
+        let y_train = []
+        let X_test = []
+        let y_test = []
+        
+        for (let i = 0; i < n; i = i + 1) {
+            if (i >= test_start && i < test_end) {
+                X_test = append(X_test, X[i])
+                y_test = append(y_test, y[i])
+            } else {
+                X_train = append(X_train, X[i])
+                y_train = append(y_train, y[i])
+            }
+        }
+        
+        // Fit and predict using provided functions
+        let model = fitFn(params, X_train, y_train)
+        let y_pred = predictFn(model, X_test)
+        
+        // Score
+        let score = scoreFn(y_test, y_pred)
+        scores = append(scores, score)
+    }
+    
+    // Return mean score
+    let mean = 0.0
+    for (let i = 0; i < len(scores); i = i + 1) {
+        mean = mean + scores[i]
+    }
+    return mean / len(scores)
+}
+
+// Grid search fit
+fn gridSearchFit(gs: map, X: array, y: array, fitFn: fn, predictFn: fn, scoreFn: fn) -> map {
+    let combinations = generateParamCombinations(gs.param_grid)
+    
+    gs.cv_results = []
+    gs.best_score = -999999.0
+    
+    for (let i = 0; i < len(combinations); i = i + 1) {
+        let params = combinations[i]
+        let score = crossValScoreInternal(X, y, gs.cv, fitFn, predictFn, scoreFn, params)
+        
+        gs.cv_results = append(gs.cv_results, {
+            "params": params,
+            "mean_score": score
+        })
+        
+        if (score > gs.best_score) {
+            gs.best_score = score
+            gs.best_params = params
+        }
+    }
+    
+    gs.is_fitted = true
+    return gs
+}
+
+// ===== Random Search =====
+
+fn createRandomSearchCV(paramDistributions: map, nIter: int, cv: int, scoring: string, randomState: int) -> map {
+    return {
+        "param_distributions": paramDistributions,
+        "n_iter": nIter,
+        "cv": cv,
+        "scoring": scoring,
+        "random_state": randomState,
+        "best_params": {},
+        "best_score": -999999.0,
+        "cv_results": [],
+        "is_fitted": false
+    }
+}
+
+// Sample random parameter combination
+fn sampleParams(paramDistributions: map, seed: int) -> map {
+    let params = {}
+    let keys = getKeys(paramDistributions)
+    
+    for (let k = 0; k < len(keys); k = k + 1) {
+        let key = keys[k]
+        let dist = paramDistributions[key]
+        
+        seed = (1103515245 * seed + 12345) % 2147483648
+        
+        if (dist.type == "uniform") {
+            // Uniform distribution
+            let range = dist.high - dist.low
+            let val = dist.low + (float(seed) / 2147483648.0) * range
+            params[key] = val
+        } else if (dist.type == "randint") {
+            // Random integer
+            let range = dist.high - dist.low
+            let val = dist.low + (seed % range)
+            params[key] = val
+        } else if (dist.type == "choice") {
+            // Random choice from list
+            let idx = seed % len(dist.values)
+            params[key] = dist.values[idx]
+        } else if (dist.type == "loguniform") {
+            // Log-uniform distribution
+            let log_low = ln(dist.low)
+            let log_high = ln(dist.high)
+            let log_val = log_low + (float(seed) / 2147483648.0) * (log_high - log_low)
+            params[key] = exp(log_val)
+        }
+    }
+    
+    return params
+}
+
+// Random search fit
+fn randomSearchFit(rs: map, X: array, y: array, fitFn: fn, predictFn: fn, scoreFn: fn) -> map {
+    rs.cv_results = []
+    rs.best_score = -999999.0
+    
+    let seed = rs.random_state
+    
+    for (let i = 0; i < rs.n_iter; i = i + 1) {
+        let params = sampleParams(rs.param_distributions, seed + i * 1000)
+        let score = crossValScoreInternal(X, y, rs.cv, fitFn, predictFn, scoreFn, params)
+        
+        rs.cv_results = append(rs.cv_results, {
+            "params": params,
+            "mean_score": score
+        })
+        
+        if (score > rs.best_score) {
+            rs.best_score = score
+            rs.best_params = params
+        }
+    }
+    
+    rs.is_fitted = true
+    return rs
+}
+
+// ===== Distribution Helpers =====
+
+fn uniform(low: float, high: float) -> map {
+    return {
+        "type": "uniform",
+        "low": low,
+        "high": high
+    }
+}
+
+fn randint(low: int, high: int) -> map {
+    return {
+        "type": "randint",
+        "low": low,
+        "high": high
+    }
+}
+
+fn choice(values: array) -> map {
+    return {
+        "type": "choice",
+        "values": values
+    }
+}
+
+fn loguniform(low: float, high: float) -> map {
+    return {
+        "type": "loguniform",
+        "low": low,
+        "high": high
+    }
+}
+
+// ===== Learning Curve =====
+
+fn learningCurve(X: array, y: array, trainSizes: array, cv: int, fitFn: fn, predictFn: fn, scoreFn: fn, params: map) -> map {
+    let n = len(X)
+    let train_scores = []
+    let test_scores = []
+    let actual_sizes = []
+    
+    for (let s = 0; s < len(trainSizes); s = s + 1) {
+        let size = trainSizes[s]
+        if (size <= 1.0) {
+            size = int(size * n)
+        }
+        actual_sizes = append(actual_sizes, size)
+        
+        let fold_train_scores = []
+        let fold_test_scores = []
+        
+        for (let fold = 0; fold < cv; fold = fold + 1) {
+            // Create train/test split for this fold
+            let fold_size = int(n / cv)
+            let test_start = fold * fold_size
+            let test_end = test_start + fold_size
+            if (fold == cv - 1) { test_end = n }
+            
+            let X_train = []
+            let y_train = []
+            let X_test = []
+            let y_test = []
+            
+            for (let i = 0; i < n; i = i + 1) {
+                if (i >= test_start && i < test_end) {
+                    X_test = append(X_test, X[i])
+                    y_test = append(y_test, y[i])
+                } else if (len(X_train) < size) {
+                    X_train = append(X_train, X[i])
+                    y_train = append(y_train, y[i])
+                }
+            }
+            
+            // Fit and evaluate
+            let model = fitFn(params, X_train, y_train)
+            
+            let train_pred = predictFn(model, X_train)
+            let train_score = scoreFn(y_train, train_pred)
+            fold_train_scores = append(fold_train_scores, train_score)
+            
+            let test_pred = predictFn(model, X_test)
+            let test_score = scoreFn(y_test, test_pred)
+            fold_test_scores = append(fold_test_scores, test_score)
+        }
+        
+        // Average across folds
+        let mean_train = 0.0
+        let mean_test = 0.0
+        for (let i = 0; i < len(fold_train_scores); i = i + 1) {
+            mean_train = mean_train + fold_train_scores[i]
+            mean_test = mean_test + fold_test_scores[i]
+        }
+        mean_train = mean_train / cv
+        mean_test = mean_test / cv
+        
+        train_scores = append(train_scores, mean_train)
+        test_scores = append(test_scores, mean_test)
+    }
+    
+    return {
+        "train_sizes": actual_sizes,
+        "train_scores": train_scores,
+        "test_scores": test_scores
+    }
+}
+
+// ===== Validation Curve =====
+
+fn validationCurve(X: array, y: array, paramName: string, paramRange: array, cv: int, fitFn: fn, predictFn: fn, scoreFn: fn, baseParams: map) -> map {
+    let train_scores = []
+    let test_scores = []
+    
+    for (let p = 0; p < len(paramRange); p = p + 1) {
+        let params = copyMap(baseParams)
+        params[paramName] = paramRange[p]
+        
+        let fold_train_scores = []
+        let fold_test_scores = []
+        
+        let n = len(X)
+        for (let fold = 0; fold < cv; fold = fold + 1) {
+            let fold_size = int(n / cv)
+            let test_start = fold * fold_size
+            let test_end = test_start + fold_size
+            if (fold == cv - 1) { test_end = n }
+            
+            let X_train = []
+            let y_train = []
+            let X_test = []
+            let y_test = []
+            
+            for (let i = 0; i < n; i = i + 1) {
+                if (i >= test_start && i < test_end) {
+                    X_test = append(X_test, X[i])
+                    y_test = append(y_test, y[i])
+                } else {
+                    X_train = append(X_train, X[i])
+                    y_train = append(y_train, y[i])
+                }
+            }
+            
+            let model = fitFn(params, X_train, y_train)
+            
+            let train_pred = predictFn(model, X_train)
+            let train_score = scoreFn(y_train, train_pred)
+            fold_train_scores = append(fold_train_scores, train_score)
+            
+            let test_pred = predictFn(model, X_test)
+            let test_score = scoreFn(y_test, test_pred)
+            fold_test_scores = append(fold_test_scores, test_score)
+        }
+        
+        let mean_train = 0.0
+        let mean_test = 0.0
+        for (let i = 0; i < len(fold_train_scores); i = i + 1) {
+            mean_train = mean_train + fold_train_scores[i]
+            mean_test = mean_test + fold_test_scores[i]
+        }
+        mean_train = mean_train / cv
+        mean_test = mean_test / cv
+        
+        train_scores = append(train_scores, mean_train)
+        test_scores = append(test_scores, mean_test)
+    }
+    
+    return {
+        "param_range": paramRange,
+        "train_scores": train_scores,
+        "test_scores": test_scores
+    }
+}
+
+// ===== Utility Functions =====
+
+fn getKeys(m: map) -> array {
+    // This would need interpreter support
+    return []
+}
+
+fn copyMap(m: map) -> map {
+    // This would need interpreter support
+    return m
+}

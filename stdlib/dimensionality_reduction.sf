@@ -1,0 +1,627 @@
+// SynthFlow Dimensionality Reduction Library
+// Algorithms for reducing feature dimensions
+
+// ===== Principal Component Analysis (PCA) =====
+
+fn createPCA(nComponents: int) -> map {
+    return {
+        "n_components": nComponents,
+        "components": [],      // Principal components (eigenvectors)
+        "explained_variance": [],
+        "mean": [],
+        "is_fitted": false
+    }
+}
+
+fn pcaFit(model: map, X: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Center the data
+    model.mean = zeros(n_features)
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            model.mean[j] = model.mean[j] + X[i][j]
+        }
+    }
+    for (let j = 0; j < n_features; j = j + 1) {
+        model.mean[j] = model.mean[j] / n_samples
+    }
+    
+    let X_centered = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = []
+        for (let j = 0; j < n_features; j = j + 1) {
+            row = append(row, X[i][j] - model.mean[j])
+        }
+        X_centered = append(X_centered, row)
+    }
+    
+    // Compute covariance matrix
+    let cov = zeros2d(n_features, n_features)
+    for (let i = 0; i < n_features; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            let sum = 0.0
+            for (let k = 0; k < n_samples; k = k + 1) {
+                sum = sum + X_centered[k][i] * X_centered[k][j]
+            }
+            cov[i][j] = sum / (n_samples - 1)
+        }
+    }
+    
+    // Power iteration to find principal components
+    model.components = []
+    model.explained_variance = []
+    
+    for (let c = 0; c < model.n_components; c = c + 1) {
+        // Initialize random vector
+        let v = []
+        let seed = c * 100 + 42
+        for (let i = 0; i < n_features; i = i + 1) {
+            seed = (1103515245 * seed + 12345) % 2147483648
+            v = append(v, float(seed) / 2147483648.0 - 0.5)
+        }
+        
+        // Power iteration
+        for (let iter = 0; iter < 100; iter = iter + 1) {
+            // Multiply by covariance matrix
+            let new_v = zeros(n_features)
+            for (let i = 0; i < n_features; i = i + 1) {
+                for (let j = 0; j < n_features; j = j + 1) {
+                    new_v[i] = new_v[i] + cov[i][j] * v[j]
+                }
+            }
+            
+            // Orthogonalize against previous components
+            for (let p = 0; p < c; p = p + 1) {
+                let proj = 0.0
+                for (let i = 0; i < n_features; i = i + 1) {
+                    proj = proj + new_v[i] * model.components[p][i]
+                }
+                for (let i = 0; i < n_features; i = i + 1) {
+                    new_v[i] = new_v[i] - proj * model.components[p][i]
+                }
+            }
+            
+            // Normalize
+            let norm = 0.0
+            for (let i = 0; i < n_features; i = i + 1) {
+                norm = norm + new_v[i] * new_v[i]
+            }
+            norm = sqrt(norm)
+            
+            if (norm > 0) {
+                for (let i = 0; i < n_features; i = i + 1) {
+                    v[i] = new_v[i] / norm
+                }
+            }
+        }
+        
+        model.components = append(model.components, v)
+        
+        // Compute explained variance (eigenvalue)
+        let Av = zeros(n_features)
+        for (let i = 0; i < n_features; i = i + 1) {
+            for (let j = 0; j < n_features; j = j + 1) {
+                Av[i] = Av[i] + cov[i][j] * v[j]
+            }
+        }
+        let eigenvalue = 0.0
+        for (let i = 0; i < n_features; i = i + 1) {
+            eigenvalue = eigenvalue + Av[i] * v[i]
+        }
+        model.explained_variance = append(model.explained_variance, eigenvalue)
+        
+        // Deflate covariance matrix
+        for (let i = 0; i < n_features; i = i + 1) {
+            for (let j = 0; j < n_features; j = j + 1) {
+                cov[i][j] = cov[i][j] - eigenvalue * v[i] * v[j]
+            }
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn pcaTransform(model: map, X: array) -> array {
+    let n_samples = len(X)
+    let result = []
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = []
+        for (let c = 0; c < model.n_components; c = c + 1) {
+            let projection = 0.0
+            for (let j = 0; j < len(X[i]); j = j + 1) {
+                projection = projection + (X[i][j] - model.mean[j]) * model.components[c][j]
+            }
+            row = append(row, projection)
+        }
+        result = append(result, row)
+    }
+    
+    return result
+}
+
+fn pcaFitTransform(model: map, X: array) -> array {
+    model = pcaFit(model, X)
+    return pcaTransform(model, X)
+}
+
+fn pcaInverseTransform(model: map, X_transformed: array) -> array {
+    let n_samples = len(X_transformed)
+    let n_features = len(model.mean)
+    let result = []
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = []
+        for (let j = 0; j < n_features; j = j + 1) {
+            let val = model.mean[j]
+            for (let c = 0; c < model.n_components; c = c + 1) {
+                val = val + X_transformed[i][c] * model.components[c][j]
+            }
+            row = append(row, val)
+        }
+        result = append(result, row)
+    }
+    
+    return result
+}
+
+fn pcaExplainedVarianceRatio(model: map) -> array {
+    let total = 0.0
+    for (let i = 0; i < len(model.explained_variance); i = i + 1) {
+        total = total + model.explained_variance[i]
+    }
+    
+    let ratios = []
+    for (let i = 0; i < len(model.explained_variance); i = i + 1) {
+        ratios = append(ratios, model.explained_variance[i] / total)
+    }
+    return ratios
+}
+
+// ===== Truncated SVD =====
+// Similar to PCA but doesn't center data (useful for sparse matrices)
+
+fn createTruncatedSVD(nComponents: int) -> map {
+    return {
+        "n_components": nComponents,
+        "components": [],
+        "singular_values": [],
+        "is_fitted": false
+    }
+}
+
+fn truncatedSVDFitTransform(model: map, X: array) -> array {
+    // Use power iteration for largest singular values
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    model.components = []
+    model.singular_values = []
+    
+    // Work with X^T X for right singular vectors
+    let XtX = zeros2d(n_features, n_features)
+    for (let i = 0; i < n_features; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            let sum = 0.0
+            for (let k = 0; k < n_samples; k = k + 1) {
+                sum = sum + X[k][i] * X[k][j]
+            }
+            XtX[i][j] = sum
+        }
+    }
+    
+    for (let c = 0; c < model.n_components; c = c + 1) {
+        // Power iteration
+        let v = []
+        let seed = c * 100 + 42
+        for (let i = 0; i < n_features; i = i + 1) {
+            seed = (1103515245 * seed + 12345) % 2147483648
+            v = append(v, float(seed) / 2147483648.0 - 0.5)
+        }
+        
+        for (let iter = 0; iter < 100; iter = iter + 1) {
+            let new_v = zeros(n_features)
+            for (let i = 0; i < n_features; i = i + 1) {
+                for (let j = 0; j < n_features; j = j + 1) {
+                    new_v[i] = new_v[i] + XtX[i][j] * v[j]
+                }
+            }
+            
+            // Orthogonalize
+            for (let p = 0; p < c; p = p + 1) {
+                let proj = 0.0
+                for (let i = 0; i < n_features; i = i + 1) {
+                    proj = proj + new_v[i] * model.components[p][i]
+                }
+                for (let i = 0; i < n_features; i = i + 1) {
+                    new_v[i] = new_v[i] - proj * model.components[p][i]
+                }
+            }
+            
+            let norm = 0.0
+            for (let i = 0; i < n_features; i = i + 1) {
+                norm = norm + new_v[i] * new_v[i]
+            }
+            norm = sqrt(norm)
+            
+            if (norm > 0) {
+                for (let i = 0; i < n_features; i = i + 1) {
+                    v[i] = new_v[i] / norm
+                }
+            }
+        }
+        
+        model.components = append(model.components, v)
+        
+        // Compute singular value
+        let Av = zeros(n_features)
+        for (let i = 0; i < n_features; i = i + 1) {
+            for (let j = 0; j < n_features; j = j + 1) {
+                Av[i] = Av[i] + XtX[i][j] * v[j]
+            }
+        }
+        let eigenvalue = 0.0
+        for (let i = 0; i < n_features; i = i + 1) {
+            eigenvalue = eigenvalue + Av[i] * v[i]
+        }
+        model.singular_values = append(model.singular_values, sqrt(eigenvalue))
+        
+        // Deflate
+        for (let i = 0; i < n_features; i = i + 1) {
+            for (let j = 0; j < n_features; j = j + 1) {
+                XtX[i][j] = XtX[i][j] - eigenvalue * v[i] * v[j]
+            }
+        }
+    }
+    
+    model.is_fitted = true
+    
+    // Transform
+    let result = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = []
+        for (let c = 0; c < model.n_components; c = c + 1) {
+            let projection = 0.0
+            for (let j = 0; j < n_features; j = j + 1) {
+                projection = projection + X[i][j] * model.components[c][j]
+            }
+            row = append(row, projection)
+        }
+        result = append(result, row)
+    }
+    
+    return result
+}
+
+// ===== Linear Discriminant Analysis (LDA) =====
+
+fn createLDA(nComponents: int) -> map {
+    return {
+        "n_components": nComponents,
+        "scalings": [],
+        "classes": [],
+        "mean": [],
+        "is_fitted": false
+    }
+}
+
+fn ldaFitTransform(model: map, X: array, y: array) -> array {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Find unique classes
+    model.classes = unique(y)
+    let n_classes = len(model.classes)
+    
+    // Global mean
+    model.mean = zeros(n_features)
+    for (let i = 0; i < n_samples; i = i + 1) {
+        for (let j = 0; j < n_features; j = j + 1) {
+            model.mean[j] = model.mean[j] + X[i][j]
+        }
+    }
+    for (let j = 0; j < n_features; j = j + 1) {
+        model.mean[j] = model.mean[j] / n_samples
+    }
+    
+    // Class means
+    let class_means = []
+    let class_counts = []
+    for (let c = 0; c < n_classes; c = c + 1) {
+        let mean = zeros(n_features)
+        let count = 0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            if (y[i] == model.classes[c]) {
+                count = count + 1
+                for (let j = 0; j < n_features; j = j + 1) {
+                    mean[j] = mean[j] + X[i][j]
+                }
+            }
+        }
+        for (let j = 0; j < n_features; j = j + 1) {
+            mean[j] = mean[j] / count
+        }
+        class_means = append(class_means, mean)
+        class_counts = append(class_counts, count)
+    }
+    
+    // Between-class scatter matrix
+    let Sb = zeros2d(n_features, n_features)
+    for (let c = 0; c < n_classes; c = c + 1) {
+        let diff = []
+        for (let j = 0; j < n_features; j = j + 1) {
+            diff = append(diff, class_means[c][j] - model.mean[j])
+        }
+        for (let i = 0; i < n_features; i = i + 1) {
+            for (let j = 0; j < n_features; j = j + 1) {
+                Sb[i][j] = Sb[i][j] + class_counts[c] * diff[i] * diff[j]
+            }
+        }
+    }
+    
+    // Within-class scatter matrix
+    let Sw = zeros2d(n_features, n_features)
+    for (let c = 0; c < n_classes; c = c + 1) {
+        for (let i = 0; i < n_samples; i = i + 1) {
+            if (y[i] == model.classes[c]) {
+                let diff = []
+                for (let j = 0; j < n_features; j = j + 1) {
+                    diff = append(diff, X[i][j] - class_means[c][j])
+                }
+                for (let a = 0; a < n_features; a = a + 1) {
+                    for (let b = 0; b < n_features; b = b + 1) {
+                        Sw[a][b] = Sw[a][b] + diff[a] * diff[b]
+                    }
+                }
+            }
+        }
+    }
+    
+    // Add regularization to Sw
+    for (let i = 0; i < n_features; i = i + 1) {
+        Sw[i][i] = Sw[i][i] + 1e-6
+    }
+    
+    // Solve generalized eigenvalue problem (simplified: use power iteration on Sw^-1 * Sb)
+    // This is a simplification - full LDA would need proper eigendecomposition
+    model.scalings = []
+    
+    let n_comp = min(model.n_components, n_classes - 1)
+    for (let c = 0; c < n_comp; c = c + 1) {
+        let v = []
+        let seed = c * 100 + 42
+        for (let i = 0; i < n_features; i = i + 1) {
+            seed = (1103515245 * seed + 12345) % 2147483648
+            v = append(v, float(seed) / 2147483648.0 - 0.5)
+        }
+        
+        for (let iter = 0; iter < 50; iter = iter + 1) {
+            // Multiply by Sb
+            let Sbv = zeros(n_features)
+            for (let i = 0; i < n_features; i = i + 1) {
+                for (let j = 0; j < n_features; j = j + 1) {
+                    Sbv[i] = Sbv[i] + Sb[i][j] * v[j]
+                }
+            }
+            v = Sbv
+            
+            // Normalize
+            let norm = 0.0
+            for (let i = 0; i < n_features; i = i + 1) {
+                norm = norm + v[i] * v[i]
+            }
+            norm = sqrt(norm)
+            if (norm > 0) {
+                for (let i = 0; i < n_features; i = i + 1) {
+                    v[i] = v[i] / norm
+                }
+            }
+        }
+        
+        model.scalings = append(model.scalings, v)
+    }
+    
+    model.is_fitted = true
+    
+    // Transform
+    let result = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = []
+        for (let c = 0; c < len(model.scalings); c = c + 1) {
+            let projection = 0.0
+            for (let j = 0; j < n_features; j = j + 1) {
+                projection = projection + X[i][j] * model.scalings[c][j]
+            }
+            row = append(row, projection)
+        }
+        result = append(result, row)
+    }
+    
+    return result
+}
+
+// ===== Feature Selection: SelectKBest =====
+
+fn createSelectKBest(k: int, scoreFunc: string) -> map {
+    return {
+        "k": k,
+        "score_func": scoreFunc,  // "variance", "f_classif", "mutual_info"
+        "scores": [],
+        "selected_features": [],
+        "is_fitted": false
+    }
+}
+
+fn selectKBestFit(model: map, X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    model.scores = []
+    
+    if (model.score_func == "variance") {
+        // Score by variance
+        for (let j = 0; j < n_features; j = j + 1) {
+            let mean = 0.0
+            for (let i = 0; i < n_samples; i = i + 1) {
+                mean = mean + X[i][j]
+            }
+            mean = mean / n_samples
+            
+            let variance = 0.0
+            for (let i = 0; i < n_samples; i = i + 1) {
+                let diff = X[i][j] - mean
+                variance = variance + diff * diff
+            }
+            variance = variance / n_samples
+            
+            model.scores = append(model.scores, variance)
+        }
+    } else if (model.score_func == "f_classif") {
+        // F-test for classification
+        let classes = unique(y)
+        
+        for (let j = 0; j < n_features; j = j + 1) {
+            // Overall mean
+            let overall_mean = 0.0
+            for (let i = 0; i < n_samples; i = i + 1) {
+                overall_mean = overall_mean + X[i][j]
+            }
+            overall_mean = overall_mean / n_samples
+            
+            // Between-group variance
+            let ssb = 0.0
+            for (let c = 0; c < len(classes); c = c + 1) {
+                let class_mean = 0.0
+                let class_count = 0
+                for (let i = 0; i < n_samples; i = i + 1) {
+                    if (y[i] == classes[c]) {
+                        class_mean = class_mean + X[i][j]
+                        class_count = class_count + 1
+                    }
+                }
+                class_mean = class_mean / class_count
+                ssb = ssb + class_count * (class_mean - overall_mean) * (class_mean - overall_mean)
+            }
+            
+            // Within-group variance
+            let ssw = 0.0
+            for (let c = 0; c < len(classes); c = c + 1) {
+                let class_mean = 0.0
+                let class_count = 0
+                for (let i = 0; i < n_samples; i = i + 1) {
+                    if (y[i] == classes[c]) {
+                        class_mean = class_mean + X[i][j]
+                        class_count = class_count + 1
+                    }
+                }
+                class_mean = class_mean / class_count
+                
+                for (let i = 0; i < n_samples; i = i + 1) {
+                    if (y[i] == classes[c]) {
+                        let diff = X[i][j] - class_mean
+                        ssw = ssw + diff * diff
+                    }
+                }
+            }
+            
+            // F-statistic
+            let df_between = len(classes) - 1
+            let df_within = n_samples - len(classes)
+            let f_stat = 0.0
+            if (ssw > 0) {
+                f_stat = (ssb / df_between) / (ssw / df_within)
+            }
+            
+            model.scores = append(model.scores, f_stat)
+        }
+    }
+    
+    // Select top k features
+    let indices = []
+    for (let j = 0; j < n_features; j = j + 1) {
+        indices = append(indices, j)
+    }
+    
+    // Sort by score (descending)
+    for (let i = 0; i < len(indices) - 1; i = i + 1) {
+        for (let j = 0; j < len(indices) - i - 1; j = j + 1) {
+            if (model.scores[indices[j]] < model.scores[indices[j + 1]]) {
+                let temp = indices[j]
+                indices[j] = indices[j + 1]
+                indices[j + 1] = temp
+            }
+        }
+    }
+    
+    model.selected_features = []
+    for (let i = 0; i < model.k; i = i + 1) {
+        model.selected_features = append(model.selected_features, indices[i])
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn selectKBestTransform(model: map, X: array) -> array {
+    let result = []
+    for (let i = 0; i < len(X); i = i + 1) {
+        let row = []
+        for (let j = 0; j < len(model.selected_features); j = j + 1) {
+            row = append(row, X[i][model.selected_features[j]])
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+fn selectKBestFitTransform(model: map, X: array, y: array) -> array {
+    model = selectKBestFit(model, X, y)
+    return selectKBestTransform(model, X)
+}
+
+// ===== Utility Functions =====
+
+fn zeros(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, 0.0)
+    }
+    return result
+}
+
+fn zeros2d(rows: int, cols: int) -> array {
+    let result = []
+    for (let i = 0; i < rows; i = i + 1) {
+        let row = []
+        for (let j = 0; j < cols; j = j + 1) {
+            row = append(row, 0.0)
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+fn unique(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let found = false
+        for (let j = 0; j < len(result); j = j + 1) {
+            if (arr[i] == result[j]) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            result = append(result, arr[i])
+        }
+    }
+    return result
+}
+
+fn min(a: int, b: int) -> int {
+    if (a < b) { return a }
+    return b
+}

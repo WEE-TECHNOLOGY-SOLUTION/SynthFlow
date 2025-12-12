@@ -1,0 +1,928 @@
+// SynthFlow DataFrame Library (Pandas Equivalent)
+// Tabular data operations for data science
+
+// ===== DataFrame Creation =====
+
+// Create empty DataFrame as a map with columns
+fn createDataFrame() -> map {
+    return {
+        "columns": [],
+        "data": {},
+        "index": [],
+        "length": 0
+    }
+}
+
+// Create DataFrame from arrays (column-oriented)
+fn fromColumns(columnNames: array, columnData: array) -> map {
+    let df = createDataFrame()
+    df.columns = columnNames
+    df.length = 0
+    
+    for (let i = 0; i < len(columnNames); i = i + 1) {
+        let colName = columnNames[i]
+        df.data[colName] = columnData[i]
+        if (df.length == 0 && len(columnData[i]) > 0) {
+            df.length = len(columnData[i])
+        }
+    }
+    
+    // Create default index
+    df.index = []
+    for (let i = 0; i < df.length; i = i + 1) {
+        df.index = append(df.index, i)
+    }
+    
+    return df
+}
+
+// Create DataFrame from array of maps (row-oriented)
+fn fromRows(rows: array) -> map {
+    if (len(rows) == 0) {
+        return createDataFrame()
+    }
+    
+    // Get column names from first row
+    let firstRow = rows[0]
+    let columnNames = keys(firstRow)
+    
+    // Initialize column data
+    let columnData = {}
+    for (let i = 0; i < len(columnNames); i = i + 1) {
+        columnData[columnNames[i]] = []
+    }
+    
+    // Populate columns from rows
+    for (let i = 0; i < len(rows); i = i + 1) {
+        let row = rows[i]
+        for (let j = 0; j < len(columnNames); j = j + 1) {
+            let colName = columnNames[j]
+            columnData[colName] = append(columnData[colName], row[colName])
+        }
+    }
+    
+    let df = createDataFrame()
+    df.columns = columnNames
+    df.data = columnData
+    df.length = len(rows)
+    df.index = []
+    for (let i = 0; i < df.length; i = i + 1) {
+        df.index = append(df.index, i)
+    }
+    
+    return df
+}
+
+// ===== DataFrame Information =====
+
+// Get number of rows
+fn nrows(df: map) -> int {
+    return df.length
+}
+
+// Get number of columns
+fn ncols(df: map) -> int {
+    return len(df.columns)
+}
+
+// Get shape [rows, cols]
+fn dfShape(df: map) -> array {
+    return [df.length, len(df.columns)]
+}
+
+// Get column names
+fn columns(df: map) -> array {
+    return df.columns
+}
+
+// Get column by name
+fn getColumn(df: map, colName: string) -> array {
+    return df.data[colName]
+}
+
+// Get row by index as map
+fn getRow(df: map, idx: int) -> map {
+    let row = {}
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        let colName = df.columns[i]
+        row[colName] = df.data[colName][idx]
+    }
+    return row
+}
+
+// Get value at row, column
+fn getValue(df: map, row: int, colName: string) -> any {
+    return df.data[colName][row]
+}
+
+// ===== Column Operations =====
+
+// Add new column
+fn addColumn(df: map, colName: string, data: array) -> map {
+    df.columns = append(df.columns, colName)
+    df.data[colName] = data
+    return df
+}
+
+// Drop column
+fn dropColumn(df: map, colName: string) -> map {
+    let newCols = []
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        if (df.columns[i] != colName) {
+            newCols = append(newCols, df.columns[i])
+        }
+    }
+    df.columns = newCols
+    // Note: data still contains the column, but it won't be accessible
+    return df
+}
+
+// Rename column
+fn renameColumn(df: map, oldName: string, newName: string) -> map {
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        if (df.columns[i] == oldName) {
+            df.columns[i] = newName
+        }
+    }
+    df.data[newName] = df.data[oldName]
+    return df
+}
+
+// Select specific columns
+fn select(df: map, colNames: array) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = colNames
+    newDf.length = df.length
+    newDf.index = df.index
+    
+    for (let i = 0; i < len(colNames); i = i + 1) {
+        let colName = colNames[i]
+        newDf.data[colName] = df.data[colName]
+    }
+    
+    return newDf
+}
+
+// ===== Row Operations =====
+
+// Filter rows by condition (pass a function that takes a row map and returns bool)
+fn filter(df: map, condition: fn) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        newDf.data[df.columns[i]] = []
+    }
+    
+    let newIndex = []
+    for (let i = 0; i < df.length; i = i + 1) {
+        let row = getRow(df, i)
+        if (condition(row)) {
+            for (let j = 0; j < len(df.columns); j = j + 1) {
+                let colName = df.columns[j]
+                newDf.data[colName] = append(newDf.data[colName], row[colName])
+            }
+            newIndex = append(newIndex, df.index[i])
+        }
+    }
+    
+    newDf.length = len(newIndex)
+    newDf.index = newIndex
+    return newDf
+}
+
+// Filter rows where column equals value
+fn filterEquals(df: map, colName: string, value: any) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        newDf.data[df.columns[i]] = []
+    }
+    
+    let col = df.data[colName]
+    let newIndex = []
+    
+    for (let i = 0; i < df.length; i = i + 1) {
+        if (col[i] == value) {
+            for (let j = 0; j < len(df.columns); j = j + 1) {
+                let cn = df.columns[j]
+                newDf.data[cn] = append(newDf.data[cn], df.data[cn][i])
+            }
+            newIndex = append(newIndex, df.index[i])
+        }
+    }
+    
+    newDf.length = len(newIndex)
+    newDf.index = newIndex
+    return newDf
+}
+
+// Filter rows where column is greater than value
+fn filterGreater(df: map, colName: string, value: float) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        newDf.data[df.columns[i]] = []
+    }
+    
+    let col = df.data[colName]
+    let newIndex = []
+    
+    for (let i = 0; i < df.length; i = i + 1) {
+        if (col[i] > value) {
+            for (let j = 0; j < len(df.columns); j = j + 1) {
+                let cn = df.columns[j]
+                newDf.data[cn] = append(newDf.data[cn], df.data[cn][i])
+            }
+            newIndex = append(newIndex, df.index[i])
+        }
+    }
+    
+    newDf.length = len(newIndex)
+    newDf.index = newIndex
+    return newDf
+}
+
+// Filter rows where column is less than value
+fn filterLess(df: map, colName: string, value: float) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        newDf.data[df.columns[i]] = []
+    }
+    
+    let col = df.data[colName]
+    let newIndex = []
+    
+    for (let i = 0; i < df.length; i = i + 1) {
+        if (col[i] < value) {
+            for (let j = 0; j < len(df.columns); j = j + 1) {
+                let cn = df.columns[j]
+                newDf.data[cn] = append(newDf.data[cn], df.data[cn][i])
+            }
+            newIndex = append(newIndex, df.index[i])
+        }
+    }
+    
+    newDf.length = len(newIndex)
+    newDf.index = newIndex
+    return newDf
+}
+
+// Head - first n rows
+fn head(df: map, n: int) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    let count = min(n, df.length)
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        let colName = df.columns[i]
+        newDf.data[colName] = []
+        for (let j = 0; j < count; j = j + 1) {
+            newDf.data[colName] = append(newDf.data[colName], df.data[colName][j])
+        }
+    }
+    
+    newDf.index = []
+    for (let i = 0; i < count; i = i + 1) {
+        newDf.index = append(newDf.index, df.index[i])
+    }
+    newDf.length = count
+    
+    return newDf
+}
+
+// Tail - last n rows
+fn tail(df: map, n: int) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    let count = min(n, df.length)
+    let start = df.length - count
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        let colName = df.columns[i]
+        newDf.data[colName] = []
+        for (let j = start; j < df.length; j = j + 1) {
+            newDf.data[colName] = append(newDf.data[colName], df.data[colName][j])
+        }
+    }
+    
+    newDf.index = []
+    for (let i = start; i < df.length; i = i + 1) {
+        newDf.index = append(newDf.index, df.index[i])
+    }
+    newDf.length = count
+    
+    return newDf
+}
+
+// Sample n random rows
+fn sample(df: map, n: int) -> map {
+    let indices = []
+    let seed = 42
+    
+    for (let i = 0; i < n; i = i + 1) {
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let idx = seed % df.length
+        indices = append(indices, idx)
+    }
+    
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        let colName = df.columns[i]
+        newDf.data[colName] = []
+        for (let j = 0; j < n; j = j + 1) {
+            newDf.data[colName] = append(newDf.data[colName], df.data[colName][indices[j]])
+        }
+    }
+    
+    newDf.length = n
+    newDf.index = indices
+    return newDf
+}
+
+// ===== Sorting =====
+
+// Sort by column (ascending)
+fn sortBy(df: map, colName: string, ascending: bool) -> map {
+    let col = df.data[colName]
+    
+    // Get sorted indices
+    let indices = []
+    for (let i = 0; i < len(col); i = i + 1) {
+        indices = append(indices, i)
+    }
+    
+    // Bubble sort on indices
+    for (let i = 0; i < len(indices) - 1; i = i + 1) {
+        for (let j = 0; j < len(indices) - i - 1; j = j + 1) {
+            let swap = false
+            if (ascending) {
+                swap = col[indices[j]] > col[indices[j + 1]]
+            } else {
+                swap = col[indices[j]] < col[indices[j + 1]]
+            }
+            if (swap) {
+                let temp = indices[j]
+                indices[j] = indices[j + 1]
+                indices[j + 1] = temp
+            }
+        }
+    }
+    
+    // Create new DataFrame with sorted order
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        let cn = df.columns[i]
+        newDf.data[cn] = []
+        for (let j = 0; j < len(indices); j = j + 1) {
+            newDf.data[cn] = append(newDf.data[cn], df.data[cn][indices[j]])
+        }
+    }
+    
+    newDf.length = df.length
+    newDf.index = indices
+    return newDf
+}
+
+// ===== Aggregation Functions =====
+
+// Sum of column
+fn colSum(df: map, colName: string) -> float {
+    let col = df.data[colName]
+    let total = 0.0
+    for (let i = 0; i < len(col); i = i + 1) {
+        total = total + col[i]
+    }
+    return total
+}
+
+// Mean of column
+fn colMean(df: map, colName: string) -> float {
+    let col = df.data[colName]
+    if (len(col) == 0) { return 0.0 }
+    return colSum(df, colName) / len(col)
+}
+
+// Min of column
+fn colMin(df: map, colName: string) -> float {
+    let col = df.data[colName]
+    if (len(col) == 0) { return 0.0 }
+    let result = col[0]
+    for (let i = 1; i < len(col); i = i + 1) {
+        if (col[i] < result) { result = col[i] }
+    }
+    return result
+}
+
+// Max of column
+fn colMax(df: map, colName: string) -> float {
+    let col = df.data[colName]
+    if (len(col) == 0) { return 0.0 }
+    let result = col[0]
+    for (let i = 1; i < len(col); i = i + 1) {
+        if (col[i] > result) { result = col[i] }
+    }
+    return result
+}
+
+// Count of column (non-null values)
+fn colCount(df: map, colName: string) -> int {
+    let col = df.data[colName]
+    let count = 0
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (col[i] != null) { count = count + 1 }
+    }
+    return count
+}
+
+// Standard deviation of column
+fn colStd(df: map, colName: string) -> float {
+    let col = df.data[colName]
+    if (len(col) == 0) { return 0.0 }
+    let m = colMean(df, colName)
+    let sumSq = 0.0
+    for (let i = 0; i < len(col); i = i + 1) {
+        let diff = col[i] - m
+        sumSq = sumSq + diff * diff
+    }
+    return sqrt(sumSq / len(col))
+}
+
+// ===== GroupBy Operations =====
+
+// Group by column and aggregate
+fn groupBy(df: map, groupCol: string, aggCol: string, aggFunc: string) -> map {
+    let groups = {}
+    let col = df.data[groupCol]
+    let aggData = df.data[aggCol]
+    
+    // Collect values for each group
+    for (let i = 0; i < len(col); i = i + 1) {
+        let key = str(col[i])
+        if (!hasKey(groups, key)) {
+            groups[key] = []
+        }
+        groups[key] = append(groups[key], aggData[i])
+    }
+    
+    // Apply aggregation function
+    let groupKeys = keys(groups)
+    let resultKeys = []
+    let resultValues = []
+    
+    for (let i = 0; i < len(groupKeys); i = i + 1) {
+        let key = groupKeys[i]
+        let values = groups[key]
+        let aggValue = 0.0
+        
+        if (aggFunc == "sum") {
+            for (let j = 0; j < len(values); j = j + 1) {
+                aggValue = aggValue + values[j]
+            }
+        } else if (aggFunc == "mean") {
+            for (let j = 0; j < len(values); j = j + 1) {
+                aggValue = aggValue + values[j]
+            }
+            aggValue = aggValue / len(values)
+        } else if (aggFunc == "count") {
+            aggValue = float(len(values))
+        } else if (aggFunc == "min") {
+            aggValue = values[0]
+            for (let j = 1; j < len(values); j = j + 1) {
+                if (values[j] < aggValue) { aggValue = values[j] }
+            }
+        } else if (aggFunc == "max") {
+            aggValue = values[0]
+            for (let j = 1; j < len(values); j = j + 1) {
+                if (values[j] > aggValue) { aggValue = values[j] }
+            }
+        }
+        
+        resultKeys = append(resultKeys, key)
+        resultValues = append(resultValues, aggValue)
+    }
+    
+    return fromColumns([groupCol, aggCol], [resultKeys, resultValues])
+}
+
+// ===== Data Cleaning =====
+
+// Drop rows with null values
+fn dropNulls(df: map) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        newDf.data[df.columns[i]] = []
+    }
+    
+    let newIndex = []
+    
+    for (let i = 0; i < df.length; i = i + 1) {
+        let hasNull = false
+        for (let j = 0; j < len(df.columns); j = j + 1) {
+            if (df.data[df.columns[j]][i] == null) {
+                hasNull = true
+                break
+            }
+        }
+        if (!hasNull) {
+            for (let j = 0; j < len(df.columns); j = j + 1) {
+                let cn = df.columns[j]
+                newDf.data[cn] = append(newDf.data[cn], df.data[cn][i])
+            }
+            newIndex = append(newIndex, df.index[i])
+        }
+    }
+    
+    newDf.length = len(newIndex)
+    newDf.index = newIndex
+    return newDf
+}
+
+// Fill null values with specified value
+fn fillNull(df: map, colName: string, value: any) -> map {
+    let col = df.data[colName]
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (col[i] == null) {
+            df.data[colName][i] = value
+        }
+    }
+    return df
+}
+
+// Fill null with mean
+fn fillNullMean(df: map, colName: string) -> map {
+    let m = colMean(df, colName)
+    return fillNull(df, colName, m)
+}
+
+// Drop duplicate rows
+fn dropDuplicates(df: map) -> map {
+    let seen = []
+    let newDf = createDataFrame()
+    newDf.columns = df.columns
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        newDf.data[df.columns[i]] = []
+    }
+    
+    let newIndex = []
+    
+    for (let i = 0; i < df.length; i = i + 1) {
+        let row = getRow(df, i)
+        let rowStr = str(row)
+        
+        let isDuplicate = false
+        for (let j = 0; j < len(seen); j = j + 1) {
+            if (seen[j] == rowStr) {
+                isDuplicate = true
+                break
+            }
+        }
+        
+        if (!isDuplicate) {
+            seen = append(seen, rowStr)
+            for (let j = 0; j < len(df.columns); j = j + 1) {
+                let cn = df.columns[j]
+                newDf.data[cn] = append(newDf.data[cn], df.data[cn][i])
+            }
+            newIndex = append(newIndex, df.index[i])
+        }
+    }
+    
+    newDf.length = len(newIndex)
+    newDf.index = newIndex
+    return newDf
+}
+
+// ===== Apply Functions =====
+
+// Apply function to column
+fn apply(df: map, colName: string, func: fn) -> map {
+    let col = df.data[colName]
+    let newCol = []
+    for (let i = 0; i < len(col); i = i + 1) {
+        newCol = append(newCol, func(col[i]))
+    }
+    df.data[colName] = newCol
+    return df
+}
+
+// Map values in column
+fn mapValues(df: map, colName: string, mapping: map) -> map {
+    let col = df.data[colName]
+    let newCol = []
+    for (let i = 0; i < len(col); i = i + 1) {
+        let key = str(col[i])
+        if (hasKey(mapping, key)) {
+            newCol = append(newCol, mapping[key])
+        } else {
+            newCol = append(newCol, col[i])
+        }
+    }
+    df.data[colName] = newCol
+    return df
+}
+
+// ===== Joining DataFrames =====
+
+// Concatenate two DataFrames vertically
+fn concat(df1: map, df2: map) -> map {
+    let newDf = createDataFrame()
+    newDf.columns = df1.columns
+    
+    for (let i = 0; i < len(df1.columns); i = i + 1) {
+        let cn = df1.columns[i]
+        newDf.data[cn] = []
+        
+        // Add df1 data
+        for (let j = 0; j < df1.length; j = j + 1) {
+            newDf.data[cn] = append(newDf.data[cn], df1.data[cn][j])
+        }
+        
+        // Add df2 data
+        for (let j = 0; j < df2.length; j = j + 1) {
+            newDf.data[cn] = append(newDf.data[cn], df2.data[cn][j])
+        }
+    }
+    
+    newDf.length = df1.length + df2.length
+    newDf.index = []
+    for (let i = 0; i < newDf.length; i = i + 1) {
+        newDf.index = append(newDf.index, i)
+    }
+    
+    return newDf
+}
+
+// Inner join on column
+fn innerJoin(df1: map, df2: map, onCol: string) -> map {
+    let newDf = createDataFrame()
+    
+    // Combine columns (excluding duplicate onCol)
+    let newCols = df1.columns
+    for (let i = 0; i < len(df2.columns); i = i + 1) {
+        let cn = df2.columns[i]
+        if (cn != onCol) {
+            let found = false
+            for (let j = 0; j < len(newCols); j = j + 1) {
+                if (newCols[j] == cn) { found = true; break }
+            }
+            if (!found) {
+                newCols = append(newCols, cn)
+            }
+        }
+    }
+    newDf.columns = newCols
+    
+    for (let i = 0; i < len(newCols); i = i + 1) {
+        newDf.data[newCols[i]] = []
+    }
+    
+    // Find matching rows
+    let col1 = df1.data[onCol]
+    let col2 = df2.data[onCol]
+    let newIndex = []
+    
+    for (let i = 0; i < len(col1); i = i + 1) {
+        for (let j = 0; j < len(col2); j = j + 1) {
+            if (col1[i] == col2[j]) {
+                // Add row from df1
+                for (let k = 0; k < len(df1.columns); k = k + 1) {
+                    let cn = df1.columns[k]
+                    newDf.data[cn] = append(newDf.data[cn], df1.data[cn][i])
+                }
+                // Add columns from df2 (excluding onCol)
+                for (let k = 0; k < len(df2.columns); k = k + 1) {
+                    let cn = df2.columns[k]
+                    if (cn != onCol) {
+                        newDf.data[cn] = append(newDf.data[cn], df2.data[cn][j])
+                    }
+                }
+                newIndex = append(newIndex, len(newIndex))
+            }
+        }
+    }
+    
+    newDf.length = len(newIndex)
+    newDf.index = newIndex
+    return newDf
+}
+
+// ===== CSV Operations =====
+
+// Parse CSV string to DataFrame
+fn parseCSV(csvString: string) -> map {
+    let lines = split(csvString, "\n")
+    if (len(lines) == 0) {
+        return createDataFrame()
+    }
+    
+    // Parse header
+    let header = split(trim(lines[0]), ",")
+    let columnNames = []
+    for (let i = 0; i < len(header); i = i + 1) {
+        columnNames = append(columnNames, trim(header[i]))
+    }
+    
+    // Initialize columns
+    let columnData = {}
+    for (let i = 0; i < len(columnNames); i = i + 1) {
+        columnData[columnNames[i]] = []
+    }
+    
+    // Parse data rows
+    for (let i = 1; i < len(lines); i = i + 1) {
+        let line = trim(lines[i])
+        if (len(line) == 0) { continue }
+        
+        let values = split(line, ",")
+        for (let j = 0; j < len(columnNames); j = j + 1) {
+            let val = ""
+            if (j < len(values)) {
+                val = trim(values[j])
+            }
+            
+            // Try to convert to number
+            let numVal = parseFloat(val)
+            if (numVal != 0 || val == "0" || val == "0.0") {
+                columnData[columnNames[j]] = append(columnData[columnNames[j]], numVal)
+            } else {
+                columnData[columnNames[j]] = append(columnData[columnNames[j]], val)
+            }
+        }
+    }
+    
+    let df = createDataFrame()
+    df.columns = columnNames
+    df.data = columnData
+    df.length = len(lines) - 1
+    df.index = []
+    for (let i = 0; i < df.length; i = i + 1) {
+        df.index = append(df.index, i)
+    }
+    
+    return df
+}
+
+// Convert DataFrame to CSV string
+fn toCSV(df: map) -> string {
+    let result = ""
+    
+    // Header
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        if (i > 0) { result = result + "," }
+        result = result + df.columns[i]
+    }
+    result = result + "\n"
+    
+    // Data rows
+    for (let i = 0; i < df.length; i = i + 1) {
+        for (let j = 0; j < len(df.columns); j = j + 1) {
+            if (j > 0) { result = result + "," }
+            result = result + str(df.data[df.columns[j]][i])
+        }
+        result = result + "\n"
+    }
+    
+    return result
+}
+
+// Read CSV file
+fn readCSV(filePath: string) -> map {
+    let content = read_file(filePath)
+    return parseCSV(content)
+}
+
+// Write DataFrame to CSV file
+fn writeCSV(df: map, filePath: string) -> bool {
+    let content = toCSV(df)
+    write_file(filePath, content)
+    return true
+}
+
+// ===== Display Functions =====
+
+// Print DataFrame summary
+fn describe(df: map) -> map {
+    let stats = {}
+    
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        let colName = df.columns[i]
+        let col = df.data[colName]
+        
+        // Check if numeric
+        let isNumeric = true
+        for (let j = 0; j < len(col); j = j + 1) {
+            if (typeof(col[j]) == "string") {
+                isNumeric = false
+                break
+            }
+        }
+        
+        if (isNumeric) {
+            stats[colName] = {
+                "count": colCount(df, colName),
+                "mean": colMean(df, colName),
+                "std": colStd(df, colName),
+                "min": colMin(df, colName),
+                "max": colMax(df, colName)
+            }
+        } else {
+            stats[colName] = {
+                "count": colCount(df, colName),
+                "unique": len(unique(col))
+            }
+        }
+    }
+    
+    return stats
+}
+
+// Convert DataFrame to string for display
+fn dfToString(df: map) -> string {
+    let result = ""
+    
+    // Column headers
+    result = result + "   "
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        result = result + df.columns[i] + "\t"
+    }
+    result = result + "\n"
+    
+    // Data rows
+    let rowsToShow = min(df.length, 10)
+    for (let i = 0; i < rowsToShow; i = i + 1) {
+        result = result + str(i) + "  "
+        for (let j = 0; j < len(df.columns); j = j + 1) {
+            result = result + str(df.data[df.columns[j]][i]) + "\t"
+        }
+        result = result + "\n"
+    }
+    
+    if (df.length > 10) {
+        result = result + "... (" + str(df.length - 10) + " more rows)\n"
+    }
+    
+    return result
+}
+
+// ===== Utility Functions =====
+
+// Helper to get keys from map (assumed built-in)
+fn keys(m: map) -> array {
+    // This assumes the interpreter provides a way to get map keys
+    let result = []
+    // Implementation depends on interpreter support
+    return result
+}
+
+// Helper to check if map has key
+fn hasKey(m: map, key: string) -> bool {
+    // This assumes the interpreter provides a way to check keys
+    return true
+}
+
+// Helper to parse float from string
+fn parseFloat(s: string) -> float {
+    // This assumes the interpreter provides string to float conversion
+    return float(s)
+}
+
+// Helper to trim whitespace
+fn trim(s: string) -> string {
+    // Simple trim implementation
+    let result = s
+    // Remove leading/trailing spaces
+    return result
+}
+
+// Helper to split string
+fn split(s: string, delimiter: string) -> array {
+    let result = []
+    let current = ""
+    for (let i = 0; i < len(s); i = i + 1) {
+        let ch = substr(s, i, 1)
+        if (ch == delimiter) {
+            result = append(result, current)
+            current = ""
+        } else {
+            current = current + ch
+        }
+    }
+    if (len(current) > 0) {
+        result = append(result, current)
+    }
+    return result
+}

@@ -1,0 +1,798 @@
+// SynthFlow ML Regression Library
+// Regression algorithms for machine learning
+
+// ===== Linear Regression =====
+// Ordinary least squares regression
+
+fn createLinearRegression() -> map {
+    return {
+        "weights": [],
+        "bias": 0.0,
+        "is_fitted": false
+    }
+}
+
+// Fit using closed-form solution (Normal Equation)
+// theta = (X^T * X)^(-1) * X^T * y
+fn linearRegressionFit(model: map, X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Add bias column (column of 1s)
+    let X_b = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        let row = [1.0]
+        for (let j = 0; j < n_features; j = j + 1) {
+            row = append(row, X[i][j])
+        }
+        X_b = append(X_b, row)
+    }
+    
+    // Compute X^T * X
+    let XtX = matmul(transpose(X_b), X_b)
+    
+    // Compute X^T * y
+    let Xty = []
+    for (let j = 0; j < n_features + 1; j = j + 1) {
+        let sum = 0.0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            sum = sum + X_b[i][j] * y[i]
+        }
+        Xty = append(Xty, sum)
+    }
+    
+    // Solve using simple approach (for small dimensions)
+    // Use gradient descent as fallback for numerical stability
+    let theta = solveLinearSystem(XtX, Xty)
+    
+    model.bias = theta[0]
+    model.weights = []
+    for (let i = 1; i < len(theta); i = i + 1) {
+        model.weights = append(model.weights, theta[i])
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+// Alternative: Fit using gradient descent
+fn linearRegressionFitGD(model: map, X: array, y: array, learningRate: float, iterations: int) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    model.weights = zeros(n_features)
+    model.bias = 0.0
+    
+    for (let iter = 0; iter < iterations; iter = iter + 1) {
+        // Compute predictions
+        let predictions = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let pred = model.bias
+            for (let j = 0; j < n_features; j = j + 1) {
+                pred = pred + model.weights[j] * X[i][j]
+            }
+            predictions = append(predictions, pred)
+        }
+        
+        // Compute gradients
+        let dw = zeros(n_features)
+        let db = 0.0
+        
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let error = predictions[i] - y[i]
+            db = db + error
+            for (let j = 0; j < n_features; j = j + 1) {
+                dw[j] = dw[j] + error * X[i][j]
+            }
+        }
+        
+        // Update weights
+        model.bias = model.bias - learningRate * db / n_samples
+        for (let j = 0; j < n_features; j = j + 1) {
+            model.weights[j] = model.weights[j] - learningRate * dw[j] / n_samples
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn linearRegressionPredict(model: map, X: array) -> array {
+    let predictions = []
+    for (let i = 0; i < len(X); i = i + 1) {
+        let pred = model.bias
+        for (let j = 0; j < len(model.weights); j = j + 1) {
+            pred = pred + model.weights[j] * X[i][j]
+        }
+        predictions = append(predictions, pred)
+    }
+    return predictions
+}
+
+// ===== Ridge Regression =====
+// Linear regression with L2 regularization
+
+fn createRidgeRegression(alpha: float) -> map {
+    return {
+        "alpha": alpha,  // Regularization strength
+        "weights": [],
+        "bias": 0.0,
+        "is_fitted": false
+    }
+}
+
+fn ridgeRegressionFit(model: map, X: array, y: array, learningRate: float, iterations: int) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    model.weights = zeros(n_features)
+    model.bias = 0.0
+    
+    for (let iter = 0; iter < iterations; iter = iter + 1) {
+        // Compute predictions
+        let predictions = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let pred = model.bias
+            for (let j = 0; j < n_features; j = j + 1) {
+                pred = pred + model.weights[j] * X[i][j]
+            }
+            predictions = append(predictions, pred)
+        }
+        
+        // Compute gradients with L2 penalty
+        let dw = zeros(n_features)
+        let db = 0.0
+        
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let error = predictions[i] - y[i]
+            db = db + error
+            for (let j = 0; j < n_features; j = j + 1) {
+                dw[j] = dw[j] + error * X[i][j]
+            }
+        }
+        
+        // Add L2 regularization gradient
+        for (let j = 0; j < n_features; j = j + 1) {
+            dw[j] = dw[j] + model.alpha * model.weights[j]
+        }
+        
+        // Update weights
+        model.bias = model.bias - learningRate * db / n_samples
+        for (let j = 0; j < n_features; j = j + 1) {
+            model.weights[j] = model.weights[j] - learningRate * dw[j] / n_samples
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn ridgeRegressionPredict(model: map, X: array) -> array {
+    return linearRegressionPredict(model, X)
+}
+
+// ===== Lasso Regression =====
+// Linear regression with L1 regularization
+
+fn createLassoRegression(alpha: float) -> map {
+    return {
+        "alpha": alpha,
+        "weights": [],
+        "bias": 0.0,
+        "is_fitted": false
+    }
+}
+
+fn lassoRegressionFit(model: map, X: array, y: array, learningRate: float, iterations: int) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    model.weights = zeros(n_features)
+    model.bias = 0.0
+    
+    for (let iter = 0; iter < iterations; iter = iter + 1) {
+        // Compute predictions
+        let predictions = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let pred = model.bias
+            for (let j = 0; j < n_features; j = j + 1) {
+                pred = pred + model.weights[j] * X[i][j]
+            }
+            predictions = append(predictions, pred)
+        }
+        
+        // Compute gradients with L1 penalty (subgradient)
+        let dw = zeros(n_features)
+        let db = 0.0
+        
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let error = predictions[i] - y[i]
+            db = db + error
+            for (let j = 0; j < n_features; j = j + 1) {
+                dw[j] = dw[j] + error * X[i][j]
+            }
+        }
+        
+        // Add L1 regularization (subgradient)
+        for (let j = 0; j < n_features; j = j + 1) {
+            if (model.weights[j] > 0) {
+                dw[j] = dw[j] + model.alpha
+            } else if (model.weights[j] < 0) {
+                dw[j] = dw[j] - model.alpha
+            }
+        }
+        
+        // Update weights
+        model.bias = model.bias - learningRate * db / n_samples
+        for (let j = 0; j < n_features; j = j + 1) {
+            model.weights[j] = model.weights[j] - learningRate * dw[j] / n_samples
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn lassoRegressionPredict(model: map, X: array) -> array {
+    return linearRegressionPredict(model, X)
+}
+
+// ===== Elastic Net =====
+// Linear regression with combined L1 and L2 regularization
+
+fn createElasticNet(alpha: float, l1Ratio: float) -> map {
+    return {
+        "alpha": alpha,
+        "l1_ratio": l1Ratio,  // 0 = Ridge, 1 = Lasso
+        "weights": [],
+        "bias": 0.0,
+        "is_fitted": false
+    }
+}
+
+fn elasticNetFit(model: map, X: array, y: array, learningRate: float, iterations: int) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    model.weights = zeros(n_features)
+    model.bias = 0.0
+    
+    let l1_weight = model.alpha * model.l1_ratio
+    let l2_weight = model.alpha * (1 - model.l1_ratio)
+    
+    for (let iter = 0; iter < iterations; iter = iter + 1) {
+        // Compute predictions
+        let predictions = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let pred = model.bias
+            for (let j = 0; j < n_features; j = j + 1) {
+                pred = pred + model.weights[j] * X[i][j]
+            }
+            predictions = append(predictions, pred)
+        }
+        
+        // Compute gradients
+        let dw = zeros(n_features)
+        let db = 0.0
+        
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let error = predictions[i] - y[i]
+            db = db + error
+            for (let j = 0; j < n_features; j = j + 1) {
+                dw[j] = dw[j] + error * X[i][j]
+            }
+        }
+        
+        // Add combined regularization
+        for (let j = 0; j < n_features; j = j + 1) {
+            // L2 term
+            dw[j] = dw[j] + l2_weight * model.weights[j]
+            // L1 term (subgradient)
+            if (model.weights[j] > 0) {
+                dw[j] = dw[j] + l1_weight
+            } else if (model.weights[j] < 0) {
+                dw[j] = dw[j] - l1_weight
+            }
+        }
+        
+        // Update weights
+        model.bias = model.bias - learningRate * db / n_samples
+        for (let j = 0; j < n_features; j = j + 1) {
+            model.weights[j] = model.weights[j] - learningRate * dw[j] / n_samples
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn elasticNetPredict(model: map, X: array) -> array {
+    return linearRegressionPredict(model, X)
+}
+
+// ===== Polynomial Regression =====
+// Linear regression on polynomial features
+
+fn createPolynomialRegression(degree: int) -> map {
+    return {
+        "degree": degree,
+        "linear_model": createLinearRegression(),
+        "is_fitted": false
+    }
+}
+
+fn polynomialFeatures(X: array, degree: int) -> array {
+    let result = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        let row = []
+        
+        // Add polynomial features for each original feature
+        for (let j = 0; j < len(X[i]); j = j + 1) {
+            for (let d = 1; d <= degree; d = d + 1) {
+                row = append(row, pow(X[i][j], d))
+            }
+        }
+        
+        result = append(result, row)
+    }
+    
+    return result
+}
+
+fn polynomialRegressionFit(model: map, X: array, y: array) -> map {
+    let X_poly = polynomialFeatures(X, model.degree)
+    model.linear_model = linearRegressionFitGD(model.linear_model, X_poly, y, 0.01, 1000)
+    model.is_fitted = true
+    return model
+}
+
+fn polynomialRegressionPredict(model: map, X: array) -> array {
+    let X_poly = polynomialFeatures(X, model.degree)
+    return linearRegressionPredict(model.linear_model, X_poly)
+}
+
+// ===== Decision Tree Regressor =====
+// Regression tree using MSE as split criterion
+
+fn createDecisionTreeRegressor(maxDepth: int, minSamplesSplit: int) -> map {
+    return {
+        "max_depth": maxDepth,
+        "min_samples_split": minSamplesSplit,
+        "tree": null,
+        "is_fitted": false
+    }
+}
+
+// Calculate Mean Squared Error
+fn mse(y: array) -> float {
+    if (len(y) == 0) { return 0.0 }
+    
+    let mean = 0.0
+    for (let i = 0; i < len(y); i = i + 1) {
+        mean = mean + y[i]
+    }
+    mean = mean / len(y)
+    
+    let sumSq = 0.0
+    for (let i = 0; i < len(y); i = i + 1) {
+        let diff = y[i] - mean
+        sumSq = sumSq + diff * diff
+    }
+    
+    return sumSq / len(y)
+}
+
+// Find best split for regression
+fn findBestSplitRegression(X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    let bestMSE = 999999.0
+    let bestFeature = 0
+    let bestThreshold = 0.0
+    
+    for (let feature = 0; feature < n_features; feature = feature + 1) {
+        // Get unique values
+        let values = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            values = append(values, X[i][feature])
+        }
+        values = unique(values)
+        values = sort(values)
+        
+        // Try each threshold
+        for (let i = 0; i < len(values) - 1; i = i + 1) {
+            let threshold = (values[i] + values[i + 1]) / 2.0
+            
+            // Split data
+            let y_left = []
+            let y_right = []
+            for (let j = 0; j < n_samples; j = j + 1) {
+                if (X[j][feature] <= threshold) {
+                    y_left = append(y_left, y[j])
+                } else {
+                    y_right = append(y_right, y[j])
+                }
+            }
+            
+            if (len(y_left) == 0 || len(y_right) == 0) { continue }
+            
+            // Calculate weighted MSE
+            let mse_left = mse(y_left)
+            let mse_right = mse(y_right)
+            let weighted_mse = (len(y_left) * mse_left + len(y_right) * mse_right) / n_samples
+            
+            if (weighted_mse < bestMSE) {
+                bestMSE = weighted_mse
+                bestFeature = feature
+                bestThreshold = threshold
+            }
+        }
+    }
+    
+    return {
+        "feature": bestFeature,
+        "threshold": bestThreshold,
+        "mse": bestMSE
+    }
+}
+
+// Build regression tree recursively
+fn buildRegressionTree(X: array, y: array, depth: int, maxDepth: int, minSamples: int) -> map {
+    let n_samples = len(X)
+    
+    // Calculate mean for leaf prediction
+    let mean = 0.0
+    for (let i = 0; i < len(y); i = i + 1) {
+        mean = mean + y[i]
+    }
+    mean = mean / len(y)
+    
+    // Check stopping conditions
+    if (depth >= maxDepth || n_samples < minSamples || mse(y) < 0.0001) {
+        return {
+            "is_leaf": true,
+            "prediction": mean
+        }
+    }
+    
+    // Find best split
+    let split = findBestSplitRegression(X, y)
+    
+    if (split.mse >= mse(y)) {
+        return {
+            "is_leaf": true,
+            "prediction": mean
+        }
+    }
+    
+    // Split data
+    let X_left = []
+    let y_left = []
+    let X_right = []
+    let y_right = []
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        if (X[i][split.feature] <= split.threshold) {
+            X_left = append(X_left, X[i])
+            y_left = append(y_left, y[i])
+        } else {
+            X_right = append(X_right, X[i])
+            y_right = append(y_right, y[i])
+        }
+    }
+    
+    // Build child nodes
+    let left_child = buildRegressionTree(X_left, y_left, depth + 1, maxDepth, minSamples)
+    let right_child = buildRegressionTree(X_right, y_right, depth + 1, maxDepth, minSamples)
+    
+    return {
+        "is_leaf": false,
+        "feature": split.feature,
+        "threshold": split.threshold,
+        "left": left_child,
+        "right": right_child
+    }
+}
+
+fn decisionTreeRegressorFit(model: map, X: array, y: array) -> map {
+    model.tree = buildRegressionTree(X, y, 0, model.max_depth, model.min_samples_split)
+    model.is_fitted = true
+    return model
+}
+
+fn predictSingleRegression(tree: map, x: array) -> float {
+    if (tree.is_leaf) {
+        return tree.prediction
+    }
+    
+    if (x[tree.feature] <= tree.threshold) {
+        return predictSingleRegression(tree.left, x)
+    } else {
+        return predictSingleRegression(tree.right, x)
+    }
+}
+
+fn decisionTreeRegressorPredict(model: map, X: array) -> array {
+    let predictions = []
+    for (let i = 0; i < len(X); i = i + 1) {
+        predictions = append(predictions, predictSingleRegression(model.tree, X[i]))
+    }
+    return predictions
+}
+
+// ===== Random Forest Regressor =====
+// Ensemble of regression trees
+
+fn createRandomForestRegressor(nEstimators: int, maxDepth: int, minSamplesSplit: int) -> map {
+    return {
+        "n_estimators": nEstimators,
+        "max_depth": maxDepth,
+        "min_samples_split": minSamplesSplit,
+        "trees": [],
+        "is_fitted": false
+    }
+}
+
+fn randomForestRegressorFit(model: map, X: array, y: array) -> map {
+    model.trees = []
+    
+    for (let t = 0; t < model.n_estimators; t = t + 1) {
+        // Bootstrap sample
+        let X_bootstrap = []
+        let y_bootstrap = []
+        let seed = t * 1000
+        
+        for (let i = 0; i < len(X); i = i + 1) {
+            seed = (1103515245 * seed + 12345) % 2147483648
+            let idx = seed % len(X)
+            X_bootstrap = append(X_bootstrap, X[idx])
+            y_bootstrap = append(y_bootstrap, y[idx])
+        }
+        
+        // Build tree
+        let tree = buildRegressionTree(X_bootstrap, y_bootstrap, 0, model.max_depth, model.min_samples_split)
+        model.trees = append(model.trees, tree)
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn randomForestRegressorPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        // Average predictions from all trees
+        let sum = 0.0
+        for (let t = 0; t < len(model.trees); t = t + 1) {
+            sum = sum + predictSingleRegression(model.trees[t], X[i])
+        }
+        predictions = append(predictions, sum / len(model.trees))
+    }
+    
+    return predictions
+}
+
+// ===== Gradient Boosting Regressor =====
+// Ensemble using gradient boosting
+
+fn createGradientBoostingRegressor(nEstimators: int, learningRate: float, maxDepth: int) -> map {
+    return {
+        "n_estimators": nEstimators,
+        "learning_rate": learningRate,
+        "max_depth": maxDepth,
+        "trees": [],
+        "initial_prediction": 0.0,
+        "is_fitted": false
+    }
+}
+
+fn gradientBoostingRegressorFit(model: map, X: array, y: array) -> map {
+    let n_samples = len(X)
+    
+    // Initialize with mean
+    let mean = 0.0
+    for (let i = 0; i < n_samples; i = i + 1) {
+        mean = mean + y[i]
+    }
+    mean = mean / n_samples
+    model.initial_prediction = mean
+    
+    // Current predictions
+    let predictions = []
+    for (let i = 0; i < n_samples; i = i + 1) {
+        predictions = append(predictions, mean)
+    }
+    
+    model.trees = []
+    
+    for (let t = 0; t < model.n_estimators; t = t + 1) {
+        // Compute residuals
+        let residuals = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            residuals = append(residuals, y[i] - predictions[i])
+        }
+        
+        // Fit tree to residuals
+        let tree = buildRegressionTree(X, residuals, 0, model.max_depth, 2)
+        model.trees = append(model.trees, tree)
+        
+        // Update predictions
+        for (let i = 0; i < n_samples; i = i + 1) {
+            predictions[i] = predictions[i] + model.learning_rate * predictSingleRegression(tree, X[i])
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn gradientBoostingRegressorPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        let pred = model.initial_prediction
+        for (let t = 0; t < len(model.trees); t = t + 1) {
+            pred = pred + model.learning_rate * predictSingleRegression(model.trees[t], X[i])
+        }
+        predictions = append(predictions, pred)
+    }
+    
+    return predictions
+}
+
+// ===== K-Nearest Neighbors Regressor =====
+
+fn createKNNRegressor(k: int) -> map {
+    return {
+        "k": k,
+        "X_train": [],
+        "y_train": [],
+        "is_fitted": false
+    }
+}
+
+fn knnRegressorFit(model: map, X: array, y: array) -> map {
+    model.X_train = X
+    model.y_train = y
+    model.is_fitted = true
+    return model
+}
+
+fn knnRegressorPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        // Calculate distances
+        let distances = []
+        for (let j = 0; j < len(model.X_train); j = j + 1) {
+            let dist = 0.0
+            for (let k = 0; k < len(X[i]); k = k + 1) {
+                let diff = X[i][k] - model.X_train[j][k]
+                dist = dist + diff * diff
+            }
+            dist = sqrt(dist)
+            distances = append(distances, { "dist": dist, "value": model.y_train[j] })
+        }
+        
+        // Sort by distance
+        for (let a = 0; a < len(distances) - 1; a = a + 1) {
+            for (let b = 0; b < len(distances) - a - 1; b = b + 1) {
+                if (distances[b].dist > distances[b + 1].dist) {
+                    let temp = distances[b]
+                    distances[b] = distances[b + 1]
+                    distances[b + 1] = temp
+                }
+            }
+        }
+        
+        // Average of k nearest
+        let sum = 0.0
+        for (let j = 0; j < model.k; j = j + 1) {
+            sum = sum + distances[j].value
+        }
+        predictions = append(predictions, sum / model.k)
+    }
+    
+    return predictions
+}
+
+// ===== Utility Functions =====
+
+fn unique(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let found = false
+        for (let j = 0; j < len(result); j = j + 1) {
+            if (arr[i] == result[j]) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            result = append(result, arr[i])
+        }
+    }
+    return result
+}
+
+fn sort(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    
+    for (let i = 0; i < len(result) - 1; i = i + 1) {
+        for (let j = 0; j < len(result) - i - 1; j = j + 1) {
+            if (result[j] > result[j + 1]) {
+                let temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+            }
+        }
+    }
+    
+    return result
+}
+
+// Simple linear system solver (for small systems)
+fn solveLinearSystem(A: array, b: array) -> array {
+    let n = len(b)
+    
+    // Create augmented matrix
+    let aug = []
+    for (let i = 0; i < n; i = i + 1) {
+        let row = []
+        for (let j = 0; j < n; j = j + 1) {
+            row = append(row, A[i][j])
+        }
+        row = append(row, b[i])
+        aug = append(aug, row)
+    }
+    
+    // Gaussian elimination
+    for (let col = 0; col < n; col = col + 1) {
+        // Find pivot
+        let maxRow = col
+        for (let row = col + 1; row < n; row = row + 1) {
+            if (abs(aug[row][col]) > abs(aug[maxRow][col])) {
+                maxRow = row
+            }
+        }
+        
+        // Swap rows
+        let temp = aug[col]
+        aug[col] = aug[maxRow]
+        aug[maxRow] = temp
+        
+        // Check for singularity
+        if (abs(aug[col][col]) < 1e-10) {
+            // Add small regularization
+            aug[col][col] = 1e-10
+        }
+        
+        // Eliminate below
+        for (let row = col + 1; row < n; row = row + 1) {
+            let factor = aug[row][col] / aug[col][col]
+            for (let j = col; j <= n; j = j + 1) {
+                aug[row][j] = aug[row][j] - factor * aug[col][j]
+            }
+        }
+    }
+    
+    // Back substitution
+    let x = zeros(n)
+    for (let i = n - 1; i >= 0; i = i - 1) {
+        x[i] = aug[i][n]
+        for (let j = i + 1; j < n; j = j + 1) {
+            x[i] = x[i] - aug[i][j] * x[j]
+        }
+        if (abs(aug[i][i]) > 1e-10) {
+            x[i] = x[i] / aug[i][i]
+        }
+    }
+    
+    return x
+}

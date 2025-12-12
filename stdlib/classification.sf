@@ -1,0 +1,767 @@
+// SynthFlow ML Classification Library
+// Classification algorithms for machine learning
+
+// ===== Logistic Regression =====
+// Binary and multi-class classification using logistic function
+
+fn createLogisticRegression(learningRate: float, maxIterations: int) -> map {
+    return {
+        "learning_rate": learningRate,
+        "max_iterations": maxIterations,
+        "weights": [],
+        "bias": 0.0,
+        "classes": [],
+        "is_fitted": false
+    }
+}
+
+// Sigmoid activation function
+fn sigmoid(x: float) -> float {
+    if (x < -100) { return 0.0 }
+    if (x > 100) { return 1.0 }
+    return 1.0 / (1.0 + exp(-x))
+}
+
+// Binary logistic regression fit
+fn logisticRegressionFit(model: map, X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Initialize weights
+    model.weights = zeros(n_features)
+    model.bias = 0.0
+    
+    // Find unique classes
+    model.classes = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        let found = false
+        for (let j = 0; j < len(model.classes); j = j + 1) {
+            if (model.classes[j] == y[i]) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            model.classes = append(model.classes, y[i])
+        }
+    }
+    
+    // Convert y to binary (0 or 1)
+    let y_binary = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        if (y[i] == model.classes[1]) {
+            y_binary = append(y_binary, 1.0)
+        } else {
+            y_binary = append(y_binary, 0.0)
+        }
+    }
+    
+    // Gradient descent
+    for (let iter = 0; iter < model.max_iterations; iter = iter + 1) {
+        // Compute predictions
+        let predictions = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let z = model.bias
+            for (let j = 0; j < n_features; j = j + 1) {
+                z = z + model.weights[j] * X[i][j]
+            }
+            predictions = append(predictions, sigmoid(z))
+        }
+        
+        // Compute gradients
+        let dw = zeros(n_features)
+        let db = 0.0
+        
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let error = predictions[i] - y_binary[i]
+            db = db + error
+            for (let j = 0; j < n_features; j = j + 1) {
+                dw[j] = dw[j] + error * X[i][j]
+            }
+        }
+        
+        // Update weights
+        model.bias = model.bias - model.learning_rate * db / n_samples
+        for (let j = 0; j < n_features; j = j + 1) {
+            model.weights[j] = model.weights[j] - model.learning_rate * dw[j] / n_samples
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn logisticRegressionPredict(model: map, X: array) -> array {
+    let predictions = []
+    for (let i = 0; i < len(X); i = i + 1) {
+        let z = model.bias
+        for (let j = 0; j < len(model.weights); j = j + 1) {
+            z = z + model.weights[j] * X[i][j]
+        }
+        let prob = sigmoid(z)
+        if (prob >= 0.5) {
+            predictions = append(predictions, model.classes[1])
+        } else {
+            predictions = append(predictions, model.classes[0])
+        }
+    }
+    return predictions
+}
+
+fn logisticRegressionPredictProba(model: map, X: array) -> array {
+    let probabilities = []
+    for (let i = 0; i < len(X); i = i + 1) {
+        let z = model.bias
+        for (let j = 0; j < len(model.weights); j = j + 1) {
+            z = z + model.weights[j] * X[i][j]
+        }
+        let prob = sigmoid(z)
+        probabilities = append(probabilities, [1.0 - prob, prob])
+    }
+    return probabilities
+}
+
+// ===== K-Nearest Neighbors =====
+// Classification based on k nearest training examples
+
+fn createKNN(k: int) -> map {
+    return {
+        "k": k,
+        "X_train": [],
+        "y_train": [],
+        "is_fitted": false
+    }
+}
+
+fn knnFit(model: map, X: array, y: array) -> map {
+    model.X_train = X
+    model.y_train = y
+    model.is_fitted = true
+    return model
+}
+
+// Euclidean distance between two points
+fn euclideanDistance(a: array, b: array) -> float {
+    let sum = 0.0
+    for (let i = 0; i < len(a); i = i + 1) {
+        let diff = a[i] - b[i]
+        sum = sum + diff * diff
+    }
+    return sqrt(sum)
+}
+
+fn knnPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        // Calculate distances to all training points
+        let distances = []
+        for (let j = 0; j < len(model.X_train); j = j + 1) {
+            let dist = euclideanDistance(X[i], model.X_train[j])
+            distances = append(distances, { "dist": dist, "label": model.y_train[j] })
+        }
+        
+        // Sort by distance (bubble sort)
+        for (let a = 0; a < len(distances) - 1; a = a + 1) {
+            for (let b = 0; b < len(distances) - a - 1; b = b + 1) {
+                if (distances[b].dist > distances[b + 1].dist) {
+                    let temp = distances[b]
+                    distances[b] = distances[b + 1]
+                    distances[b + 1] = temp
+                }
+            }
+        }
+        
+        // Count votes from k nearest neighbors
+        let votes = {}
+        for (let j = 0; j < model.k; j = j + 1) {
+            let label = str(distances[j].label)
+            if (!hasKey(votes, label)) {
+                votes[label] = 0
+            }
+            votes[label] = votes[label] + 1
+        }
+        
+        // Find majority vote
+        let maxVotes = 0
+        let prediction = distances[0].label
+        let voteKeys = keys(votes)
+        for (let j = 0; j < len(voteKeys); j = j + 1) {
+            if (votes[voteKeys[j]] > maxVotes) {
+                maxVotes = votes[voteKeys[j]]
+                prediction = voteKeys[j]
+            }
+        }
+        
+        predictions = append(predictions, prediction)
+    }
+    
+    return predictions
+}
+
+// ===== Decision Tree Classifier =====
+// Binary tree for classification decisions
+
+fn createDecisionTree(maxDepth: int, minSamplesSplit: int) -> map {
+    return {
+        "max_depth": maxDepth,
+        "min_samples_split": minSamplesSplit,
+        "tree": null,
+        "classes": [],
+        "is_fitted": false
+    }
+}
+
+// Calculate Gini impurity
+fn giniImpurity(y: array) -> float {
+    if (len(y) == 0) { return 0.0 }
+    
+    // Count each class
+    let counts = {}
+    for (let i = 0; i < len(y); i = i + 1) {
+        let key = str(y[i])
+        if (!hasKey(counts, key)) {
+            counts[key] = 0
+        }
+        counts[key] = counts[key] + 1
+    }
+    
+    // Calculate Gini
+    let gini = 1.0
+    let countKeys = keys(counts)
+    for (let i = 0; i < len(countKeys); i = i + 1) {
+        let prob = float(counts[countKeys[i]]) / len(y)
+        gini = gini - prob * prob
+    }
+    
+    return gini
+}
+
+// Find best split for a node
+fn findBestSplit(X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    let bestGini = 999.0
+    let bestFeature = 0
+    let bestThreshold = 0.0
+    
+    for (let feature = 0; feature < n_features; feature = feature + 1) {
+        // Get unique values for this feature
+        let values = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            values = append(values, X[i][feature])
+        }
+        values = unique(values)
+        values = sort(values)
+        
+        // Try each threshold (midpoint between consecutive values)
+        for (let i = 0; i < len(values) - 1; i = i + 1) {
+            let threshold = (values[i] + values[i + 1]) / 2.0
+            
+            // Split data
+            let y_left = []
+            let y_right = []
+            for (let j = 0; j < n_samples; j = j + 1) {
+                if (X[j][feature] <= threshold) {
+                    y_left = append(y_left, y[j])
+                } else {
+                    y_right = append(y_right, y[j])
+                }
+            }
+            
+            if (len(y_left) == 0 || len(y_right) == 0) { continue }
+            
+            // Calculate weighted Gini
+            let gini_left = giniImpurity(y_left)
+            let gini_right = giniImpurity(y_right)
+            let weighted_gini = (len(y_left) * gini_left + len(y_right) * gini_right) / n_samples
+            
+            if (weighted_gini < bestGini) {
+                bestGini = weighted_gini
+                bestFeature = feature
+                bestThreshold = threshold
+            }
+        }
+    }
+    
+    return {
+        "feature": bestFeature,
+        "threshold": bestThreshold,
+        "gini": bestGini
+    }
+}
+
+// Build tree recursively
+fn buildTree(X: array, y: array, depth: int, maxDepth: int, minSamples: int) -> map {
+    let n_samples = len(X)
+    
+    // Find most common class (for leaf node)
+    let counts = {}
+    for (let i = 0; i < len(y); i = i + 1) {
+        let key = str(y[i])
+        if (!hasKey(counts, key)) {
+            counts[key] = 0
+        }
+        counts[key] = counts[key] + 1
+    }
+    
+    let mostCommon = y[0]
+    let maxCount = 0
+    let countKeys = keys(counts)
+    for (let i = 0; i < len(countKeys); i = i + 1) {
+        if (counts[countKeys[i]] > maxCount) {
+            maxCount = counts[countKeys[i]]
+            mostCommon = countKeys[i]
+        }
+    }
+    
+    // Check stopping conditions
+    if (depth >= maxDepth || n_samples < minSamples || giniImpurity(y) == 0) {
+        return {
+            "is_leaf": true,
+            "prediction": mostCommon
+        }
+    }
+    
+    // Find best split
+    let split = findBestSplit(X, y)
+    
+    if (split.gini >= giniImpurity(y)) {
+        return {
+            "is_leaf": true,
+            "prediction": mostCommon
+        }
+    }
+    
+    // Split data
+    let X_left = []
+    let y_left = []
+    let X_right = []
+    let y_right = []
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        if (X[i][split.feature] <= split.threshold) {
+            X_left = append(X_left, X[i])
+            y_left = append(y_left, y[i])
+        } else {
+            X_right = append(X_right, X[i])
+            y_right = append(y_right, y[i])
+        }
+    }
+    
+    // Build child nodes
+    let left_child = buildTree(X_left, y_left, depth + 1, maxDepth, minSamples)
+    let right_child = buildTree(X_right, y_right, depth + 1, maxDepth, minSamples)
+    
+    return {
+        "is_leaf": false,
+        "feature": split.feature,
+        "threshold": split.threshold,
+        "left": left_child,
+        "right": right_child
+    }
+}
+
+fn decisionTreeFit(model: map, X: array, y: array) -> map {
+    // Find unique classes
+    model.classes = unique(y)
+    
+    // Build tree
+    model.tree = buildTree(X, y, 0, model.max_depth, model.min_samples_split)
+    model.is_fitted = true
+    return model
+}
+
+// Predict single sample using tree
+fn predictSingle(tree: map, x: array) -> any {
+    if (tree.is_leaf) {
+        return tree.prediction
+    }
+    
+    if (x[tree.feature] <= tree.threshold) {
+        return predictSingle(tree.left, x)
+    } else {
+        return predictSingle(tree.right, x)
+    }
+}
+
+fn decisionTreePredict(model: map, X: array) -> array {
+    let predictions = []
+    for (let i = 0; i < len(X); i = i + 1) {
+        predictions = append(predictions, predictSingle(model.tree, X[i]))
+    }
+    return predictions
+}
+
+// ===== Random Forest Classifier =====
+// Ensemble of decision trees
+
+fn createRandomForest(nEstimators: int, maxDepth: int, minSamplesSplit: int) -> map {
+    return {
+        "n_estimators": nEstimators,
+        "max_depth": maxDepth,
+        "min_samples_split": minSamplesSplit,
+        "trees": [],
+        "classes": [],
+        "is_fitted": false
+    }
+}
+
+// Bootstrap sample
+fn bootstrapSample(X: array, y: array, seed: int) -> map {
+    let n_samples = len(X)
+    let X_bootstrap = []
+    let y_bootstrap = []
+    
+    for (let i = 0; i < n_samples; i = i + 1) {
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let idx = seed % n_samples
+        X_bootstrap = append(X_bootstrap, X[idx])
+        y_bootstrap = append(y_bootstrap, y[idx])
+    }
+    
+    return {
+        "X": X_bootstrap,
+        "y": y_bootstrap
+    }
+}
+
+fn randomForestFit(model: map, X: array, y: array) -> map {
+    model.classes = unique(y)
+    model.trees = []
+    
+    for (let t = 0; t < model.n_estimators; t = t + 1) {
+        // Bootstrap sample
+        let sample = bootstrapSample(X, y, t * 1000)
+        
+        // Build tree
+        let tree = buildTree(sample.X, sample.y, 0, model.max_depth, model.min_samples_split)
+        model.trees = append(model.trees, tree)
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn randomForestPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        // Get predictions from all trees
+        let votes = {}
+        for (let t = 0; t < len(model.trees); t = t + 1) {
+            let pred = str(predictSingle(model.trees[t], X[i]))
+            if (!hasKey(votes, pred)) {
+                votes[pred] = 0
+            }
+            votes[pred] = votes[pred] + 1
+        }
+        
+        // Majority vote
+        let maxVotes = 0
+        let prediction = model.classes[0]
+        let voteKeys = keys(votes)
+        for (let j = 0; j < len(voteKeys); j = j + 1) {
+            if (votes[voteKeys[j]] > maxVotes) {
+                maxVotes = votes[voteKeys[j]]
+                prediction = voteKeys[j]
+            }
+        }
+        
+        predictions = append(predictions, prediction)
+    }
+    
+    return predictions
+}
+
+// ===== Naive Bayes Classifier =====
+// Gaussian Naive Bayes
+
+fn createNaiveBayes() -> map {
+    return {
+        "class_priors": {},
+        "means": {},
+        "variances": {},
+        "classes": [],
+        "is_fitted": false
+    }
+}
+
+fn naiveBayesFit(model: map, X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Find unique classes
+    model.classes = unique(y)
+    
+    for (let c = 0; c < len(model.classes); c = c + 1) {
+        let cls = str(model.classes[c])
+        
+        // Get samples for this class
+        let X_class = []
+        for (let i = 0; i < n_samples; i = i + 1) {
+            if (y[i] == model.classes[c]) {
+                X_class = append(X_class, X[i])
+            }
+        }
+        
+        // Class prior
+        model.class_priors[cls] = float(len(X_class)) / n_samples
+        
+        // Mean and variance for each feature
+        let means = zeros(n_features)
+        let variances = zeros(n_features)
+        
+        for (let j = 0; j < n_features; j = j + 1) {
+            // Mean
+            let sum = 0.0
+            for (let i = 0; i < len(X_class); i = i + 1) {
+                sum = sum + X_class[i][j]
+            }
+            means[j] = sum / len(X_class)
+            
+            // Variance
+            let sumSq = 0.0
+            for (let i = 0; i < len(X_class); i = i + 1) {
+                let diff = X_class[i][j] - means[j]
+                sumSq = sumSq + diff * diff
+            }
+            variances[j] = sumSq / len(X_class) + 1e-9  // Add small value to prevent division by zero
+        }
+        
+        model.means[cls] = means
+        model.variances[cls] = variances
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+// Gaussian PDF
+fn gaussianPDF(x: float, mean: float, variance: float) -> float {
+    let exp_term = exp(-pow(x - mean, 2) / (2 * variance))
+    return exp_term / sqrt(2 * 3.14159 * variance)
+}
+
+fn naiveBayesPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        let maxProb = -999999.0
+        let bestClass = model.classes[0]
+        
+        for (let c = 0; c < len(model.classes); c = c + 1) {
+            let cls = str(model.classes[c])
+            
+            // Log probability (to avoid underflow)
+            let logProb = ln(model.class_priors[cls])
+            
+            for (let j = 0; j < len(X[i]); j = j + 1) {
+                let prob = gaussianPDF(X[i][j], model.means[cls][j], model.variances[cls][j])
+                logProb = logProb + ln(prob + 1e-300)
+            }
+            
+            if (logProb > maxProb) {
+                maxProb = logProb
+                bestClass = model.classes[c]
+            }
+        }
+        
+        predictions = append(predictions, bestClass)
+    }
+    
+    return predictions
+}
+
+// ===== Support Vector Machine (Linear SVM) =====
+// Simple linear SVM using gradient descent
+
+fn createSVM(learningRate: float, maxIterations: int, C: float) -> map {
+    return {
+        "learning_rate": learningRate,
+        "max_iterations": maxIterations,
+        "C": C,  // Regularization parameter
+        "weights": [],
+        "bias": 0.0,
+        "classes": [],
+        "is_fitted": false
+    }
+}
+
+fn svmFit(model: map, X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    // Find unique classes and convert to +1/-1
+    model.classes = unique(y)
+    let y_svm = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        if (y[i] == model.classes[1]) {
+            y_svm = append(y_svm, 1.0)
+        } else {
+            y_svm = append(y_svm, -1.0)
+        }
+    }
+    
+    // Initialize weights
+    model.weights = zeros(n_features)
+    model.bias = 0.0
+    
+    // Stochastic gradient descent
+    for (let iter = 0; iter < model.max_iterations; iter = iter + 1) {
+        for (let i = 0; i < n_samples; i = i + 1) {
+            // Compute margin
+            let margin = model.bias
+            for (let j = 0; j < n_features; j = j + 1) {
+                margin = margin + model.weights[j] * X[i][j]
+            }
+            margin = margin * y_svm[i]
+            
+            // Update weights
+            if (margin < 1) {
+                // Misclassified or within margin
+                for (let j = 0; j < n_features; j = j + 1) {
+                    model.weights[j] = model.weights[j] - model.learning_rate * (
+                        2 * model.weights[j] / model.max_iterations - 
+                        model.C * y_svm[i] * X[i][j]
+                    )
+                }
+                model.bias = model.bias + model.learning_rate * model.C * y_svm[i]
+            } else {
+                // Correctly classified
+                for (let j = 0; j < n_features; j = j + 1) {
+                    model.weights[j] = model.weights[j] - model.learning_rate * 2 * model.weights[j] / model.max_iterations
+                }
+            }
+        }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn svmPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        let score = model.bias
+        for (let j = 0; j < len(model.weights); j = j + 1) {
+            score = score + model.weights[j] * X[i][j]
+        }
+        
+        if (score >= 0) {
+            predictions = append(predictions, model.classes[1])
+        } else {
+            predictions = append(predictions, model.classes[0])
+        }
+    }
+    
+    return predictions
+}
+
+// ===== Perceptron =====
+// Simple linear classifier
+
+fn createPerceptron(learningRate: float, maxIterations: int) -> map {
+    return {
+        "learning_rate": learningRate,
+        "max_iterations": maxIterations,
+        "weights": [],
+        "bias": 0.0,
+        "classes": [],
+        "is_fitted": false
+    }
+}
+
+fn perceptronFit(model: map, X: array, y: array) -> map {
+    let n_samples = len(X)
+    let n_features = len(X[0])
+    
+    model.classes = unique(y)
+    
+    // Convert to +1/-1
+    let y_binary = []
+    for (let i = 0; i < len(y); i = i + 1) {
+        if (y[i] == model.classes[1]) {
+            y_binary = append(y_binary, 1.0)
+        } else {
+            y_binary = append(y_binary, -1.0)
+        }
+    }
+    
+    model.weights = zeros(n_features)
+    model.bias = 0.0
+    
+    for (let iter = 0; iter < model.max_iterations; iter = iter + 1) {
+        let errors = 0
+        for (let i = 0; i < n_samples; i = i + 1) {
+            let activation = model.bias
+            for (let j = 0; j < n_features; j = j + 1) {
+                activation = activation + model.weights[j] * X[i][j]
+            }
+            
+            let prediction = 1.0
+            if (activation < 0) { prediction = -1.0 }
+            
+            if (prediction != y_binary[i]) {
+                errors = errors + 1
+                model.bias = model.bias + model.learning_rate * y_binary[i]
+                for (let j = 0; j < n_features; j = j + 1) {
+                    model.weights[j] = model.weights[j] + model.learning_rate * y_binary[i] * X[i][j]
+                }
+            }
+        }
+        
+        if (errors == 0) { break }
+    }
+    
+    model.is_fitted = true
+    return model
+}
+
+fn perceptronPredict(model: map, X: array) -> array {
+    let predictions = []
+    
+    for (let i = 0; i < len(X); i = i + 1) {
+        let activation = model.bias
+        for (let j = 0; j < len(model.weights); j = j + 1) {
+            activation = activation + model.weights[j] * X[i][j]
+        }
+        
+        if (activation >= 0) {
+            predictions = append(predictions, model.classes[1])
+        } else {
+            predictions = append(predictions, model.classes[0])
+        }
+    }
+    
+    return predictions
+}
+
+// ===== Utility Functions =====
+
+fn unique(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let found = false
+        for (let j = 0; j < len(result); j = j + 1) {
+            if (arr[i] == result[j]) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            result = append(result, arr[i])
+        }
+    }
+    return result
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true  // Placeholder - interpreter should provide this
+}
+
+fn keys(m: map) -> array {
+    return []  // Placeholder - interpreter should provide this
+}

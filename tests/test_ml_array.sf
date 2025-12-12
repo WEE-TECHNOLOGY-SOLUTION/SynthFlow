@@ -1,0 +1,73 @@
+// Test suite for Array module
+import array
+import math
+
+print("Testing Array Module...")
+
+// 1. Array Creation
+print("- Testing Creation")
+let a = array.zeros(5)
+if (len(a) != 5) { print("FAIL: zeros length") }
+if (a[0] != 0.0) { print("FAIL: zeros value") }
+
+let b = array.ones(3)
+if (len(b) != 3) { print("FAIL: ones length") }
+if (b[0] != 1.0) { print("FAIL: ones value") }
+
+let c = array.full(4, 3.14)
+if (c[0] != 3.14) { print("FAIL: full value") }
+
+let d = array.arange(0, 5, 1) // [0, 1, 2, 3, 4]
+if (len(d) != 5) { print("FAIL: arange length") }
+if (d[4] != 4.0) { print("FAIL: arange value") }
+
+let e = array.linspace(0, 10, 5) // [0, 2.5, 5, 7.5, 10]
+if (e[0] != 0.0) { print("FAIL: linspace start") }
+if (e[4] != 10.0) { print("FAIL: linspace end") }
+
+// 2. Element-wise Operations
+print("- Testing Operations")
+let v1 = [1.0, 2.0, 3.0]
+let v2 = [4.0, 5.0, 6.0]
+
+let sum = array.add(v1, v2) // [5, 7, 9]
+if (sum[0] != 5.0) { print("FAIL: add") }
+
+let prod = array.mul(v1, v2) // [4, 10, 18]
+if (prod[2] != 18.0) { print("FAIL: mul") }
+
+// 3. Reduction
+print("- Testing Reduction")
+let values = [1.0, 5.0, 2.0, 8.0, 3.0]
+if (array.sum(values) != 19.0) { print("FAIL: sum") }
+if (array.mean(values) != 3.8) { print("FAIL: mean") }
+if (array.max(values) != 8.0) { print("FAIL: max") }
+if (array.min(values) != 1.0) { print("FAIL: min") }
+if (array.argmax(values) != 3) { print("FAIL: argmax") }
+
+// 4. Matrix Operations
+print("- Testing Matrix Ops")
+let m1 = [[1.0, 2.0], [3.0, 4.0]]
+let m2 = [[1.0, 0.0], [0.0, 1.0]] // Identity
+
+let dot = array.matmul(m1, m2)
+if (dot[0][0] != 1.0 || dot[1][1] != 4.0) { print("FAIL: matmul identity") }
+
+let trans = array.transpose(m1)
+if (trans[0][1] != 3.0) { print("FAIL: transpose") }
+
+let flat = array.flatten(m1)
+if (len(flat) != 4 || flat[3] != 4.0) { print("FAIL: flatten") }
+
+let shape = array.shape(m1)
+if (shape[0] != 2 || shape[1] != 2) { print("FAIL: shape") }
+
+// 5. Statistics
+print("- Testing Statistics")
+let stats_data = [1.0, 2.0, 3.0, 4.0, 5.0]
+if (array.median(stats_data) != 3.0) { print("FAIL: median") }
+// var = 2, std = sqrt(2) ~= 1.414
+let std = array.std(stats_data)
+if (std < 1.41 || std > 1.42) { print("FAIL: std") }
+
+print("Array Module Tests Complete")

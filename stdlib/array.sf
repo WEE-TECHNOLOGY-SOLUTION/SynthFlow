@@ -1,0 +1,756 @@
+// SynthFlow Array Library (NumPy Equivalent)
+// N-dimensional array operations for numerical computing
+
+// ===== Array Creation =====
+
+// Create array of zeros
+fn zeros(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, 0.0)
+    }
+    return result
+}
+
+// Create 2D array of zeros (matrix)
+fn zeros2d(rows: int, cols: int) -> array {
+    let result = []
+    for (let i = 0; i < rows; i = i + 1) {
+        let row = []
+        for (let j = 0; j < cols; j = j + 1) {
+            row = append(row, 0.0)
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+// Create array of ones
+fn ones(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, 1.0)
+    }
+    return result
+}
+
+// Create 2D array of ones
+fn ones2d(rows: int, cols: int) -> array {
+    let result = []
+    for (let i = 0; i < rows; i = i + 1) {
+        let row = []
+        for (let j = 0; j < cols; j = j + 1) {
+            row = append(row, 1.0)
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+// Create array filled with value
+fn full(n: int, value: float) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, value)
+    }
+    return result
+}
+
+// Create identity matrix
+fn eye(n: int) -> array {
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        let row = []
+        for (let j = 0; j < n; j = j + 1) {
+            if (i == j) {
+                row = append(row, 1.0)
+            } else {
+                row = append(row, 0.0)
+            }
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+// Create array with range [start, stop) with step
+fn arange(start: float, stop: float, step: float) -> array {
+    let result = []
+    let current = start
+    while (current < stop) {
+        result = append(result, current)
+        current = current + step
+    }
+    return result
+}
+
+// Create array with n evenly spaced values from start to stop
+fn linspace(start: float, stop: float, n: int) -> array {
+    let result = []
+    if (n <= 0) { return result }
+    if (n == 1) { return [start] }
+    
+    let step = (stop - start) / (n - 1)
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, start + i * step)
+    }
+    return result
+}
+
+// Create array with random values [0, 1)
+fn random(n: int) -> array {
+    let result = []
+    let seed = 12345
+    for (let i = 0; i < n; i = i + 1) {
+        // Linear congruential generator
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let val = float(seed) / 2147483648.0
+        result = append(result, val)
+    }
+    return result
+}
+
+// ===== Array Information =====
+
+// Get shape of array (1D returns [length], 2D returns [rows, cols])
+fn shape(arr: array) -> array {
+    if (len(arr) == 0) { return [0] }
+    
+    // Check if 2D
+    let first = arr[0]
+    if (typeof(first) == "array") {
+        let rows = len(arr)
+        let cols = len(first)
+        return [rows, cols]
+    }
+    
+    return [len(arr)]
+}
+
+// Get number of dimensions
+fn ndim(arr: array) -> int {
+    if (len(arr) == 0) { return 1 }
+    let first = arr[0]
+    if (typeof(first) == "array") {
+        return 2
+    }
+    return 1
+}
+
+// Get total number of elements
+fn size(arr: array) -> int {
+    let s = shape(arr)
+    if (len(s) == 1) { return s[0] }
+    return s[0] * s[1]
+}
+
+// ===== Element-wise Operations =====
+
+// Add two arrays element-wise
+fn add(a: array, b: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = append(result, a[i] + b[i])
+    }
+    return result
+}
+
+// Subtract two arrays element-wise
+fn subtract(a: array, b: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = append(result, a[i] - b[i])
+    }
+    return result
+}
+
+// Multiply two arrays element-wise
+fn multiply(a: array, b: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = append(result, a[i] * b[i])
+    }
+    return result
+}
+
+// Divide two arrays element-wise
+fn divide(a: array, b: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        if (b[i] == 0) {
+            result = append(result, 0.0)
+        } else {
+            result = append(result, a[i] / b[i])
+        }
+    }
+    return result
+}
+
+// Multiply array by scalar
+fn scale(arr: array, scalar: float) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, arr[i] * scalar)
+    }
+    return result
+}
+
+// Power element-wise
+fn power(arr: array, p: float) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, pow(arr[i], p))
+    }
+    return result
+}
+
+// Square root element-wise
+fn sqrtArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, sqrt(arr[i]))
+    }
+    return result
+}
+
+// Absolute value element-wise
+fn absArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, abs(arr[i]))
+    }
+    return result
+}
+
+// Exponential element-wise
+fn expArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, exp(arr[i]))
+    }
+    return result
+}
+
+// Natural log element-wise
+fn logArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, ln(arr[i]))
+    }
+    return result
+}
+
+// ===== Trigonometric Functions =====
+
+fn sinArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, sin(arr[i]))
+    }
+    return result
+}
+
+fn cosArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, cos(arr[i]))
+    }
+    return result
+}
+
+fn tanArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, tan(arr[i]))
+    }
+    return result
+}
+
+// ===== Reduction Operations =====
+
+// Sum of all elements
+fn arraySum(arr: array) -> float {
+    let total = 0.0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        total = total + arr[i]
+    }
+    return total
+}
+
+// Mean of all elements
+fn mean(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    return arraySum(arr) / len(arr)
+}
+
+// Variance of elements
+fn variance(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let m = mean(arr)
+    let sumSq = 0.0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let diff = arr[i] - m
+        sumSq = sumSq + diff * diff
+    }
+    return sumSq / len(arr)
+}
+
+// Standard deviation
+fn std(arr: array) -> float {
+    return sqrt(variance(arr))
+}
+
+// Minimum value
+fn arrayMin(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let result = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] < result) {
+            result = arr[i]
+        }
+    }
+    return result
+}
+
+// Maximum value
+fn arrayMax(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let result = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] > result) {
+            result = arr[i]
+        }
+    }
+    return result
+}
+
+// Index of minimum value
+fn argmin(arr: array) -> int {
+    if (len(arr) == 0) { return -1 }
+    let minIdx = 0
+    let minVal = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] < minVal) {
+            minVal = arr[i]
+            minIdx = i
+        }
+    }
+    return minIdx
+}
+
+// Index of maximum value
+fn argmax(arr: array) -> int {
+    if (len(arr) == 0) { return -1 }
+    let maxIdx = 0
+    let maxVal = arr[0]
+    for (let i = 1; i < len(arr); i = i + 1) {
+        if (arr[i] > maxVal) {
+            maxVal = arr[i]
+            maxIdx = i
+        }
+    }
+    return maxIdx
+}
+
+// Product of all elements
+fn prod(arr: array) -> float {
+    if (len(arr) == 0) { return 0.0 }
+    let result = 1.0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = result * arr[i]
+    }
+    return result
+}
+
+// Cumulative sum
+fn cumsum(arr: array) -> array {
+    let result = []
+    let total = 0.0
+    for (let i = 0; i < len(arr); i = i + 1) {
+        total = total + arr[i]
+        result = append(result, total)
+    }
+    return result
+}
+
+// ===== Linear Algebra =====
+
+// Dot product of two vectors
+fn dot(a: array, b: array) -> float {
+    let result = 0.0
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = result + a[i] * b[i]
+    }
+    return result
+}
+
+// Vector norm (L2)
+fn norm(arr: array) -> float {
+    return sqrt(dot(arr, arr))
+}
+
+// Normalize vector
+fn normalize(arr: array) -> array {
+    let n = norm(arr)
+    if (n == 0) { return arr }
+    return scale(arr, 1.0 / n)
+}
+
+// Matrix multiplication (2D arrays)
+fn matmul(a: array, b: array) -> array {
+    let aShape = shape(a)
+    let bShape = shape(b)
+    
+    let aRows = aShape[0]
+    let aCols = aShape[1]
+    let bRows = bShape[0]
+    let bCols = bShape[1]
+    
+    // Check dimensions
+    if (aCols != bRows) {
+        return []
+    }
+    
+    let result = zeros2d(aRows, bCols)
+    
+    for (let i = 0; i < aRows; i = i + 1) {
+        for (let j = 0; j < bCols; j = j + 1) {
+            let sum = 0.0
+            for (let k = 0; k < aCols; k = k + 1) {
+                sum = sum + a[i][k] * b[k][j]
+            }
+            result[i][j] = sum
+        }
+    }
+    
+    return result
+}
+
+// Transpose matrix
+fn transpose(arr: array) -> array {
+    let s = shape(arr)
+    if (len(s) == 1) {
+        // 1D array, just return copy
+        return arr
+    }
+    
+    let rows = s[0]
+    let cols = s[1]
+    let result = zeros2d(cols, rows)
+    
+    for (let i = 0; i < rows; i = i + 1) {
+        for (let j = 0; j < cols; j = j + 1) {
+            result[j][i] = arr[i][j]
+        }
+    }
+    
+    return result
+}
+
+// Matrix-vector multiplication
+fn matvec(mat: array, vec: array) -> array {
+    let s = shape(mat)
+    let rows = s[0]
+    let cols = s[1]
+    
+    let result = zeros(rows)
+    
+    for (let i = 0; i < rows; i = i + 1) {
+        let sum = 0.0
+        for (let j = 0; j < cols; j = j + 1) {
+            sum = sum + mat[i][j] * vec[j]
+        }
+        result[i] = sum
+    }
+    
+    return result
+}
+
+// Outer product of two vectors
+fn outer(a: array, b: array) -> array {
+    let rows = len(a)
+    let cols = len(b)
+    let result = zeros2d(rows, cols)
+    
+    for (let i = 0; i < rows; i = i + 1) {
+        for (let j = 0; j < cols; j = j + 1) {
+            result[i][j] = a[i] * b[j]
+        }
+    }
+    
+    return result
+}
+
+// Trace of matrix (sum of diagonal)
+fn trace(arr: array) -> float {
+    let s = shape(arr)
+    let n = arrayMin([s[0], s[1]])
+    let result = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        result = result + arr[i][i]
+    }
+    return result
+}
+
+// Get diagonal of matrix
+fn diag(arr: array) -> array {
+    let s = shape(arr)
+    let n = arrayMin([s[0], s[1]])
+    let result = []
+    for (let i = 0; i < n; i = i + 1) {
+        result = append(result, arr[i][i])
+    }
+    return result
+}
+
+// ===== Array Manipulation =====
+
+// Flatten 2D array to 1D
+fn flatten(arr: array) -> array {
+    let result = []
+    let s = shape(arr)
+    
+    if (len(s) == 1) { return arr }
+    
+    for (let i = 0; i < s[0]; i = i + 1) {
+        for (let j = 0; j < s[1]; j = j + 1) {
+            result = append(result, arr[i][j])
+        }
+    }
+    
+    return result
+}
+
+// Reshape 1D array to 2D
+fn reshape(arr: array, rows: int, cols: int) -> array {
+    let flat = flatten(arr)
+    let result = zeros2d(rows, cols)
+    
+    let idx = 0
+    for (let i = 0; i < rows; i = i + 1) {
+        for (let j = 0; j < cols; j = j + 1) {
+            if (idx < len(flat)) {
+                result[i][j] = flat[idx]
+                idx = idx + 1
+            }
+        }
+    }
+    
+    return result
+}
+
+// Concatenate arrays
+fn concatenate(a: array, b: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = append(result, a[i])
+    }
+    for (let i = 0; i < len(b); i = i + 1) {
+        result = append(result, b[i])
+    }
+    return result
+}
+
+// Stack arrays vertically
+fn vstack(a: array, b: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = append(result, a[i])
+    }
+    for (let i = 0; i < len(b); i = i + 1) {
+        result = append(result, b[i])
+    }
+    return result
+}
+
+// Get slice of array [start, end)
+fn slice(arr: array, start: int, end: int) -> array {
+    let result = []
+    for (let i = start; i < end; i = i + 1) {
+        if (i >= 0 && i < len(arr)) {
+            result = append(result, arr[i])
+        }
+    }
+    return result
+}
+
+// ===== Comparison Operations =====
+
+// Element-wise equality check (returns array of bools)
+fn equal(a: array, b: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = append(result, a[i] == b[i])
+    }
+    return result
+}
+
+// Check if all elements are true/non-zero
+fn all(arr: array) -> bool {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (!arr[i]) { return false }
+    }
+    return true
+}
+
+// Check if any element is true/non-zero
+fn any(arr: array) -> bool {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i]) { return true }
+    }
+    return false
+}
+
+// Where condition is true, return indices
+fn where(condition: array) -> array {
+    let result = []
+    for (let i = 0; i < len(condition); i = i + 1) {
+        if (condition[i]) {
+            result = append(result, i)
+        }
+    }
+    return result
+}
+
+// ===== Utility Functions =====
+
+// Copy array
+fn copy(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    return result
+}
+
+// Reverse array
+fn reverse(arr: array) -> array {
+    let result = []
+    for (let i = len(arr) - 1; i >= 0; i = i - 1) {
+        result = append(result, arr[i])
+    }
+    return result
+}
+
+// Sort array (bubble sort for simplicity)
+fn sort(arr: array) -> array {
+    let result = copy(arr)
+    let n = len(result)
+    
+    for (let i = 0; i < n - 1; i = i + 1) {
+        for (let j = 0; j < n - i - 1; j = j + 1) {
+            if (result[j] > result[j + 1]) {
+                let temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+            }
+        }
+    }
+    
+    return result
+}
+
+// Argsort - return indices that would sort the array
+fn argsort(arr: array) -> array {
+    let indices = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        indices = append(indices, i)
+    }
+    
+    // Bubble sort on indices
+    for (let i = 0; i < len(indices) - 1; i = i + 1) {
+        for (let j = 0; j < len(indices) - i - 1; j = j + 1) {
+            if (arr[indices[j]] > arr[indices[j + 1]]) {
+                let temp = indices[j]
+                indices[j] = indices[j + 1]
+                indices[j + 1] = temp
+            }
+        }
+    }
+    
+    return indices
+}
+
+// Unique elements
+fn unique(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let found = false
+        for (let j = 0; j < len(result); j = j + 1) {
+            if (arr[i] == result[j]) {
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            result = append(result, arr[i])
+        }
+    }
+    return result
+}
+
+// Count occurrences of each unique value
+fn bincount(arr: array) -> array {
+    let maxVal = int(arrayMax(arr)) + 1
+    let result = zeros(maxVal)
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let idx = int(arr[i])
+        result[idx] = result[idx] + 1
+    }
+    return result
+}
+
+// Clip values to range
+fn clip(arr: array, minVal: float, maxVal: float) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let val = arr[i]
+        if (val < minVal) { val = minVal }
+        if (val > maxVal) { val = maxVal }
+        result = append(result, val)
+    }
+    return result
+}
+
+// ===== Statistical Functions =====
+
+// Median of array
+fn median(arr: array) -> float {
+    let sorted = sort(arr)
+    let n = len(sorted)
+    if (n == 0) { return 0.0 }
+    if (n % 2 == 0) {
+        return (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+    }
+    return sorted[n / 2]
+}
+
+// Percentile
+fn percentile(arr: array, p: float) -> float {
+    let sorted = sort(arr)
+    let n = len(sorted)
+    if (n == 0) { return 0.0 }
+    let idx = int(p / 100.0 * (n - 1))
+    return sorted[idx]
+}
+
+// Covariance between two arrays
+fn cov(a: array, b: array) -> float {
+    let n = len(a)
+    if (n == 0) { return 0.0 }
+    let meanA = mean(a)
+    let meanB = mean(b)
+    let sum = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        sum = sum + (a[i] - meanA) * (b[i] - meanB)
+    }
+    return sum / (n - 1)
+}
+
+// Correlation coefficient
+fn corrcoef(a: array, b: array) -> float {
+    let stdA = std(a)
+    let stdB = std(b)
+    if (stdA == 0 || stdB == 0) { return 0.0 }
+    return cov(a, b) / (stdA * stdB)
+}

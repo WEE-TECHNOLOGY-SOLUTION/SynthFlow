@@ -1,0 +1,70 @@
+// Test suite for ML Algorithms
+// Covers Preprocessing, Classification, Regression, Clustering
+
+import preprocessing
+import classification
+import regression
+import clustering
+import metrics
+import array
+
+print("Testing ML Algorithms...")
+
+// 1. Preprocessing
+print("- Testing Preprocessing")
+let X = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+let scaler = preprocessing.createStandardScaler()
+scaler = preprocessing.fit(scaler, X)
+let X_scaled = preprocessing.transform(scaler, X)
+
+// Mean of scaled should be 0, std 1
+let col0 = [X_scaled[0][0], X_scaled[1][0], X_scaled[2][0]]
+if (abs(array.mean(col0)) > 0.001) { print("FAIL: StandardScaler mean") }
+
+// 2. Linear Regression
+print("- Testing Linear Regression")
+let X_reg = [[1.0], [2.0], [3.0], [4.0], [5.0]]
+let y_reg = [2.0, 4.0, 6.0, 8.0, 10.0] // y = 2x
+
+let lr = regression.createLinearRegression()
+lr = regression.fit(lr, X_reg, y_reg)
+let preds = regression.predict(lr, [[6.0]])
+// Should be close to 12.0
+if (abs(preds[0] - 12.0) > 0.1) { print("FAIL: LinearRegression prediction") }
+
+// 3. Logistic Regression (Binary Classification)
+print("- Testing Logistic Regression")
+let X_cls = [[1.0], [2.0], [8.0], [9.0]]
+let y_cls = [0.0, 0.0, 1.0, 1.0]
+
+let log_reg = classification.createLogisticRegression(0.1, 100)
+log_reg = classification.fit(log_reg, X_cls, y_cls)
+let p_cls = classification.predict(log_reg, [[1.5], [8.5]])
+if (p_cls[0] != 0.0) { print("FAIL: LogisticRegression class 0") }
+if (p_cls[1] != 1.0) { print("FAIL: LogisticRegression class 1") }
+
+// 4. KMeans Clustering
+print("- Testing KMeans")
+let X_clus = [[1.0, 1.0], [1.5, 1.5], [10.0, 10.0], [10.5, 10.5]]
+let kmeans = clustering.createKMeans(2, 10)
+kmeans = clustering.fit(kmeans, X_clus)
+let labels = clustering.predict(kmeans, X_clus)
+// First two should be same cluster, last two same cluster
+if (labels[0] != labels[1]) { print("FAIL: KMeans group 1") }
+if (labels[2] != labels[3]) { print("FAIL: KMeans group 2") }
+if (labels[0] == labels[2]) { print("FAIL: KMeans distinct groups") }
+
+// 5. Metrics
+print("- Testing Metrics")
+let y_true = [1.0, 0.0, 1.0, 1.0]
+let y_pred = [1.0, 0.0, 0.0, 1.0]
+let acc = metrics.accuracy(y_true, y_pred)
+if (acc != 0.75) { print("FAIL: accuracy") }
+
+let y_true_r = [3.0, -0.5, 2.0, 7.0]
+let y_pred_r = [2.5, 0.0, 2.0, 8.0]
+let mse = metrics.meanSquaredError(y_true_r, y_pred_r)
+// (0.25 + 0.25 + 0 + 1) / 4 = 1.5 / 4 = 0.375
+if (mse != 0.375) { print("FAIL: MSE") }
+
+print("ML Algorithms Tests Complete")
