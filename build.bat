@@ -15,7 +15,7 @@ g++ -std=c++17 -Wall -Wextra -O3 -march=native -flto -DNDEBUG -Icompiler/include
     compiler/src/http/http_client.cpp ^
     compiler/src/main.cpp ^
     -lwinhttp ^
-    -o synthflow.exe
+    -o synthflow-0.0.25.exe
 
 echo Building SynthFlow LSP...
 g++ -std=c++17 -Wall -Wextra -O3 -march=native -flto -DNDEBUG -Icompiler/include ^
@@ -27,7 +27,7 @@ g++ -std=c++17 -Wall -Wextra -O3 -march=native -flto -DNDEBUG -Icompiler/include
     -o synthflow-lsp.exe
 
 if %ERRORLEVEL% EQU 0 (
-    echo Build successful! Run ./synthflow.exe to use the compiler.
+    echo Build successful! Run ./synthflow-0.0.25.exe to use the compiler.
 ) else (
     echo Build failed.
     exit /b %ERRORLEVEL%

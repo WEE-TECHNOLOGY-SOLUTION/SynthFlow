@@ -10,7 +10,7 @@
 #include <sstream>
 #include <cstring>
 
-#define SYNTHFLOW_VERSION "0.0.2"
+#define SYNTHFLOW_VERSION "0.0.25"
 
 void printVersion() {
     std::cout << "SynthFlow Programming Language v" << SYNTHFLOW_VERSION << std::endl;

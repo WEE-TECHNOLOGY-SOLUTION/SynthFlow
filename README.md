@@ -3,7 +3,7 @@
 ![SynthFlow Logo](assets/logo.png)
 
 [![Build](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
+[![Version](https://img.shields.io/badge/version-0.0.25-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 SynthFlow is an **AI-native programming language** designed to bridge the gap between human intent and machine execution. It features a clean, readable syntax with powerful constructs for modern software development, native AI integration, and now **Quantum Computing** simulation.
@@ -115,7 +115,7 @@ print(answer)
 
 ## 🏷️ Changelog
 
-### v0.2.0 (Quantum Update)
+### v0.0.25 (Quantum Update)
 - ⚛️ **Native Quantum Computing Support**
   - Complex number arithmetic and utilities
   - Qubit state simulation and gate operations
