@@ -5,6 +5,23 @@ All notable changes to the SynthFlow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.26] - 2025-12-13
+
+### Added - Model Context Protocol (MCP)
+- Native C++ MCP server (`mcp-server/src/main.cpp`)
+- JSON utilities for MCP (`mcp-server/src/json_mcp.h`)
+- Tool exposure: `run_kenneth` for program execution
+- IDE integration support (VS Code, Claude Desktop)
+
+### Added - CI/CD
+- GitHub Actions CI workflow (`.github/workflows/ci.yml`)
+- Updated release workflow for MCP packaging
+
+### Changed
+- Updated `CMakeLists.txt` with `synthflow-mcp` target
+- Updated `build.bat` for local MCP development
+- Updated documentation (README.md, CHANGELOG.md)
+
 ## [0.0.17] - 2025-12-10
 
 ### Added - Phase 1: Core Language

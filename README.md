@@ -29,6 +29,11 @@ SynthFlow is an **AI-native programming language** designed to bridge the gap be
 - **📡 HTTP Client** – Native HTTP requests
 - **📊 Vector Store** – RAG support for AI applications
 
+### 🔌 Model Context Protocol (MCP)
+- **AI IDE Integration** – Connect SynthFlow to VS Code, Claude Desktop, and other AI tools
+- **Native C++ Server** – High-performance MCP server (`synthflow-mcp`)
+- **Tool Exposure** – Expose SynthFlow capabilities as AI-callable tools
+
 ## 🚀 Quick Start
 
 ```bash
@@ -115,13 +120,25 @@ print(answer)
 
 ## 🏷️ Changelog
 
+### v0.0.26 (MCP Update)
+- 🔌 **Model Context Protocol (MCP) Server**
+  - Native C++ implementation (`synthflow-mcp`)
+  - JSON-RPC over stdio communication
+  - Tool integration for AI IDEs (VS Code, Claude Desktop)
+- 🔄 **CI/CD Pipeline**
+  - Added `ci.yml` for continuous testing
+  - Updated `release.yml` to package MCP server
+- 📦 **Build System**
+  - Updated `CMakeLists.txt` with `synthflow-mcp` target
+  - Updated `build.bat` for local development
+
 ### v0.0.25 (Quantum Update)
 - ⚛️ **Native Quantum Computing Support**
   - Complex number arithmetic and utilities
   - Qubit state simulation and gate operations
   - Quantum standard library (`stdlib/quantum.sf`)
 - 🔢 **New Math Built-ins**: `sqrt`, `pow`, `abs`, `sin`, `cos`, `exp`, `ln`, `floor`, `ceil`
-- �️ **Language Improvements**:
+- 🛠️ **Language Improvements**:
   - Logical operators `&&` and `||`
   - Variadic function arguments support
   - Fixed `if/else` control flow parsing
