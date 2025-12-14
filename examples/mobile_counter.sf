@@ -1,0 +1,62 @@
+// SynthFlow Mobile App Example
+// Counter App for React Native
+//
+// Compile: synthflow transpile mobile_counter.sf --target react-native -o App.js
+//
+
+import mobile
+
+// App state
+let count = 0
+
+// Increment handler
+fn increment() {
+    count = count + 1
+    print("Count incremented to: " + str(count))
+}
+
+// Decrement handler
+fn decrement() {
+    count = count - 1
+    print("Count decremented to: " + str(count))
+}
+
+// Main App component
+fn App() {
+    return SafeAreaView([
+        Header("SynthFlow Counter", null, null),
+        View(styles.container, [
+            Card([
+                Text("Welcome to SynthFlow Mobile!", styles.title),
+                Text("This app was written in SynthFlow and transpiled to React Native.", styles.body),
+                View({ height: 20 }, []),
+                Text("Current Count:", styles.subtitle),
+                Text(str(count), { fontSize: 48, fontWeight: "bold", textAlign: "center", marginVertical: 16 }),
+                View(styles.row, [
+                    TouchableOpacity(decrement, [
+                        View({ 
+                            backgroundColor: "#ef4444", 
+                            paddingVertical: 12, 
+                            paddingHorizontal: 24, 
+                            borderRadius: 8,
+                            marginRight: 8
+                        }, [
+                            Text("-", { color: "#ffffff", fontSize: 24, fontWeight: "bold" })
+                        ])
+                    ], null),
+                    TouchableOpacity(increment, [
+                        View({ 
+                            backgroundColor: "#22c55e", 
+                            paddingVertical: 12, 
+                            paddingHorizontal: 24, 
+                            borderRadius: 8,
+                            marginLeft: 8
+                        }, [
+                            Text("+", { color: "#ffffff", fontSize: 24, fontWeight: "bold" })
+                        ])
+                    ], null)
+                ])
+            ], null)
+        ])
+    ], null)
+}

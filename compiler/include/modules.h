@@ -4,6 +4,7 @@
 #include <memory>
 #include <map>
 #include <set>
+#include <algorithm>
 
 // Forward declarations
 class Statement;

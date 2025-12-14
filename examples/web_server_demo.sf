@@ -1,0 +1,32 @@
+// SynthFlow Web Framework Demo
+// Minimal API Example
+
+// Define data
+let users = [
+    { id: 1, name: "Alice", email: "alice@example.com" },
+    { id: 2, name: "Bob", email: "bob@example.com" }
+]
+
+// Routes - one line each!
+route("/", text("Welcome to SynthFlow Web Framework!"))
+
+route("/api/users", json(users))
+
+route("/api/users/:id", (req) => {
+    let id = int(req.params.id) - 1
+    if (id >= 0 && id < len(users)) {
+        return json(users[id])
+    }
+    return json({ error: "User not found" })
+})
+
+route("POST /api/users", (req) => {
+    print("Received POST: " + req.body)
+    return json({ success: true, message: "User created" })
+})
+
+route("/html", html("<h1>Hello from SynthFlow!</h1><p>This is HTML.</p>"))
+
+// Start server
+print("Starting SynthFlow Web Server...")
+serve(3000)

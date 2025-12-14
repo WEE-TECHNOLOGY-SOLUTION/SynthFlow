@@ -3,7 +3,7 @@
 ![SynthFlow Logo](assets/logo.png)
 
 [![Build](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions)
-[![Version](https://img.shields.io/badge/version-0.0.25-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
+[![Version](https://img.shields.io/badge/version-0.0.30-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 SynthFlow is an **AI-native programming language** designed to bridge the gap between human intent and machine execution. It features a clean, readable syntax with powerful constructs for modern software development, native AI integration, and now **Quantum Computing** simulation.
@@ -97,6 +97,17 @@ print(answer)
 | `stdlib/http.sf` | HTTP client | ✅ Ready |
 | `stdlib/json.sf` | JSON utilities | ✅ Ready |
 | `stdlib/io.sf` | File I/O operations | ✅ Ready |
+| `stdlib/dataframe.sf` | Pandas-like tabular data (pivot tables, time series) | ✅ Ready |
+| `stdlib/neural_network.sf` | Deep learning (CNN, LSTM, GRU) | ✅ Ready |
+| `stdlib/classification.sf` | ML classifiers (SVM, KNN, RandomForest) | ✅ Ready |
+| `stdlib/regression.sf` | Regression models | ✅ Ready |
+| `stdlib/plotting.sf` | ASCII data visualization | ✅ Ready |
+| `stdlib/scraping.sf` | Web scraping & HTML parsing | ✅ Ready |
+| `stdlib/sysadmin.sf` | System administration | ✅ Ready |
+| `stdlib/database.sf` | Database connectivity & ORM | ✅ Ready |
+| `stdlib/logging.sf` | Enterprise logging | ✅ Ready |
+| `stdlib/testing.sf` | Unit testing framework | ✅ Ready |
+| `stdlib/config.sf` | Configuration management | ✅ Ready |
 
 ## 🔧 Built-in Functions
 

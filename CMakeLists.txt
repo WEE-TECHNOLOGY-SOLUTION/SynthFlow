@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.10)
-project(SynthFlow VERSION 0.0.25)
+cmake_minimum_required(VERSION 3.14)
+project(SynthFlow VERSION 0.0.27)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,6 +10,19 @@ if(MSVC)
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-unused-parameter")
 endif()
+
+# ------------------------------------------------------------------------------
+# External Dependencies
+# ------------------------------------------------------------------------------
+
+# CLI11 - Command line parser (header-only)
+include(FetchContent)
+FetchContent_Declare(
+    cli11
+    GIT_REPOSITORY https://github.com/CLIUtils/CLI11
+    GIT_TAG v2.4.1
+)
+FetchContent_MakeAvailable(cli11)
 
 # Include directories
 include_directories(compiler/include)
@@ -61,7 +74,7 @@ target_link_libraries(js_transpiler ast)
 
 # Main Compiler Executable
 add_executable(synthflow compiler/src/main.cpp)
-target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js_transpiler ast lexer http_client)
+target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js_transpiler ast lexer http_client CLI11::CLI11)
 
 # LSP Server
 add_executable(synthflow-lsp lsp-server/src/main.cpp)

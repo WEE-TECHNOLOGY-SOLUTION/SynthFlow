@@ -1,0 +1,551 @@
+// SynthFlow Plotting Library
+// ASCII-based data visualization for terminal output
+// Equivalent to Python's matplotlib/seaborn (terminal mode)
+
+// ===== Configuration =====
+
+let PLOT_CONFIG = {
+    "width": 60,
+    "height": 20,
+    "chars": {
+        "bar": "█",
+        "bar_half": "▌",
+        "line": "─",
+        "point": "●",
+        "dot": "·",
+        "corner_tl": "┌",
+        "corner_tr": "┐",
+        "corner_bl": "└",
+        "corner_br": "┘",
+        "vertical": "│",
+        "horizontal": "─",
+        "cross": "┼"
+    }
+}
+
+// Set plot dimensions
+fn setPlotSize(width: int, height: int) -> void {
+    PLOT_CONFIG.width = width
+    PLOT_CONFIG.height = height
+}
+
+// ===== Bar Chart =====
+
+// Create horizontal bar chart
+fn barChart(data: array, labels: array, title: string) -> string {
+    let maxVal = 0.0
+    for (let i = 0; i < len(data); i = i + 1) {
+        if (data[i] > maxVal) { maxVal = data[i] }
+    }
+    
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n\n"
+    
+    let maxLabelLen = 10
+    for (let i = 0; i < len(labels); i = i + 1) {
+        if (len(labels[i]) > maxLabelLen) { maxLabelLen = len(labels[i]) }
+    }
+    
+    let barWidth = PLOT_CONFIG.width - maxLabelLen - 15
+    
+    for (let i = 0; i < len(data); i = i + 1) {
+        let label = labels[i]
+        if (len(label) < maxLabelLen) {
+            label = padRight(label, maxLabelLen)
+        }
+        
+        let barLen = int((data[i] / maxVal) * barWidth)
+        let bar = repeat(PLOT_CONFIG.chars.bar, barLen)
+        
+        result = result + label + " │ " + bar + " " + str(data[i]) + "\n"
+    }
+    
+    return result
+}
+
+// Create vertical bar chart
+fn barChartVertical(data: array, labels: array, title: string) -> string {
+    let maxVal = 0.0
+    for (let i = 0; i < len(data); i = i + 1) {
+        if (data[i] > maxVal) { maxVal = data[i] }
+    }
+    
+    let height = PLOT_CONFIG.height
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n\n"
+    
+    // Build from top to bottom
+    for (let row = height; row > 0; row = row - 1) {
+        let threshold = (row / float(height)) * maxVal
+        let line = ""
+        
+        for (let i = 0; i < len(data); i = i + 1) {
+            if (data[i] >= threshold) {
+                line = line + " " + PLOT_CONFIG.chars.bar + " "
+            } else {
+                line = line + "   "
+            }
+        }
+        
+        result = result + line + "\n"
+    }
+    
+    // X-axis
+    result = result + repeat("─", len(data) * 3) + "\n"
+    
+    // Labels
+    let labelLine = ""
+    for (let i = 0; i < len(labels); i = i + 1) {
+        let lbl = substr(labels[i], 0, 2)
+        labelLine = labelLine + " " + lbl + " "
+    }
+    result = result + labelLine + "\n"
+    
+    return result
+}
+
+// ===== Line Chart =====
+
+// Create ASCII line chart
+fn lineChart(data: array, title: string) -> string {
+    let height = PLOT_CONFIG.height
+    let width = len(data)
+    
+    if (width > PLOT_CONFIG.width) { width = PLOT_CONFIG.width }
+    
+    let minVal = data[0]
+    let maxVal = data[0]
+    for (let i = 1; i < len(data); i = i + 1) {
+        if (data[i] < minVal) { minVal = data[i] }
+        if (data[i] > maxVal) { maxVal = data[i] }
+    }
+    
+    let range = maxVal - minVal
+    if (range == 0) { range = 1 }
+    
+    // Create grid
+    let grid = []
+    for (let i = 0; i < height; i = i + 1) {
+        let row = []
+        for (let j = 0; j < width; j = j + 1) {
+            row = append(row, " ")
+        }
+        grid = append(grid, row)
+    }
+    
+    // Plot points
+    for (let i = 0; i < width; i = i + 1) {
+        let idx = int((i / float(width)) * len(data))
+        if (idx >= len(data)) { idx = len(data) - 1 }
+        
+        let normalized = (data[idx] - minVal) / range
+        let row = height - 1 - int(normalized * (height - 1))
+        if (row < 0) { row = 0 }
+        if (row >= height) { row = height - 1 }
+        
+        grid[row][i] = PLOT_CONFIG.chars.point
+    }
+    
+    // Build result
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n\n"
+    
+    for (let i = 0; i < height; i = i + 1) {
+        let yVal = maxVal - (i / float(height - 1)) * range
+        let yLabel = formatNumber(yVal, 6)
+        result = result + yLabel + " │"
+        
+        for (let j = 0; j < width; j = j + 1) {
+            result = result + grid[i][j]
+        }
+        result = result + "\n"
+    }
+    
+    // X-axis
+    result = result + repeat(" ", 7) + "└" + repeat("─", width) + "\n"
+    
+    return result
+}
+
+// Multi-line chart
+fn multiLineChart(datasets: array, labels: array, title: string) -> string {
+    let height = PLOT_CONFIG.height
+    let chars = ["●", "○", "◆", "◇", "▲", "△"]
+    
+    // Find global min/max
+    let minVal = datasets[0][0]
+    let maxVal = datasets[0][0]
+    for (let d = 0; d < len(datasets); d = d + 1) {
+        for (let i = 0; i < len(datasets[d]); i = i + 1) {
+            if (datasets[d][i] < minVal) { minVal = datasets[d][i] }
+            if (datasets[d][i] > maxVal) { maxVal = datasets[d][i] }
+        }
+    }
+    
+    let width = len(datasets[0])
+    let range = maxVal - minVal
+    if (range == 0) { range = 1 }
+    
+    // Create grid
+    let grid = []
+    for (let i = 0; i < height; i = i + 1) {
+        let row = []
+        for (let j = 0; j < width; j = j + 1) {
+            row = append(row, " ")
+        }
+        grid = append(grid, row)
+    }
+    
+    // Plot each dataset
+    for (let d = 0; d < len(datasets); d = d + 1) {
+        let char = chars[d % len(chars)]
+        let data = datasets[d]
+        
+        for (let i = 0; i < len(data); i = i + 1) {
+            let normalized = (data[i] - minVal) / range
+            let row = height - 1 - int(normalized * (height - 1))
+            if (row < 0) { row = 0 }
+            if (row >= height) { row = height - 1 }
+            
+            grid[row][i] = char
+        }
+    }
+    
+    // Build result with legend
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n"
+    
+    // Legend
+    result = result + "Legend: "
+    for (let d = 0; d < len(labels); d = d + 1) {
+        result = result + chars[d % len(chars)] + " " + labels[d] + "  "
+    }
+    result = result + "\n\n"
+    
+    // Grid
+    for (let i = 0; i < height; i = i + 1) {
+        let yVal = maxVal - (i / float(height - 1)) * range
+        result = result + formatNumber(yVal, 6) + " │"
+        for (let j = 0; j < width; j = j + 1) {
+            result = result + grid[i][j]
+        }
+        result = result + "\n"
+    }
+    
+    return result
+}
+
+// ===== Histogram =====
+
+// Create histogram from data
+fn histogram(data: array, bins: int, title: string) -> string {
+    let minVal = data[0]
+    let maxVal = data[0]
+    for (let i = 1; i < len(data); i = i + 1) {
+        if (data[i] < minVal) { minVal = data[i] }
+        if (data[i] > maxVal) { maxVal = data[i] }
+    }
+    
+    let binWidth = (maxVal - minVal) / bins
+    let counts = []
+    for (let i = 0; i < bins; i = i + 1) {
+        counts = append(counts, 0)
+    }
+    
+    // Count data in each bin
+    for (let i = 0; i < len(data); i = i + 1) {
+        let binIdx = int((data[i] - minVal) / binWidth)
+        if (binIdx >= bins) { binIdx = bins - 1 }
+        if (binIdx < 0) { binIdx = 0 }
+        counts[binIdx] = counts[binIdx] + 1
+    }
+    
+    // Create labels
+    let labels = []
+    for (let i = 0; i < bins; i = i + 1) {
+        let binStart = minVal + i * binWidth
+        let binEnd = binStart + binWidth
+        labels = append(labels, formatNumber(binStart, 4) + "-" + formatNumber(binEnd, 4))
+    }
+    
+    return barChart(counts, labels, title)
+}
+
+// ===== Scatter Plot =====
+
+// Create scatter plot from x, y data
+fn scatterPlot(x: array, y: array, title: string) -> string {
+    let height = PLOT_CONFIG.height
+    let width = PLOT_CONFIG.width
+    
+    let xMin = x[0]
+    let xMax = x[0]
+    let yMin = y[0]
+    let yMax = y[0]
+    
+    for (let i = 1; i < len(x); i = i + 1) {
+        if (x[i] < xMin) { xMin = x[i] }
+        if (x[i] > xMax) { xMax = x[i] }
+        if (y[i] < yMin) { yMin = y[i] }
+        if (y[i] > yMax) { yMax = y[i] }
+    }
+    
+    let xRange = xMax - xMin
+    let yRange = yMax - yMin
+    if (xRange == 0) { xRange = 1 }
+    if (yRange == 0) { yRange = 1 }
+    
+    // Create grid
+    let grid = []
+    for (let i = 0; i < height; i = i + 1) {
+        let row = []
+        for (let j = 0; j < width; j = j + 1) {
+            row = append(row, " ")
+        }
+        grid = append(grid, row)
+    }
+    
+    // Plot points
+    for (let i = 0; i < len(x); i = i + 1) {
+        let col = int(((x[i] - xMin) / xRange) * (width - 1))
+        let row = height - 1 - int(((y[i] - yMin) / yRange) * (height - 1))
+        
+        if (row >= 0 && row < height && col >= 0 && col < width) {
+            grid[row][col] = PLOT_CONFIG.chars.point
+        }
+    }
+    
+    // Build result
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n\n"
+    
+    for (let i = 0; i < height; i = i + 1) {
+        let yVal = yMax - (i / float(height - 1)) * yRange
+        result = result + formatNumber(yVal, 6) + " │"
+        for (let j = 0; j < width; j = j + 1) {
+            result = result + grid[i][j]
+        }
+        result = result + "\n"
+    }
+    
+    // X-axis
+    result = result + repeat(" ", 7) + "└" + repeat("─", width) + "\n"
+    result = result + repeat(" ", 7) + formatNumber(xMin, 6) + repeat(" ", width - 12) + formatNumber(xMax, 6) + "\n"
+    
+    return result
+}
+
+// ===== Pie Chart =====
+
+// Create ASCII pie chart representation (as a table with percentages)
+fn pieChart(data: array, labels: array, title: string) -> string {
+    let total = 0.0
+    for (let i = 0; i < len(data); i = i + 1) {
+        total = total + data[i]
+    }
+    
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n\n"
+    
+    let maxLabelLen = 15
+    for (let i = 0; i < len(labels); i = i + 1) {
+        if (len(labels[i]) > maxLabelLen) { maxLabelLen = len(labels[i]) }
+    }
+    
+    for (let i = 0; i < len(data); i = i + 1) {
+        let pct = (data[i] / total) * 100
+        let barLen = int(pct / 2)  // Scale to 50 chars max
+        
+        let label = padRight(labels[i], maxLabelLen)
+        let bar = repeat("█", barLen)
+        
+        result = result + label + " │ " + bar + " " + formatNumber(pct, 5) + "%\n"
+    }
+    
+    return result
+}
+
+// ===== Box Plot =====
+
+// Create box plot for data distribution
+fn boxPlot(data: array, title: string) -> string {
+    let sorted = sort(data)
+    let n = len(sorted)
+    
+    let q1Idx = int(n * 0.25)
+    let q2Idx = int(n * 0.5)
+    let q3Idx = int(n * 0.75)
+    
+    let minVal = sorted[0]
+    let q1 = sorted[q1Idx]
+    let median = sorted[q2Idx]
+    let q3 = sorted[q3Idx]
+    let maxVal = sorted[n - 1]
+    
+    let range = maxVal - minVal
+    if (range == 0) { range = 1 }
+    
+    let width = PLOT_CONFIG.width - 10
+    
+    // Calculate positions
+    let minPos = 0
+    let q1Pos = int(((q1 - minVal) / range) * width)
+    let medPos = int(((median - minVal) / range) * width)
+    let q3Pos = int(((q3 - minVal) / range) * width)
+    let maxPos = width
+    
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n\n"
+    
+    // Top line
+    result = result + repeat(" ", q1Pos) + "┌" + repeat("─", q3Pos - q1Pos - 1) + "┐\n"
+    
+    // Middle line with whiskers
+    let line = ""
+    for (let i = 0; i < width; i = i + 1) {
+        if (i < q1Pos) {
+            if (i == minPos) { line = line + "├" }
+            else { line = line + "─" }
+        } else if (i == q1Pos) {
+            line = line + "│"
+        } else if (i < medPos) {
+            line = line + " "
+        } else if (i == medPos) {
+            line = line + "│"
+        } else if (i < q3Pos) {
+            line = line + " "
+        } else if (i == q3Pos) {
+            line = line + "│"
+        } else if (i < maxPos) {
+            line = line + "─"
+        } else {
+            line = line + "┤"
+        }
+    }
+    result = result + line + "\n"
+    
+    // Bottom line
+    result = result + repeat(" ", q1Pos) + "└" + repeat("─", q3Pos - q1Pos - 1) + "┘\n"
+    
+    // Statistics
+    result = result + "\nStatistics:\n"
+    result = result + "  Min:    " + str(minVal) + "\n"
+    result = result + "  Q1:     " + str(q1) + "\n"
+    result = result + "  Median: " + str(median) + "\n"
+    result = result + "  Q3:     " + str(q3) + "\n"
+    result = result + "  Max:    " + str(maxVal) + "\n"
+    
+    return result
+}
+
+// ===== Heat Map =====
+
+// Create ASCII heat map for 2D data
+fn heatMap(data: array, rowLabels: array, colLabels: array, title: string) -> string {
+    let chars = [" ", "░", "▒", "▓", "█"]
+    
+    // Find min/max
+    let minVal = data[0][0]
+    let maxVal = data[0][0]
+    for (let i = 0; i < len(data); i = i + 1) {
+        for (let j = 0; j < len(data[i]); j = j + 1) {
+            if (data[i][j] < minVal) { minVal = data[i][j] }
+            if (data[i][j] > maxVal) { maxVal = data[i][j] }
+        }
+    }
+    
+    let range = maxVal - minVal
+    if (range == 0) { range = 1 }
+    
+    let result = "\n" + title + "\n"
+    result = result + repeat("─", len(title)) + "\n\n"
+    
+    // Column headers
+    let maxRowLabelLen = 8
+    result = result + repeat(" ", maxRowLabelLen + 1)
+    for (let j = 0; j < len(colLabels); j = j + 1) {
+        result = result + substr(colLabels[j], 0, 2) + " "
+    }
+    result = result + "\n"
+    
+    // Data rows
+    for (let i = 0; i < len(data); i = i + 1) {
+        let label = padRight(rowLabels[i], maxRowLabelLen)
+        result = result + label + " "
+        
+        for (let j = 0; j < len(data[i]); j = j + 1) {
+            let normalized = (data[i][j] - minVal) / range
+            let charIdx = int(normalized * (len(chars) - 1))
+            result = result + chars[charIdx] + chars[charIdx] + " "
+        }
+        result = result + "\n"
+    }
+    
+    // Legend
+    result = result + "\nLegend: "
+    for (let i = 0; i < len(chars); i = i + 1) {
+        result = result + chars[i] + " "
+    }
+    result = result + "(low → high)\n"
+    
+    return result
+}
+
+// ===== Utility Functions =====
+
+fn repeat(char: string, count: int) -> string {
+    let result = ""
+    for (let i = 0; i < count; i = i + 1) {
+        result = result + char
+    }
+    return result
+}
+
+fn padRight(text: string, length: int) -> string {
+    let result = text
+    while (len(result) < length) {
+        result = result + " "
+    }
+    return result
+}
+
+fn padLeft(text: string, length: int) -> string {
+    let result = text
+    while (len(result) < length) {
+        result = " " + result
+    }
+    return result
+}
+
+fn formatNumber(num: float, width: int) -> string {
+    let s = str(round(num * 100) / 100)
+    if (len(s) > width) {
+        s = substr(s, 0, width)
+    }
+    return padLeft(s, width)
+}
+
+fn substr(text: string, start: int, length: int) -> string {
+    // Placeholder - would use built-in substring
+    return text
+}
+
+fn sort(arr: array) -> array {
+    // Bubble sort for simplicity
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    
+    for (let i = 0; i < len(result) - 1; i = i + 1) {
+        for (let j = 0; j < len(result) - i - 1; j = j + 1) {
+            if (result[j] > result[j + 1]) {
+                let temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+            }
+        }
+    }
+    
+    return result
+}

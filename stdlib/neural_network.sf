@@ -649,3 +649,593 @@ fn createAdam(learningRate: float, beta1: float, beta2: float) -> map {
 
 // Note: Full Adam optimizer would require storing m and v for each parameter
 // This is a simplified version
+
+// ===== Convolutional Neural Network Layers =====
+
+// Create Conv2D layer
+fn createConv2DLayer(filters: int, kernelSize: int, stride: int, padding: string, activation: string) -> map {
+    // Xavier/Glorot initialization for kernels
+    let scale = sqrt(2.0 / (kernelSize * kernelSize))
+    
+    let kernels = []
+    for (let f = 0; f < filters; f = f + 1) {
+        let kernel = []
+        for (let i = 0; i < kernelSize; i = i + 1) {
+            let row = []
+            for (let j = 0; j < kernelSize; j = j + 1) {
+                // Random initialization
+                let seed = f * 1000 + i * 100 + j
+                seed = (1103515245 * seed + 12345) % 2147483648
+                let val = (float(seed) / 2147483648.0 - 0.5) * 2 * scale
+                row = append(row, val)
+            }
+            kernel = append(kernel, row)
+        }
+        kernels = append(kernels, kernel)
+    }
+    
+    return {
+        "type": "conv2d",
+        "filters": filters,
+        "kernel_size": kernelSize,
+        "stride": stride,
+        "padding": padding,  // "same" or "valid"
+        "activation": activation,
+        "kernels": kernels,
+        "biases": zeros(filters),
+        "last_input": [],
+        "last_output": [],
+        "dK": [],
+        "db": zeros(filters)
+    }
+}
+
+// Conv2D forward pass
+fn conv2dForward(layer: map, input: array) -> array {
+    layer.last_input = input
+    
+    let inputH = len(input)
+    let inputW = len(input[0])
+    let k = layer.kernel_size
+    let s = layer.stride
+    
+    // Calculate output dimensions
+    let outputH = 0
+    let outputW = 0
+    if (layer.padding == "same") {
+        outputH = int(ceil(inputH / float(s)))
+        outputW = int(ceil(inputW / float(s)))
+    } else {
+        outputH = int((inputH - k) / s) + 1
+        outputW = int((inputW - k) / s) + 1
+    }
+    
+    // Perform convolution for each filter
+    let outputs = []
+    for (let f = 0; f < layer.filters; f = f + 1) {
+        let featureMap = []
+        for (let i = 0; i < outputH; i = i + 1) {
+            let row = []
+            for (let j = 0; j < outputW; j = j + 1) {
+                let sum = layer.biases[f]
+                
+                // Convolve kernel with input patch
+                for (let ki = 0; ki < k; ki = ki + 1) {
+                    for (let kj = 0; kj < k; kj = kj + 1) {
+                        let inI = i * s + ki
+                        let inJ = j * s + kj
+                        
+                        if (inI >= 0 && inI < inputH && inJ >= 0 && inJ < inputW) {
+                            sum = sum + input[inI][inJ] * layer.kernels[f][ki][kj]
+                        }
+                    }
+                }
+                
+                // Apply activation
+                if (layer.activation == "relu") {
+                    if (sum < 0) { sum = 0.0 }
+                } else if (layer.activation == "sigmoid") {
+                    sum = sigmoid(sum)
+                } else if (layer.activation == "tanh") {
+                    sum = tanh(sum)
+                }
+                
+                row = append(row, sum)
+            }
+            featureMap = append(featureMap, row)
+        }
+        outputs = append(outputs, featureMap)
+    }
+    
+    layer.last_output = outputs
+    return outputs
+}
+
+// Create MaxPooling2D layer
+fn createMaxPooling2D(poolSize: int, stride: int) -> map {
+    return {
+        "type": "maxpool2d",
+        "pool_size": poolSize,
+        "stride": stride,
+        "last_input": [],
+        "last_max_indices": []
+    }
+}
+
+// MaxPooling2D forward pass
+fn maxpool2dForward(layer: map, input: array) -> array {
+    layer.last_input = input
+    
+    let outputs = []
+    let maxIndices = []
+    
+    for (let c = 0; c < len(input); c = c + 1) {
+        let channel = input[c]
+        let inputH = len(channel)
+        let inputW = len(channel[0])
+        let p = layer.pool_size
+        let s = layer.stride
+        
+        let outputH = int((inputH - p) / s) + 1
+        let outputW = int((inputW - p) / s) + 1
+        
+        let pooled = []
+        let indices = []
+        
+        for (let i = 0; i < outputH; i = i + 1) {
+            let row = []
+            let idxRow = []
+            for (let j = 0; j < outputW; j = j + 1) {
+                let maxVal = channel[i * s][j * s]
+                let maxI = i * s
+                let maxJ = j * s
+                
+                for (let pi = 0; pi < p; pi = pi + 1) {
+                    for (let pj = 0; pj < p; pj = pj + 1) {
+                        let inI = i * s + pi
+                        let inJ = j * s + pj
+                        if (channel[inI][inJ] > maxVal) {
+                            maxVal = channel[inI][inJ]
+                            maxI = inI
+                            maxJ = inJ
+                        }
+                    }
+                }
+                
+                row = append(row, maxVal)
+                idxRow = append(idxRow, [maxI, maxJ])
+            }
+            pooled = append(pooled, row)
+            indices = append(indices, idxRow)
+        }
+        
+        outputs = append(outputs, pooled)
+        maxIndices = append(maxIndices, indices)
+    }
+    
+    layer.last_max_indices = maxIndices
+    return outputs
+}
+
+// Create AveragePooling2D layer
+fn createAvgPooling2D(poolSize: int, stride: int) -> map {
+    return {
+        "type": "avgpool2d",
+        "pool_size": poolSize,
+        "stride": stride,
+        "last_input": []
+    }
+}
+
+// AveragePooling2D forward pass
+fn avgpool2dForward(layer: map, input: array) -> array {
+    layer.last_input = input
+    
+    let outputs = []
+    
+    for (let c = 0; c < len(input); c = c + 1) {
+        let channel = input[c]
+        let inputH = len(channel)
+        let inputW = len(channel[0])
+        let p = layer.pool_size
+        let s = layer.stride
+        
+        let outputH = int((inputH - p) / s) + 1
+        let outputW = int((inputW - p) / s) + 1
+        
+        let pooled = []
+        
+        for (let i = 0; i < outputH; i = i + 1) {
+            let row = []
+            for (let j = 0; j < outputW; j = j + 1) {
+                let sum = 0.0
+                let count = 0
+                
+                for (let pi = 0; pi < p; pi = pi + 1) {
+                    for (let pj = 0; pj < p; pj = pj + 1) {
+                        let inI = i * s + pi
+                        let inJ = j * s + pj
+                        sum = sum + channel[inI][inJ]
+                        count = count + 1
+                    }
+                }
+                
+                row = append(row, sum / count)
+            }
+            pooled = append(pooled, row)
+        }
+        
+        outputs = append(outputs, pooled)
+    }
+    
+    return outputs
+}
+
+// Flatten layer (for CNN to Dense transition)
+fn createFlatten() -> map {
+    return {
+        "type": "flatten",
+        "input_shape": [],
+        "last_input": []
+    }
+}
+
+fn flattenForward(layer: map, input: array) -> array {
+    layer.last_input = input
+    
+    let result = []
+    
+    // Handle 3D input (channels, height, width)
+    if (len(input) > 0 && typeof(input[0]) == "array") {
+        if (len(input[0]) > 0 && typeof(input[0][0]) == "array") {
+            // 3D input
+            layer.input_shape = [len(input), len(input[0]), len(input[0][0])]
+            for (let c = 0; c < len(input); c = c + 1) {
+                for (let i = 0; i < len(input[c]); i = i + 1) {
+                    for (let j = 0; j < len(input[c][i]); j = j + 1) {
+                        result = append(result, input[c][i][j])
+                    }
+                }
+            }
+        } else {
+            // 2D input
+            layer.input_shape = [len(input), len(input[0])]
+            for (let i = 0; i < len(input); i = i + 1) {
+                for (let j = 0; j < len(input[i]); j = j + 1) {
+                    result = append(result, input[i][j])
+                }
+            }
+        }
+    } else {
+        // Already 1D
+        result = input
+    }
+    
+    return result
+}
+
+// ===== Recurrent Neural Network Layers =====
+
+// Create LSTM layer
+fn createLSTMLayer(units: int, returnSequences: bool) -> map {
+    let scale = sqrt(2.0 / units)
+    
+    return {
+        "type": "lstm",
+        "units": units,
+        "return_sequences": returnSequences,
+        // Weights for input gate
+        "Wi": randomNormal2d(units, units, scale, 100),
+        "Ui": randomNormal2d(units, units, scale, 200),
+        "bi": zeros(units),
+        // Weights for forget gate
+        "Wf": randomNormal2d(units, units, scale, 300),
+        "Uf": randomNormal2d(units, units, scale, 400),
+        "bf": ones(units),  // Initialize forget gate bias to 1
+        // Weights for cell gate
+        "Wc": randomNormal2d(units, units, scale, 500),
+        "Uc": randomNormal2d(units, units, scale, 600),
+        "bc": zeros(units),
+        // Weights for output gate
+        "Wo": randomNormal2d(units, units, scale, 700),
+        "Uo": randomNormal2d(units, units, scale, 800),
+        "bo": zeros(units),
+        // States
+        "last_h": zeros(units),
+        "last_c": zeros(units)
+    }
+}
+
+// LSTM forward pass
+fn lstmForward(layer: map, sequence: array) -> array {
+    let outputs = []
+    let h = layer.last_h
+    let c = layer.last_c
+    
+    for (let t = 0; t < len(sequence); t = t + 1) {
+        let x = sequence[t]
+        
+        // Input gate
+        let i_gate = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            let sum = layer.bi[j]
+            for (let k = 0; k < len(x); k = k + 1) {
+                if (k < layer.units) {
+                    sum = sum + layer.Wi[k][j] * x[k]
+                }
+            }
+            for (let k = 0; k < layer.units; k = k + 1) {
+                sum = sum + layer.Ui[k][j] * h[k]
+            }
+            i_gate = append(i_gate, sigmoid(sum))
+        }
+        
+        // Forget gate
+        let f_gate = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            let sum = layer.bf[j]
+            for (let k = 0; k < len(x); k = k + 1) {
+                if (k < layer.units) {
+                    sum = sum + layer.Wf[k][j] * x[k]
+                }
+            }
+            for (let k = 0; k < layer.units; k = k + 1) {
+                sum = sum + layer.Uf[k][j] * h[k]
+            }
+            f_gate = append(f_gate, sigmoid(sum))
+        }
+        
+        // Cell gate
+        let c_gate = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            let sum = layer.bc[j]
+            for (let k = 0; k < len(x); k = k + 1) {
+                if (k < layer.units) {
+                    sum = sum + layer.Wc[k][j] * x[k]
+                }
+            }
+            for (let k = 0; k < layer.units; k = k + 1) {
+                sum = sum + layer.Uc[k][j] * h[k]
+            }
+            c_gate = append(c_gate, tanh(sum))
+        }
+        
+        // Output gate
+        let o_gate = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            let sum = layer.bo[j]
+            for (let k = 0; k < len(x); k = k + 1) {
+                if (k < layer.units) {
+                    sum = sum + layer.Wo[k][j] * x[k]
+                }
+            }
+            for (let k = 0; k < layer.units; k = k + 1) {
+                sum = sum + layer.Uo[k][j] * h[k]
+            }
+            o_gate = append(o_gate, sigmoid(sum))
+        }
+        
+        // Update cell state
+        let new_c = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            new_c = append(new_c, f_gate[j] * c[j] + i_gate[j] * c_gate[j])
+        }
+        c = new_c
+        
+        // Update hidden state
+        let new_h = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            new_h = append(new_h, o_gate[j] * tanh(c[j]))
+        }
+        h = new_h
+        
+        if (layer.return_sequences) {
+            outputs = append(outputs, h)
+        }
+    }
+    
+    layer.last_h = h
+    layer.last_c = c
+    
+    if (layer.return_sequences) {
+        return outputs
+    }
+    return h
+}
+
+// Create GRU layer
+fn createGRULayer(units: int, returnSequences: bool) -> map {
+    let scale = sqrt(2.0 / units)
+    
+    return {
+        "type": "gru",
+        "units": units,
+        "return_sequences": returnSequences,
+        // Update gate weights
+        "Wz": randomNormal2d(units, units, scale, 100),
+        "Uz": randomNormal2d(units, units, scale, 200),
+        "bz": zeros(units),
+        // Reset gate weights
+        "Wr": randomNormal2d(units, units, scale, 300),
+        "Ur": randomNormal2d(units, units, scale, 400),
+        "br": zeros(units),
+        // Candidate hidden state weights
+        "Wh": randomNormal2d(units, units, scale, 500),
+        "Uh": randomNormal2d(units, units, scale, 600),
+        "bh": zeros(units),
+        // State
+        "last_h": zeros(units)
+    }
+}
+
+// GRU forward pass
+fn gruForward(layer: map, sequence: array) -> array {
+    let outputs = []
+    let h = layer.last_h
+    
+    for (let t = 0; t < len(sequence); t = t + 1) {
+        let x = sequence[t]
+        
+        // Update gate
+        let z = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            let sum = layer.bz[j]
+            for (let k = 0; k < len(x); k = k + 1) {
+                if (k < layer.units) {
+                    sum = sum + layer.Wz[k][j] * x[k]
+                }
+            }
+            for (let k = 0; k < layer.units; k = k + 1) {
+                sum = sum + layer.Uz[k][j] * h[k]
+            }
+            z = append(z, sigmoid(sum))
+        }
+        
+        // Reset gate
+        let r = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            let sum = layer.br[j]
+            for (let k = 0; k < len(x); k = k + 1) {
+                if (k < layer.units) {
+                    sum = sum + layer.Wr[k][j] * x[k]
+                }
+            }
+            for (let k = 0; k < layer.units; k = k + 1) {
+                sum = sum + layer.Ur[k][j] * h[k]
+            }
+            r = append(r, sigmoid(sum))
+        }
+        
+        // Candidate hidden state
+        let h_tilde = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            let sum = layer.bh[j]
+            for (let k = 0; k < len(x); k = k + 1) {
+                if (k < layer.units) {
+                    sum = sum + layer.Wh[k][j] * x[k]
+                }
+            }
+            for (let k = 0; k < layer.units; k = k + 1) {
+                sum = sum + layer.Uh[k][j] * (r[k] * h[k])
+            }
+            h_tilde = append(h_tilde, tanh(sum))
+        }
+        
+        // New hidden state
+        let new_h = []
+        for (let j = 0; j < layer.units; j = j + 1) {
+            new_h = append(new_h, (1 - z[j]) * h[j] + z[j] * h_tilde[j])
+        }
+        h = new_h
+        
+        if (layer.return_sequences) {
+            outputs = append(outputs, h)
+        }
+    }
+    
+    layer.last_h = h
+    
+    if (layer.return_sequences) {
+        return outputs
+    }
+    return h
+}
+
+// ===== Model Serialization =====
+
+// Save model to JSON-like structure
+fn saveModel(model: map, filepath: string) -> bool {
+    let modelData = {
+        "loss": model.loss,
+        "learning_rate": model.learning_rate,
+        "layers": []
+    }
+    
+    for (let i = 0; i < len(model.layers); i = i + 1) {
+        let layer = model.layers[i]
+        let layerData = {
+            "type": layer.type
+        }
+        
+        if (layer.type == "dense") {
+            layerData["input_size"] = layer.input_size
+            layerData["output_size"] = layer.output_size
+            layerData["activation"] = layer.activation
+            layerData["weights"] = layer.weights
+            layerData["bias"] = layer.bias
+        } else if (layer.type == "dropout") {
+            layerData["rate"] = layer.rate
+        } else if (layer.type == "conv2d") {
+            layerData["filters"] = layer.filters
+            layerData["kernel_size"] = layer.kernel_size
+            layerData["stride"] = layer.stride
+            layerData["padding"] = layer.padding
+            layerData["activation"] = layer.activation
+            layerData["kernels"] = layer.kernels
+            layerData["biases"] = layer.biases
+        } else if (layer.type == "lstm") {
+            layerData["units"] = layer.units
+            layerData["return_sequences"] = layer.return_sequences
+            layerData["Wi"] = layer.Wi
+            layerData["Ui"] = layer.Ui
+            layerData["bi"] = layer.bi
+            // ... other weights
+        }
+        
+        modelData.layers = append(modelData.layers, layerData)
+    }
+    
+    let json = toJson(modelData)
+    write_file(filepath, json)
+    print("[MODEL] Saved to " + filepath)
+    return true
+}
+
+// Load model from file
+fn loadModel(filepath: string) -> map {
+    let content = read_file(filepath)
+    let modelData = parseJson(content)
+    
+    let model = createNeuralNetwork()
+    model.loss = modelData.loss
+    model.learning_rate = modelData.learning_rate
+    
+    for (let i = 0; i < len(modelData.layers); i = i + 1) {
+        let layerData = modelData.layers[i]
+        let layer = {}
+        
+        if (layerData.type == "dense") {
+            layer = createDenseLayer(layerData.input_size, layerData.output_size, layerData.activation)
+            layer.weights = layerData.weights
+            layer.bias = layerData.bias
+        } else if (layerData.type == "dropout") {
+            layer = createDropoutLayer(layerData.rate)
+        }
+        
+        model = addLayer(model, layer)
+    }
+    
+    model.is_compiled = true
+    print("[MODEL] Loaded from " + filepath)
+    return model
+}
+
+// ===== Utility Functions =====
+
+fn ceil(x: float) -> int {
+    let i = int(x)
+    if (float(i) < x) { return i + 1 }
+    return i
+}
+
+fn typeof(value: any) -> string {
+    return "unknown"  // Placeholder
+}
+
+fn toJson(data: map) -> string {
+    return str(data)  // Placeholder
+}
+
+fn parseJson(content: string) -> map {
+    return {}  // Placeholder
+}

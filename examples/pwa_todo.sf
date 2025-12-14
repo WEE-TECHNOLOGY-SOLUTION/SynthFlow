@@ -1,0 +1,117 @@
+// SynthFlow PWA Example
+// Todo App as a Progressive Web App
+//
+// Compile: synthflow transpile pwa_todo.sf --target pwa -o app.js
+//
+
+import pwa
+
+// Data
+let todos = [
+    { id: 1, text: "Learn SynthFlow", done: true },
+    { id: 2, text: "Build a PWA", done: false },
+    { id: 3, text: "Deploy to production", done: false }
+]
+
+// Generate todo item HTML
+fn todoItem(todo) {
+    let checked = todo.done ? "checked" : ""
+    let style = todo.done ? "text-decoration: line-through; color: #888;" : ""
+    return `<div class="todo-item">
+        <input type="checkbox" ${checked} onclick="toggleTodo(${todo.id})">
+        <span style="${style}">${todo.text}</span>
+        <button onclick="deleteTodo(${todo.id})">×</button>
+    </div>`
+}
+
+// Generate full todo list HTML
+fn todoList() {
+    let items = ""
+    for (let i = 0; i < len(todos); i = i + 1) {
+        items = items + todoItem(todos[i])
+    }
+    return items
+}
+
+// App HTML
+fn appHtml() {
+    return `
+    <div id="app">
+        <h1>📋 SynthFlow Todo</h1>
+        <div class="add-todo">
+            <input type="text" id="new-todo" placeholder="Add a new todo...">
+            <button onclick="addTodo()">Add</button>
+        </div>
+        <div id="todo-list">
+            ${todoList()}
+        </div>
+        <p class="footer">Built with SynthFlow PWA</p>
+    </div>
+    <style>
+        #app {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: -apple-system, sans-serif;
+        }
+        h1 { text-align: center; }
+        .add-todo {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .add-todo input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .add-todo button {
+            padding: 12px 24px;
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .todo-item span { flex: 1; }
+        .todo-item button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .footer {
+            text-align: center;
+            color: #888;
+            font-size: 12px;
+            margin-top: 40px;
+        }
+    </style>
+    `
+}
+
+// Generate PWA page
+let page = pwaPage("SynthFlow Todo", appHtml(), null)
+
+// Print generated HTML (for development)
+print(page)
+
+// Generate manifest
+let manifest = createManifest("SynthFlow Todo", "#7c3aed")
+print("Manifest:", manifest)
+
+// Generate service worker
+let sw = serviceWorkerCode("synthflow-todo", ["/", "/index.html", "/app.js"])
+print("Service Worker generated")

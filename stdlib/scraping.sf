@@ -1,0 +1,735 @@
+// SynthFlow Web Scraping Library
+// HTML parsing and web scraping utilities (BeautifulSoup equivalent)
+
+// ===== HTML Parser =====
+
+// DOM Element structure
+// {
+//     "tag": "div",
+//     "attrs": {"class": "container", "id": "main"},
+//     "text": "content",
+//     "children": [...]
+// }
+
+// Parse HTML string into DOM tree
+fn parseHTML(html: string) -> map {
+    let root = {
+        "tag": "root",
+        "attrs": {},
+        "text": "",
+        "children": []
+    }
+    
+    let stack = [root]
+    let i = 0
+    let n = len(html)
+    
+    while (i < n) {
+        if (charAt(html, i) == "<") {
+            // Check for closing tag
+            if (i + 1 < n && charAt(html, i + 1) == "/") {
+                // Find closing >
+                let end = indexOf(html, ">", i)
+                if (end > i) {
+                    // Pop from stack
+                    if (len(stack) > 1) {
+                        stack = slice(stack, 0, len(stack) - 1)
+                    }
+                    i = end + 1
+                    continue
+                }
+            }
+            
+            // Check for comment
+            if (startsWith(substr(html, i, 4), "<!--")) {
+                let end = indexOf(html, "-->", i)
+                if (end > i) {
+                    i = end + 3
+                    continue
+                }
+            }
+            
+            // Parse opening tag
+            let end = indexOf(html, ">", i)
+            if (end > i) {
+                let tagStr = substr(html, i + 1, end - i - 1)
+                let selfClosing = endsWith(tagStr, "/")
+                if (selfClosing) {
+                    tagStr = substr(tagStr, 0, len(tagStr) - 1)
+                }
+                
+                let element = parseTag(tagStr)
+                
+                // Add to parent
+                let parent = stack[len(stack) - 1]
+                parent.children = append(parent.children, element)
+                
+                // Push to stack if not self-closing
+                let voidElements = ["br", "hr", "img", "input", "meta", "link", "area", "base", "col", "embed", "source", "track", "wbr"]
+                let isVoid = false
+                for (let v = 0; v < len(voidElements); v = v + 1) {
+                    if (element.tag == voidElements[v]) {
+                        isVoid = true
+                        break
+                    }
+                }
+                
+                if (!selfClosing && !isVoid) {
+                    stack = append(stack, element)
+                }
+                
+                i = end + 1
+                continue
+            }
+        } else {
+            // Text content
+            let end = indexOf(html, "<", i)
+            if (end < 0) { end = n }
+            
+            let text = trim(substr(html, i, end - i))
+            if (len(text) > 0) {
+                let current = stack[len(stack) - 1]
+                current.text = current.text + text
+            }
+            
+            i = end
+        }
+    }
+    
+    return root
+}
+
+// Parse tag string into element
+fn parseTag(tagStr: string) -> map {
+    let parts = splitWhitespace(trim(tagStr))
+    let tagName = ""
+    let attrs = {}
+    
+    if (len(parts) > 0) {
+        tagName = toLower(parts[0])
+        
+        // Parse attributes
+        for (let i = 1; i < len(parts); i = i + 1) {
+            let attr = parts[i]
+            let eqIdx = indexOf(attr, "=", 0)
+            if (eqIdx > 0) {
+                let name = substr(attr, 0, eqIdx)
+                let value = substr(attr, eqIdx + 1, len(attr) - eqIdx - 1)
+                // Remove quotes
+                value = stripQuotes(value)
+                attrs[name] = value
+            } else {
+                attrs[attr] = "true"
+            }
+        }
+    }
+    
+    return {
+        "tag": tagName,
+        "attrs": attrs,
+        "text": "",
+        "children": []
+    }
+}
+
+// ===== CSS Selector Engine =====
+
+// Select elements by CSS selector
+fn selectCSS(root: map, selector: string) -> array {
+    let results = []
+    
+    // Parse selector
+    if (startsWith(selector, "#")) {
+        // ID selector
+        let id = substr(selector, 1, len(selector) - 1)
+        results = findById(root, id)
+    } else if (startsWith(selector, ".")) {
+        // Class selector
+        let className = substr(selector, 1, len(selector) - 1)
+        results = findByClass(root, className)
+    } else if (startsWith(selector, "[")) {
+        // Attribute selector
+        let attrExpr = substr(selector, 1, len(selector) - 2)
+        results = findByAttribute(root, attrExpr)
+    } else {
+        // Tag selector
+        results = findByTag(root, selector)
+    }
+    
+    return results
+}
+
+// Find element by ID
+fn findById(element: map, id: string) -> array {
+    let results = []
+    
+    if (hasKey(element.attrs, "id") && element.attrs["id"] == id) {
+        results = append(results, element)
+    }
+    
+    for (let i = 0; i < len(element.children); i = i + 1) {
+        let childResults = findById(element.children[i], id)
+        for (let j = 0; j < len(childResults); j = j + 1) {
+            results = append(results, childResults[j])
+        }
+    }
+    
+    return results
+}
+
+// Find elements by class
+fn findByClass(element: map, className: string) -> array {
+    let results = []
+    
+    if (hasKey(element.attrs, "class")) {
+        let classes = split(element.attrs["class"], " ")
+        for (let i = 0; i < len(classes); i = i + 1) {
+            if (classes[i] == className) {
+                results = append(results, element)
+                break
+            }
+        }
+    }
+    
+    for (let i = 0; i < len(element.children); i = i + 1) {
+        let childResults = findByClass(element.children[i], className)
+        for (let j = 0; j < len(childResults); j = j + 1) {
+            results = append(results, childResults[j])
+        }
+    }
+    
+    return results
+}
+
+// Find elements by tag name
+fn findByTag(element: map, tagName: string) -> array {
+    let results = []
+    
+    if (element.tag == toLower(tagName)) {
+        results = append(results, element)
+    }
+    
+    for (let i = 0; i < len(element.children); i = i + 1) {
+        let childResults = findByTag(element.children[i], tagName)
+        for (let j = 0; j < len(childResults); j = j + 1) {
+            results = append(results, childResults[j])
+        }
+    }
+    
+    return results
+}
+
+// Find elements by attribute
+fn findByAttribute(element: map, attrExpr: string) -> array {
+    let results = []
+    
+    // Parse attribute expression (name, name=value, name~=value, etc.)
+    let eqIdx = indexOf(attrExpr, "=", 0)
+    let attrName = attrExpr
+    let attrValue = ""
+    let matchType = "exists"
+    
+    if (eqIdx > 0) {
+        attrName = substr(attrExpr, 0, eqIdx)
+        attrValue = stripQuotes(substr(attrExpr, eqIdx + 1, len(attrExpr) - eqIdx - 1))
+        matchType = "equals"
+        
+        // Check for special matchers
+        if (endsWith(attrName, "~")) {
+            attrName = substr(attrName, 0, len(attrName) - 1)
+            matchType = "contains_word"
+        } else if (endsWith(attrName, "*")) {
+            attrName = substr(attrName, 0, len(attrName) - 1)
+            matchType = "contains"
+        } else if (endsWith(attrName, "^")) {
+            attrName = substr(attrName, 0, len(attrName) - 1)
+            matchType = "starts"
+        } else if (endsWith(attrName, "$")) {
+            attrName = substr(attrName, 0, len(attrName) - 1)
+            matchType = "ends"
+        }
+    }
+    
+    // Check current element
+    if (hasKey(element.attrs, attrName)) {
+        let val = element.attrs[attrName]
+        let match = false
+        
+        if (matchType == "exists") {
+            match = true
+        } else if (matchType == "equals") {
+            match = val == attrValue
+        } else if (matchType == "contains") {
+            match = contains(val, attrValue)
+        } else if (matchType == "starts") {
+            match = startsWith(val, attrValue)
+        } else if (matchType == "ends") {
+            match = endsWith(val, attrValue)
+        } else if (matchType == "contains_word") {
+            let words = split(val, " ")
+            for (let w = 0; w < len(words); w = w + 1) {
+                if (words[w] == attrValue) {
+                    match = true
+                    break
+                }
+            }
+        }
+        
+        if (match) {
+            results = append(results, element)
+        }
+    }
+    
+    for (let i = 0; i < len(element.children); i = i + 1) {
+        let childResults = findByAttribute(element.children[i], attrExpr)
+        for (let j = 0; j < len(childResults); j = j + 1) {
+            results = append(results, childResults[j])
+        }
+    }
+    
+    return results
+}
+
+// ===== XPath-like Selectors =====
+
+// Select by simplified XPath
+fn selectXPath(root: map, xpath: string) -> array {
+    let results = [root]
+    let parts = split(xpath, "/")
+    
+    for (let i = 0; i < len(parts); i = i + 1) {
+        let part = parts[i]
+        if (len(part) == 0) { continue }
+        
+        let newResults = []
+        
+        for (let j = 0; j < len(results); j = j + 1) {
+            let element = results[j]
+            
+            // Parse part for tag name and predicates
+            let bracketIdx = indexOf(part, "[", 0)
+            let tagName = part
+            let predicate = ""
+            
+            if (bracketIdx > 0) {
+                tagName = substr(part, 0, bracketIdx)
+                predicate = substr(part, bracketIdx + 1, len(part) - bracketIdx - 2)
+            }
+            
+            // Find matching children
+            for (let k = 0; k < len(element.children); k = k + 1) {
+                let child = element.children[k]
+                
+                if (tagName == "*" || child.tag == tagName) {
+                    // Check predicate
+                    if (len(predicate) == 0) {
+                        newResults = append(newResults, child)
+                    } else if (isNumeric(predicate)) {
+                        // Position predicate
+                        let pos = parseInt(predicate)
+                        if (pos == k + 1) {
+                            newResults = append(newResults, child)
+                        }
+                    } else if (startsWith(predicate, "@")) {
+                        // Attribute predicate
+                        let attrExpr = substr(predicate, 1, len(predicate) - 1)
+                        let eqIdx = indexOf(attrExpr, "=", 0)
+                        if (eqIdx > 0) {
+                            let attrName = substr(attrExpr, 0, eqIdx)
+                            let attrValue = stripQuotes(substr(attrExpr, eqIdx + 1, len(attrExpr) - eqIdx - 1))
+                            if (hasKey(child.attrs, attrName) && child.attrs[attrName] == attrValue) {
+                                newResults = append(newResults, child)
+                            }
+                        } else if (hasKey(child.attrs, attrExpr)) {
+                            newResults = append(newResults, child)
+                        }
+                    }
+                }
+            }
+        }
+        
+        results = newResults
+    }
+    
+    return results
+}
+
+// ===== Element Operations =====
+
+// Get text content of element (including children)
+fn getText(element: map) -> string {
+    let text = element.text
+    
+    for (let i = 0; i < len(element.children); i = i + 1) {
+        text = text + " " + getText(element.children[i])
+    }
+    
+    return trim(text)
+}
+
+// Get attribute value
+fn getAttribute(element: map, attrName: string) -> string {
+    if (hasKey(element.attrs, attrName)) {
+        return element.attrs[attrName]
+    }
+    return ""
+}
+
+// Get all attributes
+fn getAttributes(element: map) -> map {
+    return element.attrs
+}
+
+// Get child elements
+fn getChildren(element: map) -> array {
+    return element.children
+}
+
+// Get parent (requires tracking during parsing)
+fn getFirstChild(element: map) -> map {
+    if (len(element.children) > 0) {
+        return element.children[0]
+    }
+    return { "tag": "", "attrs": {}, "text": "", "children": [] }
+}
+
+// Get inner HTML (simplified)
+fn getInnerHTML(element: map) -> string {
+    let result = element.text
+    
+    for (let i = 0; i < len(element.children); i = i + 1) {
+        result = result + getOuterHTML(element.children[i])
+    }
+    
+    return result
+}
+
+// Get outer HTML
+fn getOuterHTML(element: map) -> string {
+    let result = "<" + element.tag
+    
+    let attrKeys = keys(element.attrs)
+    for (let i = 0; i < len(attrKeys); i = i + 1) {
+        let key = attrKeys[i]
+        result = result + " " + key + "=\"" + element.attrs[key] + "\""
+    }
+    
+    result = result + ">"
+    result = result + getInnerHTML(element)
+    result = result + "</" + element.tag + ">"
+    
+    return result
+}
+
+// ===== Convenience Scrapers =====
+
+// Extract all links from HTML
+fn scrapeLinks(html: string) -> array {
+    let doc = parseHTML(html)
+    let links = selectCSS(doc, "a")
+    
+    let results = []
+    for (let i = 0; i < len(links); i = i + 1) {
+        let link = links[i]
+        results = append(results, {
+            "href": getAttribute(link, "href"),
+            "text": getText(link),
+            "title": getAttribute(link, "title")
+        })
+    }
+    
+    return results
+}
+
+// Extract all images from HTML
+fn scrapeImages(html: string) -> array {
+    let doc = parseHTML(html)
+    let images = selectCSS(doc, "img")
+    
+    let results = []
+    for (let i = 0; i < len(images); i = i + 1) {
+        let img = images[i]
+        results = append(results, {
+            "src": getAttribute(img, "src"),
+            "alt": getAttribute(img, "alt"),
+            "title": getAttribute(img, "title")
+        })
+    }
+    
+    return results
+}
+
+// Extract table data as 2D array
+fn scrapeTable(html: string) -> array {
+    let doc = parseHTML(html)
+    let tables = selectCSS(doc, "table")
+    
+    if (len(tables) == 0) {
+        return []
+    }
+    
+    let table = tables[0]
+    let result = []
+    
+    // Find all rows (in thead, tbody, or direct)
+    let rows = selectCSS(table, "tr")
+    
+    for (let i = 0; i < len(rows); i = i + 1) {
+        let row = rows[i]
+        let rowData = []
+        
+        // Get th and td cells
+        let cells = selectCSS(row, "th")
+        for (let j = 0; j < len(cells); j = j + 1) {
+            rowData = append(rowData, getText(cells[j]))
+        }
+        
+        cells = selectCSS(row, "td")
+        for (let j = 0; j < len(cells); j = j + 1) {
+            rowData = append(rowData, getText(cells[j]))
+        }
+        
+        if (len(rowData) > 0) {
+            result = append(result, rowData)
+        }
+    }
+    
+    return result
+}
+
+// Extract forms from HTML
+fn scrapeForms(html: string) -> array {
+    let doc = parseHTML(html)
+    let forms = selectCSS(doc, "form")
+    
+    let results = []
+    for (let i = 0; i < len(forms); i = i + 1) {
+        let form = forms[i]
+        let formData = {
+            "action": getAttribute(form, "action"),
+            "method": getAttribute(form, "method"),
+            "fields": []
+        }
+        
+        // Get input fields
+        let inputs = selectCSS(form, "input")
+        for (let j = 0; j < len(inputs); j = j + 1) {
+            let input = inputs[j]
+            formData.fields = append(formData.fields, {
+                "type": getAttribute(input, "type"),
+                "name": getAttribute(input, "name"),
+                "value": getAttribute(input, "value"),
+                "placeholder": getAttribute(input, "placeholder")
+            })
+        }
+        
+        // Get textareas
+        let textareas = selectCSS(form, "textarea")
+        for (let j = 0; j < len(textareas); j = j + 1) {
+            let textarea = textareas[j]
+            formData.fields = append(formData.fields, {
+                "type": "textarea",
+                "name": getAttribute(textarea, "name"),
+                "value": getText(textarea),
+                "placeholder": getAttribute(textarea, "placeholder")
+            })
+        }
+        
+        // Get selects
+        let selects = selectCSS(form, "select")
+        for (let j = 0; j < len(selects); j = j + 1) {
+            let select = selects[j]
+            let options = selectCSS(select, "option")
+            let optionValues = []
+            for (let k = 0; k < len(options); k = k + 1) {
+                optionValues = append(optionValues, {
+                    "value": getAttribute(options[k], "value"),
+                    "text": getText(options[k])
+                })
+            }
+            formData.fields = append(formData.fields, {
+                "type": "select",
+                "name": getAttribute(select, "name"),
+                "options": optionValues
+            })
+        }
+        
+        results = append(results, formData)
+    }
+    
+    return results
+}
+
+// Extract meta tags
+fn scrapeMeta(html: string) -> map {
+    let doc = parseHTML(html)
+    let metas = selectCSS(doc, "meta")
+    
+    let result = {}
+    for (let i = 0; i < len(metas); i = i + 1) {
+        let meta = metas[i]
+        let name = getAttribute(meta, "name")
+        let property = getAttribute(meta, "property")
+        let content = getAttribute(meta, "content")
+        
+        if (len(name) > 0) {
+            result[name] = content
+        } else if (len(property) > 0) {
+            result[property] = content
+        }
+    }
+    
+    // Get title
+    let titles = selectCSS(doc, "title")
+    if (len(titles) > 0) {
+        result["title"] = getText(titles[0])
+    }
+    
+    return result
+}
+
+// ===== HTTP + Scraping Combined =====
+
+// Fetch URL and parse HTML
+fn fetchAndParse(url: string) -> map {
+    // Uses http module
+    let response = httpGet(url)
+    if (response.status == 200) {
+        return parseHTML(response.body)
+    }
+    return { "tag": "error", "attrs": { "status": str(response.status) }, "text": "", "children": [] }
+}
+
+// Submit form data
+fn submitForm(url: string, formData: map, method: string) -> map {
+    if (method == "GET" || method == "get") {
+        let queryString = buildQueryString(formData)
+        return httpGet(url + "?" + queryString)
+    } else {
+        return httpPost(url, formData)
+    }
+}
+
+// Build query string from map
+fn buildQueryString(data: map) -> string {
+    let parts = []
+    let dataKeys = keys(data)
+    for (let i = 0; i < len(dataKeys); i = i + 1) {
+        let key = dataKeys[i]
+        parts = append(parts, urlEncode(key) + "=" + urlEncode(str(data[key])))
+    }
+    return join(parts, "&")
+}
+
+// ===== Utility Functions =====
+
+fn trim(text: string) -> string {
+    // Placeholder - would use built-in trim
+    return text
+}
+
+fn toLower(text: string) -> string {
+    // Placeholder - would use built-in toLowerCase
+    return text
+}
+
+fn split(text: string, delimiter: string) -> array {
+    // Placeholder - would use built-in split
+    return [text]
+}
+
+fn join(arr: array, delimiter: string) -> string {
+    let result = ""
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (i > 0) { result = result + delimiter }
+        result = result + str(arr[i])
+    }
+    return result
+}
+
+fn indexOf(text: string, search: string, start: int) -> int {
+    // Placeholder - would use built-in indexOf
+    return -1
+}
+
+fn charAt(text: string, index: int) -> string {
+    // Placeholder - would use built-in charAt
+    return ""
+}
+
+fn substr(text: string, start: int, length: int) -> string {
+    // Placeholder - would use built-in substring
+    return text
+}
+
+fn startsWith(text: string, prefix: string) -> bool {
+    // Placeholder
+    return false
+}
+
+fn endsWith(text: string, suffix: string) -> bool {
+    // Placeholder
+    return false
+}
+
+fn contains(text: string, search: string) -> bool {
+    return indexOf(text, search, 0) >= 0
+}
+
+fn stripQuotes(text: string) -> string {
+    if (len(text) >= 2) {
+        let first = charAt(text, 0)
+        let last = charAt(text, len(text) - 1)
+        if ((first == "\"" && last == "\"") || (first == "'" && last == "'")) {
+            return substr(text, 1, len(text) - 2)
+        }
+    }
+    return text
+}
+
+fn splitWhitespace(text: string) -> array {
+    // Placeholder - split on whitespace
+    return [text]
+}
+
+fn isNumeric(text: string) -> bool {
+    // Placeholder
+    return false
+}
+
+fn parseInt(text: string) -> int {
+    // Placeholder
+    return 0
+}
+
+fn urlEncode(text: string) -> string {
+    // Placeholder - URL encode special characters
+    return text
+}
+
+fn slice(arr: array, start: int, end: int) -> array {
+    let result = []
+    for (let i = start; i < end && i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    return result
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    // Placeholder - interpreter should provide this
+    return true
+}
+
+fn keys(m: map) -> array {
+    // Placeholder - interpreter should provide this
+    return []
+}
+
+// HTTP functions (would be provided by http module)
+fn httpGet(url: string) -> map {
+    return { "status": 200, "body": "" }
+}
+
+fn httpPost(url: string, data: map) -> map {
+    return { "status": 200, "body": "" }
+}

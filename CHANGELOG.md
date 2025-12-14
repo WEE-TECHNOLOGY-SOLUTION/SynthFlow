@@ -5,9 +5,104 @@ All notable changes to the SynthFlow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.26] - 2025-12-13
+## [0.0.30] - 2025-12-14
 
-### Added - Model Context Protocol (MCP)
+### 🎉 Major Release - Python Parity & Ecosystem Expansion
+
+This release represents a major milestone bringing SynthFlow closer to Python feature parity with comprehensive additions across CLI, web development, mobile development, and enterprise features.
+
+---
+
+### 🖥️ Python CLI Parity
+- **CLI11 Integration**: Modern command-line argument parsing
+- **Inline Code Execution** (`-c`): `synthflow -c "print(42)"`
+- **Module Execution** (`-m`): `synthflow -m stdlib/math`
+- **Interactive REPL**: `synthflow repl` with persistent environment and multi-line input
+- **Check Command**: `synthflow check file.sf` for type-checking only
+- **Colored Terminal Output**: ANSI colors for errors, info, and success
+- **CLI Options**: `-v` verbose, `-q` quiet, `-O` optimize, `-i` interactive
+
+---
+
+### 🌐 Web Framework
+- **Minimal API**: `route("/", json(data))` one-liner syntax
+- **HTTP Server**: Native socket-based server (`http_server.cpp`)
+- **Response Builders**: `json()`, `html()`, `text()` functions
+- **Route Parameters**: `/users/:id` with `req.params.id`
+- **Query Parameters**: Access via `req.query`
+- **New stdlib module**: `stdlib/web.sf` with helpers
+
+---
+
+### 📱 Mobile Development
+- **React Native Target**: `synthflow transpile app.sf --target react-native -o App.js`
+- **PWA Target**: `synthflow transpile app.sf --target pwa -o app.js`
+- **Mobile Component Library**: `stdlib/mobile.sf` with View, Text, Button, etc.
+- **PWA Module**: `stdlib/pwa.sf` with manifest and service worker helpers
+
+---
+
+### 🔌 Model Context Protocol (MCP)
+- **Native C++ MCP Server**: `synthflow-mcp` for AI IDE integration
+- **Tool Exposure**: Run SynthFlow programs from VS Code, Claude Desktop
+- **JSON-RPC over stdio**: Standard MCP communication protocol
+
+---
+
+### 📊 Python Replacement: Data Science & ML
+
+#### Data Science & Visualization
+- **`stdlib/plotting.sf`** (550+ lines): ASCII bar, line, scatter, histogram, pie, box, heat maps
+- **`dataframe.sf` enhancements** (1,278 lines): Pivot tables, rolling stats, EMA, correlation matrix
+
+#### Machine Learning (TensorFlow/PyTorch Equivalent)
+- **`neural_network.sf`** (1,241 lines): Conv2D, MaxPooling2D, LSTM, GRU layers
+- **Model serialization**: `saveModel()` and `loadModel()` for persistence
+
+#### Web Scraping (BeautifulSoup Equivalent)
+- **`stdlib/scraping.sf`** (735 lines): HTML parsing, CSS selectors, XPath queries
+- **Convenience scrapers**: `scrapeLinks()`, `scrapeImages()`, `scrapeTable()`, `scrapeForms()`
+
+#### System Administration
+- **`stdlib/sysadmin.sf`** (541 lines): Process management, filesystem ops, network utilities
+- **Service control**: `startService`, `stopService`, `restartService`
+- **Archiving**: `createTar`, `extractTar`, `createZip`, `extractZip`
+
+#### Enterprise Features
+- **`stdlib/database.sf`** (539 lines): Query builder, ORM-like CRUD, transactions, migrations
+- **`stdlib/logging.sf`** (373 lines): Log levels, handlers, structured logging
+- **`stdlib/testing.sf`** (495 lines): Unit test framework with assertions
+- **`stdlib/config.sf`** (501 lines): Configuration loading, validation, merging
+
+---
+
+### 🎨 Branding & Icons
+- **SynthFlow Logo**: `assets/logo.png` for documentation and branding
+- **VS Code Integration**: Custom SF icon for `.sf` files
+- **Installer Branding**: Icon included in Windows installer
+
+---
+
+### 🐛 Bug Fixes
+- Fixed `std::get` runtime variant error in Lexer
+- Resolved ownership issues in AST construction
+- Fixed if/else control flow parsing edge cases
+- Added missing `#include <algorithm>` to modules.h
+
+---
+
+### 📈 Summary Statistics
+- **40 stdlib modules** (up from 20+)
+- **~15,000+ lines** of new/enhanced stdlib code
+- **7 new Python-replacement modules**
+- **2 major module enhancements** (dataframe, neural_network)
+- Cross-platform: Windows, Linux, macOS
+
+---
+
+## [0.0.25] - 2025-12-12
+
+### Added - Quantum Computing
 - Native C++ MCP server (`mcp-server/src/main.cpp`)
 - JSON utilities for MCP (`mcp-server/src/json_mcp.h`)
 - Tool exposure: `run_kenneth` for program execution

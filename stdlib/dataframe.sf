@@ -926,3 +926,353 @@ fn split(s: string, delimiter: string) -> array {
     }
     return result
 }
+
+// ===== Pivot Table Operations =====
+
+// Create pivot table
+fn pivotTable(df: map, index: string, columns: string, values: string, aggFunc: string) -> map {
+    // Get unique values for index and columns
+    let indexVals = unique(df.data[index])
+    let colVals = unique(df.data[columns])
+    
+    // Create result structure
+    let result = createDataFrame()
+    result.columns = [index]
+    for (let i = 0; i < len(colVals); i = i + 1) {
+        result.columns = append(result.columns, str(colVals[i]))
+    }
+    
+    // Initialize data
+    result.data[index] = indexVals
+    for (let i = 0; i < len(colVals); i = i + 1) {
+        result.data[str(colVals[i])] = []
+        for (let j = 0; j < len(indexVals); j = j + 1) {
+            result.data[str(colVals[i])] = append(result.data[str(colVals[i])], 0.0)
+        }
+    }
+    
+    // Aggregate values
+    for (let i = 0; i < df.length; i = i + 1) {
+        let idxVal = df.data[index][i]
+        let colVal = str(df.data[columns][i])
+        let val = df.data[values][i]
+        
+        // Find row index
+        let rowIdx = -1
+        for (let j = 0; j < len(indexVals); j = j + 1) {
+            if (indexVals[j] == idxVal) {
+                rowIdx = j
+                break
+            }
+        }
+        
+        if (rowIdx >= 0) {
+            if (aggFunc == "sum") {
+                result.data[colVal][rowIdx] = result.data[colVal][rowIdx] + val
+            } else if (aggFunc == "count") {
+                result.data[colVal][rowIdx] = result.data[colVal][rowIdx] + 1
+            } else if (aggFunc == "mean") {
+                // For mean, we'd need to track counts separately
+                result.data[colVal][rowIdx] = result.data[colVal][rowIdx] + val
+            }
+        }
+    }
+    
+    result.length = len(indexVals)
+    result.index = []
+    for (let i = 0; i < result.length; i = i + 1) {
+        result.index = append(result.index, i)
+    }
+    
+    return result
+}
+
+// Melt DataFrame (wide to long format)
+fn melt(df: map, idVars: array, valueVars: array, varName: string, valueName: string) -> map {
+    let result = createDataFrame()
+    result.columns = idVars
+    result.columns = append(result.columns, varName)
+    result.columns = append(result.columns, valueName)
+    
+    // Initialize columns
+    for (let i = 0; i < len(result.columns); i = i + 1) {
+        result.data[result.columns[i]] = []
+    }
+    
+    // Melt data
+    for (let i = 0; i < df.length; i = i + 1) {
+        for (let j = 0; j < len(valueVars); j = j + 1) {
+            // Copy id columns
+            for (let k = 0; k < len(idVars); k = k + 1) {
+                result.data[idVars[k]] = append(result.data[idVars[k]], df.data[idVars[k]][i])
+            }
+            // Add variable name and value
+            result.data[varName] = append(result.data[varName], valueVars[j])
+            result.data[valueName] = append(result.data[valueName], df.data[valueVars[j]][i])
+        }
+    }
+    
+    result.length = df.length * len(valueVars)
+    result.index = []
+    for (let i = 0; i < result.length; i = i + 1) {
+        result.index = append(result.index, i)
+    }
+    
+    return result
+}
+
+// Pivot DataFrame (long to wide format)
+fn pivot(df: map, index: string, columns: string, values: string) -> map {
+    return pivotTable(df, index, columns, values, "sum")
+}
+
+// ===== Time Series Operations =====
+
+// Rolling mean (moving average)
+fn rollingMean(df: map, colName: string, window: int) -> array {
+    let col = df.data[colName]
+    let result = []
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (i < window - 1) {
+            result = append(result, null)
+        } else {
+            let sum = 0.0
+            for (let j = i - window + 1; j <= i; j = j + 1) {
+                sum = sum + col[j]
+            }
+            result = append(result, sum / window)
+        }
+    }
+    
+    return result
+}
+
+// Rolling sum
+fn rollingSum(df: map, colName: string, window: int) -> array {
+    let col = df.data[colName]
+    let result = []
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (i < window - 1) {
+            result = append(result, null)
+        } else {
+            let sum = 0.0
+            for (let j = i - window + 1; j <= i; j = j + 1) {
+                sum = sum + col[j]
+            }
+            result = append(result, sum)
+        }
+    }
+    
+    return result
+}
+
+// Rolling standard deviation
+fn rollingStd(df: map, colName: string, window: int) -> array {
+    let col = df.data[colName]
+    let result = []
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (i < window - 1) {
+            result = append(result, null)
+        } else {
+            // Calculate mean
+            let sum = 0.0
+            for (let j = i - window + 1; j <= i; j = j + 1) {
+                sum = sum + col[j]
+            }
+            let mean = sum / window
+            
+            // Calculate variance
+            let sumSq = 0.0
+            for (let j = i - window + 1; j <= i; j = j + 1) {
+                let diff = col[j] - mean
+                sumSq = sumSq + diff * diff
+            }
+            result = append(result, sqrt(sumSq / window))
+        }
+    }
+    
+    return result
+}
+
+// Exponential moving average
+fn ewm(df: map, colName: string, span: int) -> array {
+    let col = df.data[colName]
+    let alpha = 2.0 / (span + 1)
+    let result = []
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (i == 0) {
+            result = append(result, col[0])
+        } else {
+            let ema = alpha * col[i] + (1 - alpha) * result[i - 1]
+            result = append(result, ema)
+        }
+    }
+    
+    return result
+}
+
+// Difference between consecutive values
+fn diff(df: map, colName: string, periods: int) -> array {
+    let col = df.data[colName]
+    let result = []
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (i < periods) {
+            result = append(result, null)
+        } else {
+            result = append(result, col[i] - col[i - periods])
+        }
+    }
+    
+    return result
+}
+
+// Percentage change
+fn pctChange(df: map, colName: string, periods: int) -> array {
+    let col = df.data[colName]
+    let result = []
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (i < periods || col[i - periods] == 0) {
+            result = append(result, null)
+        } else {
+            result = append(result, (col[i] - col[i - periods]) / col[i - periods] * 100)
+        }
+    }
+    
+    return result
+}
+
+// Shift values by n periods
+fn shift(df: map, colName: string, periods: int) -> array {
+    let col = df.data[colName]
+    let result = []
+    
+    if (periods > 0) {
+        for (let i = 0; i < len(col); i = i + 1) {
+            if (i < periods) {
+                result = append(result, null)
+            } else {
+                result = append(result, col[i - periods])
+            }
+        }
+    } else {
+        let absPeriods = -periods
+        for (let i = 0; i < len(col); i = i + 1) {
+            if (i >= len(col) - absPeriods) {
+                result = append(result, null)
+            } else {
+                result = append(result, col[i + absPeriods])
+            }
+        }
+    }
+    
+    return result
+}
+
+// Cumulative operations
+fn cumMax(df: map, colName: string) -> array {
+    let col = df.data[colName]
+    let result = []
+    let currentMax = col[0]
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (col[i] > currentMax) {
+            currentMax = col[i]
+        }
+        result = append(result, currentMax)
+    }
+    
+    return result
+}
+
+fn cumMin(df: map, colName: string) -> array {
+    let col = df.data[colName]
+    let result = []
+    let currentMin = col[0]
+    
+    for (let i = 0; i < len(col); i = i + 1) {
+        if (col[i] < currentMin) {
+            currentMin = col[i]
+        }
+        result = append(result, currentMin)
+    }
+    
+    return result
+}
+
+// Resample data (aggregate by time periods)
+fn resample(df: map, dateCol: string, valueCol: string, period: string, aggFunc: string) -> map {
+    // Simplified resampling - would need proper date parsing in real implementation
+    // Groups data and aggregates
+    return groupBy(df, dateCol, valueCol, aggFunc)
+}
+
+// ===== Correlation and Covariance =====
+
+// Correlation matrix for all numeric columns
+fn corrMatrix(df: map) -> map {
+    let numericCols = []
+    
+    // Find numeric columns
+    for (let i = 0; i < len(df.columns); i = i + 1) {
+        let col = df.data[df.columns[i]]
+        if (len(col) > 0 && typeof(col[0]) != "string") {
+            numericCols = append(numericCols, df.columns[i])
+        }
+    }
+    
+    // Create correlation matrix
+    let result = {}
+    for (let i = 0; i < len(numericCols); i = i + 1) {
+        result[numericCols[i]] = {}
+        for (let j = 0; j < len(numericCols); j = j + 1) {
+            let corr = correlation(df.data[numericCols[i]], df.data[numericCols[j]])
+            result[numericCols[i]][numericCols[j]] = corr
+        }
+    }
+    
+    return result
+}
+
+// Correlation between two arrays
+fn correlation(a: array, b: array) -> float {
+    let n = len(a)
+    if (n == 0) { return 0.0 }
+    
+    // Calculate means
+    let sumA = 0.0
+    let sumB = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        sumA = sumA + a[i]
+        sumB = sumB + b[i]
+    }
+    let meanA = sumA / n
+    let meanB = sumB / n
+    
+    // Calculate correlation
+    let sumAB = 0.0
+    let sumA2 = 0.0
+    let sumB2 = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        let diffA = a[i] - meanA
+        let diffB = b[i] - meanB
+        sumAB = sumAB + diffA * diffB
+        sumA2 = sumA2 + diffA * diffA
+        sumB2 = sumB2 + diffB * diffB
+    }
+    
+    if (sumA2 == 0 || sumB2 == 0) { return 0.0 }
+    return sumAB / sqrt(sumA2 * sumB2)
+}
+
+// ===== Additional Utility =====
+
+fn typeof(value: any) -> string {
+    // Placeholder - interpreter should provide this
+    return "unknown"
+}

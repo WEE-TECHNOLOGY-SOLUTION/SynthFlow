@@ -1,5 +1,6 @@
 #include "../../include/interpreter.h"
 #include "../../include/http_client.h"
+#include "../../include/http_server.h"
 #include <iostream>
 #include <sstream>
 #include <cmath>
@@ -443,6 +444,217 @@ void Interpreter::registerBuiltins() {
         [](std::vector<Value>& args, Interpreter&) -> Value {
             if (args.empty()) throw std::runtime_error("round() requires an argument");
             return Value(static_cast<int64_t>(std::round(args[0].asFloat())));
+        }
+    )));
+    
+    // ===== Web Framework Builtins =====
+    
+    // Global route handler counter
+    static int routeHandlerCounter = 0;
+    
+    // route(path, handler) or route("METHOD path", handler)
+    // Minimal API: route("/api/users", json(users))
+    globalEnv->define("route", Value(std::make_shared<Value::FunctionType>(
+        [this](std::vector<Value>& args, Interpreter& interp) -> Value {
+            if (args.size() < 2) {
+                throw std::runtime_error("route() requires path and handler");
+            }
+            
+            std::string pathSpec = args[0].asString();
+            std::string method = "GET";
+            std::string path = pathSpec;
+            
+            // Parse "POST /api/users" format
+            size_t space = pathSpec.find(' ');
+            if (space != std::string::npos) {
+                method = pathSpec.substr(0, space);
+                path = pathSpec.substr(space + 1);
+            }
+            
+            // Store handler with unique name
+            std::string handlerName = "__web_handler_" + std::to_string(routeHandlerCounter++);
+            globalEnv->define(handlerName, args[1]);
+            
+            // Register route
+            web::RouteRegistry::instance().addRoute(method, path, handlerName);
+            
+            return Value();
+        }
+    )));
+    
+    // serve(port) - Start HTTP server
+    globalEnv->define("serve", Value(std::make_shared<Value::FunctionType>(
+        [this](std::vector<Value>& args, Interpreter& interp) -> Value {
+            int port = 3000;
+            if (!args.empty()) {
+                if (args[0].isInt()) {
+                    port = static_cast<int>(args[0].asInt());
+                } else if (args[0].isFloat()) {
+                    port = static_cast<int>(args[0].asFloat());
+                }
+            }
+            
+            // Create server and set request handler
+            web::HttpServer server;
+            
+            server.setRequestCallback([this](const web::Request& req) -> web::Response {
+                web::Response res;
+                
+                // Match route
+                std::map<std::string, std::string> params;
+                web::Route* route = web::RouteRegistry::instance().matchRoute(
+                    req.method, req.path, params);
+                
+                if (!route) {
+                    res.statusCode = 404;
+                    res.contentType = "application/json";
+                    res.body = "{\"error\": \"Not Found\", \"path\": \"" + req.path + "\"}";
+                    return res;
+                }
+                
+                // Get handler
+                try {
+                    Value handler = globalEnv->get(route->handlerName);
+                    
+                    if (handler.isFunction()) {
+                        // Create request object for handler
+                        auto reqMap = std::make_shared<std::map<std::string, Value>>();
+                        (*reqMap)["method"] = Value(req.method);
+                        (*reqMap)["path"] = Value(req.path);
+                        (*reqMap)["body"] = Value(req.body);
+                        
+                        // Add params
+                        auto paramsMap = std::make_shared<std::map<std::string, Value>>();
+                        for (const auto& [k, v] : params) {
+                            (*paramsMap)[k] = Value(v);
+                        }
+                        (*reqMap)["params"] = Value(paramsMap);
+                        
+                        // Add query params
+                        auto queryMap = std::make_shared<std::map<std::string, Value>>();
+                        for (const auto& [k, v] : req.queryParams) {
+                            (*queryMap)[k] = Value(v);
+                        }
+                        (*reqMap)["query"] = Value(queryMap);
+                        
+                        // Call handler with request
+                        std::vector<Value> handlerArgs;
+                        handlerArgs.push_back(Value(reqMap));
+                        
+                        auto fn = handler.asFunction();
+                        Value result = (*fn)(handlerArgs, *this);
+                        
+                        // Process result
+                        if (result.isMap()) {
+                            auto map = result.asMap();
+                            auto typeIt = map->find("__type");
+                            if (typeIt != map->end()) {
+                                std::string type = typeIt->second.asString();
+                                auto contentIt = map->find("content");
+                                if (type == "json") {
+                                    res.contentType = "application/json";
+                                    res.body = contentIt != map->end() ? contentIt->second.toString() : "{}";
+                                } else if (type == "html") {
+                                    res.contentType = "text/html; charset=utf-8";
+                                    res.body = contentIt != map->end() ? contentIt->second.asString() : "";
+                                } else {
+                                    res.body = contentIt != map->end() ? contentIt->second.toString() : "";
+                                }
+                            } else {
+                                res.contentType = "application/json";
+                                res.body = result.toString();
+                            }
+                        } else {
+                            res.body = result.toString();
+                        }
+                    } else if (handler.isMap()) {
+                        // Direct response map
+                        auto map = handler.asMap();
+                        auto typeIt = map->find("__type");
+                        if (typeIt != map->end()) {
+                            std::string type = typeIt->second.asString();
+                            auto contentIt = map->find("content");
+                            if (type == "json") {
+                                res.contentType = "application/json";
+                                res.body = contentIt != map->end() ? contentIt->second.toString() : "{}";
+                            } else if (type == "html") {
+                                res.contentType = "text/html; charset=utf-8";
+                                res.body = contentIt != map->end() ? contentIt->second.asString() : "";
+                            }
+                        } else {
+                            res.contentType = "application/json";
+                            res.body = handler.toString();
+                        }
+                    } else if (handler.isString()) {
+                        res.contentType = "text/plain";
+                        res.body = handler.asString();
+                    } else {
+                        res.contentType = "application/json";
+                        res.body = handler.toString();
+                    }
+                    
+                    res.statusCode = 200;
+                } catch (const std::exception& e) {
+                    res.statusCode = 500;
+                    res.contentType = "application/json";
+                    res.body = "{\"error\": \"" + std::string(e.what()) + "\"}";
+                }
+                
+                return res;
+            });
+            
+            // Start server (blocking)
+            server.start(port);
+            
+            return Value();
+        }
+    )));
+    
+    // json(data) - Create JSON response block
+    globalEnv->define("json", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            auto resultMap = std::make_shared<std::map<std::string, Value>>();
+            (*resultMap)["__type"] = Value("json");
+            if (!args.empty()) {
+                (*resultMap)["content"] = args[0];
+            } else {
+                (*resultMap)["content"] = Value("{}");
+            }
+            return Value(resultMap);
+        }
+    )));
+    
+    // html(content) - Create HTML response block
+    globalEnv->define("html", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            auto resultMap = std::make_shared<std::map<std::string, Value>>();
+            (*resultMap)["__type"] = Value("html");
+            if (!args.empty()) {
+                (*resultMap)["content"] = args[0];
+            } else {
+                (*resultMap)["content"] = Value("");
+            }
+            return Value(resultMap);
+        }
+    )));
+    
+    // text(content) - Create text response
+    globalEnv->define("text", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) return Value("");
+            return args[0];
+        }
+    )));
+    
+    // use(middleware...) - Add middleware
+    globalEnv->define("use", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            for (auto& arg : args) {
+                if (arg.isString()) {
+                    web::RouteRegistry::instance().addMiddleware(arg.asString());
+                }
+            }
+            return Value();
         }
     )));
 }

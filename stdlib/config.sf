@@ -1,0 +1,501 @@
+// SynthFlow Configuration Library
+// Configuration management with multiple sources and validation
+
+// ===== Configuration Loading =====
+
+// Load configuration from JSON file
+fn loadConfig(filepath: string) -> map {
+    let content = readFile(filepath)
+    return parseJson(content)
+}
+
+// Load configuration from environment variables
+fn loadFromEnv(prefix: string) -> map {
+    let config = {}
+    let allEnv = getEnvAll()
+    let envKeys = keys(allEnv)
+    
+    for (let i = 0; i < len(envKeys); i = i + 1) {
+        let key = envKeys[i]
+        if (startsWith(key, prefix)) {
+            let configKey = substr(key, len(prefix), len(key) - len(prefix))
+            configKey = toLower(replace(configKey, "_", "."))
+            config[configKey] = allEnv[key]
+        }
+    }
+    
+    return config
+}
+
+// Load configuration from INI file
+fn loadIniConfig(filepath: string) -> map {
+    let content = readFile(filepath)
+    let lines = split(content, "\n")
+    let config = {}
+    let currentSection = ""
+    
+    for (let i = 0; i < len(lines); i = i + 1) {
+        let line = trim(lines[i])
+        
+        // Skip empty lines and comments
+        if (len(line) == 0 || startsWith(line, "#") || startsWith(line, ";")) {
+            continue
+        }
+        
+        // Section header
+        if (startsWith(line, "[") && endsWith(line, "]")) {
+            currentSection = substr(line, 1, len(line) - 2)
+            config[currentSection] = {}
+            continue
+        }
+        
+        // Key-value pair
+        let eqIdx = indexOf(line, "=", 0)
+        if (eqIdx > 0) {
+            let key = trim(substr(line, 0, eqIdx))
+            let value = trim(substr(line, eqIdx + 1, len(line) - eqIdx - 1))
+            
+            // Parse value type
+            value = parseValue(value)
+            
+            if (len(currentSection) > 0) {
+                config[currentSection][key] = value
+            } else {
+                config[key] = value
+            }
+        }
+    }
+    
+    return config
+}
+
+// Load YAML configuration (simplified)
+fn loadYamlConfig(filepath: string) -> map {
+    let content = readFile(filepath)
+    return parseYaml(content)
+}
+
+// ===== Configuration Access =====
+
+// Get configuration value with default
+fn get(config: map, key: string, defaultValue: any) -> any {
+    // Support nested keys with dot notation
+    let parts = split(key, ".")
+    let current = config
+    
+    for (let i = 0; i < len(parts); i = i + 1) {
+        let part = parts[i]
+        if (hasKey(current, part)) {
+            current = current[part]
+        } else {
+            return defaultValue
+        }
+    }
+    
+    return current
+}
+
+// Get string value
+fn getString(config: map, key: string, defaultValue: string) -> string {
+    return str(get(config, key, defaultValue))
+}
+
+// Get integer value
+fn getInt(config: map, key: string, defaultValue: int) -> int {
+    let value = get(config, key, defaultValue)
+    if (typeof(value) == "string") {
+        return parseInt(value)
+    }
+    return value
+}
+
+// Get float value
+fn getFloat(config: map, key: string, defaultValue: float) -> float {
+    let value = get(config, key, defaultValue)
+    if (typeof(value) == "string") {
+        return parseFloat(value)
+    }
+    return value
+}
+
+// Get boolean value
+fn getBool(config: map, key: string, defaultValue: bool) -> bool {
+    let value = get(config, key, defaultValue)
+    if (typeof(value) == "string") {
+        return value == "true" || value == "1" || value == "yes"
+    }
+    return value
+}
+
+// Get array value
+fn getArray(config: map, key: string, defaultValue: array) -> array {
+    let value = get(config, key, defaultValue)
+    if (typeof(value) == "array") {
+        return value
+    }
+    return defaultValue
+}
+
+// Check if key exists
+fn has(config: map, key: string) -> bool {
+    let parts = split(key, ".")
+    let current = config
+    
+    for (let i = 0; i < len(parts); i = i + 1) {
+        let part = parts[i]
+        if (!hasKey(current, part)) {
+            return false
+        }
+        current = current[part]
+    }
+    
+    return true
+}
+
+// Set configuration value
+fn set(config: map, key: string, value: any) -> map {
+    let parts = split(key, ".")
+    let current = config
+    
+    for (let i = 0; i < len(parts) - 1; i = i + 1) {
+        let part = parts[i]
+        if (!hasKey(current, part)) {
+            current[part] = {}
+        }
+        current = current[part]
+    }
+    
+    current[parts[len(parts) - 1]] = value
+    return config
+}
+
+// ===== Configuration Merging =====
+
+// Merge two configurations (override wins)
+fn merge(base: map, override: map) -> map {
+    let result = deepCopy(base)
+    let overrideKeys = keys(override)
+    
+    for (let i = 0; i < len(overrideKeys); i = i + 1) {
+        let key = overrideKeys[i]
+        let value = override[key]
+        
+        if (typeof(value) == "map" && hasKey(result, key) && typeof(result[key]) == "map") {
+            // Recursively merge nested maps
+            result[key] = merge(result[key], value)
+        } else {
+            result[key] = value
+        }
+    }
+    
+    return result
+}
+
+// Deep copy configuration
+fn deepCopy(config: map) -> map {
+    let result = {}
+    let configKeys = keys(config)
+    
+    for (let i = 0; i < len(configKeys); i = i + 1) {
+        let key = configKeys[i]
+        let value = config[key]
+        
+        if (typeof(value) == "map") {
+            result[key] = deepCopy(value)
+        } else if (typeof(value) == "array") {
+            result[key] = copyArray(value)
+        } else {
+            result[key] = value
+        }
+    }
+    
+    return result
+}
+
+fn copyArray(arr: array) -> array {
+    let result = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    return result
+}
+
+// ===== Configuration Validation =====
+
+// Validate configuration against schema
+fn validate(config: map, schema: map) -> map {
+    let errors = []
+    let schemaKeys = keys(schema)
+    
+    for (let i = 0; i < len(schemaKeys); i = i + 1) {
+        let key = schemaKeys[i]
+        let rule = schema[key]
+        
+        // Check required
+        if (hasKey(rule, "required") && rule.required && !has(config, key)) {
+            errors = append(errors, "Missing required field: " + key)
+            continue
+        }
+        
+        if (!has(config, key)) {
+            continue
+        }
+        
+        let value = get(config, key, null)
+        
+        // Check type
+        if (hasKey(rule, "type")) {
+            let actualType = typeof(value)
+            if (actualType != rule.type) {
+                errors = append(errors, "Field '" + key + "' should be " + rule.type + " but got " + actualType)
+            }
+        }
+        
+        // Check enum
+        if (hasKey(rule, "enum")) {
+            let found = false
+            for (let j = 0; j < len(rule.enum); j = j + 1) {
+                if (value == rule.enum[j]) {
+                    found = true
+                    break
+                }
+            }
+            if (!found) {
+                errors = append(errors, "Field '" + key + "' must be one of: " + join(rule.enum, ", "))
+            }
+        }
+        
+        // Check min/max for numbers
+        if (hasKey(rule, "min") && value < rule.min) {
+            errors = append(errors, "Field '" + key + "' must be >= " + str(rule.min))
+        }
+        if (hasKey(rule, "max") && value > rule.max) {
+            errors = append(errors, "Field '" + key + "' must be <= " + str(rule.max))
+        }
+        
+        // Check minLength/maxLength for strings
+        if (hasKey(rule, "minLength") && len(str(value)) < rule.minLength) {
+            errors = append(errors, "Field '" + key + "' must be at least " + str(rule.minLength) + " characters")
+        }
+        if (hasKey(rule, "maxLength") && len(str(value)) > rule.maxLength) {
+            errors = append(errors, "Field '" + key + "' must be at most " + str(rule.maxLength) + " characters")
+        }
+        
+        // Check pattern (regex)
+        if (hasKey(rule, "pattern")) {
+            if (!matches(str(value), rule.pattern)) {
+                errors = append(errors, "Field '" + key + "' must match pattern: " + rule.pattern)
+            }
+        }
+    }
+    
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors
+    }
+}
+
+// ===== Environment-based Configuration =====
+
+// Get configuration for current environment
+fn getEnvConfig(configs: map, envName: string) -> map {
+    let baseConfig = {}
+    
+    // Start with default config
+    if (hasKey(configs, "default")) {
+        baseConfig = configs.default
+    }
+    
+    // Merge environment-specific config
+    if (hasKey(configs, envName)) {
+        baseConfig = merge(baseConfig, configs[envName])
+    }
+    
+    return baseConfig
+}
+
+// Detect current environment
+fn detectEnvironment() -> string {
+    let env = getEnv("NODE_ENV")
+    if (len(env) == 0) {
+        env = getEnv("APP_ENV")
+    }
+    if (len(env) == 0) {
+        env = "development"
+    }
+    return env
+}
+
+// ===== Configuration Profiles =====
+
+// Create configuration profile
+fn createProfile(name: string, config: map) -> map {
+    return {
+        "name": name,
+        "config": config,
+        "active": false
+    }
+}
+
+// Switch active profile
+fn switchProfile(profiles: array, profileName: string) -> map {
+    for (let i = 0; i < len(profiles); i = i + 1) {
+        if (profiles[i].name == profileName) {
+            profiles[i].active = true
+            return profiles[i].config
+        }
+    }
+    return {}
+}
+
+// ===== Configuration Watching =====
+
+// Watch configuration file for changes
+fn watchConfig(filepath: string, callback: fn) -> map {
+    return {
+        "filepath": filepath,
+        "callback": callback,
+        "lastModified": getFileModTime(filepath),
+        "interval": 1000,
+        "active": true
+    }
+}
+
+// Check for config changes
+fn checkConfigChanges(watcher: map) -> bool {
+    let currentModTime = getFileModTime(watcher.filepath)
+    if (currentModTime != watcher.lastModified) {
+        watcher.lastModified = currentModTime
+        let newConfig = loadConfig(watcher.filepath)
+        watcher.callback(newConfig)
+        return true
+    }
+    return false
+}
+
+// ===== Secrets Management =====
+
+// Load secrets from file
+fn loadSecrets(filepath: string) -> map {
+    let config = loadConfig(filepath)
+    // Mark as secrets for potential masking
+    config["_isSecrets"] = true
+    return config
+}
+
+// Mask sensitive values in config
+fn maskSecrets(config: map, sensitiveKeys: array) -> map {
+    let result = deepCopy(config)
+    
+    for (let i = 0; i < len(sensitiveKeys); i = i + 1) {
+        let key = sensitiveKeys[i]
+        if (has(result, key)) {
+            set(result, key, "********")
+        }
+    }
+    
+    return result
+}
+
+// ===== Utility Functions =====
+
+fn readFile(filepath: string) -> string {
+    return ""  // Placeholder
+}
+
+fn parseJson(content: string) -> map {
+    return {}  // Placeholder
+}
+
+fn parseYaml(content: string) -> map {
+    return {}  // Placeholder
+}
+
+fn parseValue(value: string) -> any {
+    // Parse string to appropriate type
+    if (value == "true") { return true }
+    if (value == "false") { return false }
+    if (isNumeric(value)) { return parseFloat(value) }
+    return value
+}
+
+fn isNumeric(value: string) -> bool {
+    return false  // Placeholder
+}
+
+fn parseInt(value: string) -> int {
+    return 0  // Placeholder
+}
+
+fn parseFloat(value: string) -> float {
+    return 0.0  // Placeholder
+}
+
+fn getEnv(key: string) -> string {
+    return ""  // Placeholder
+}
+
+fn getEnvAll() -> map {
+    return {}  // Placeholder
+}
+
+fn getFileModTime(filepath: string) -> string {
+    return ""  // Placeholder
+}
+
+fn matches(text: string, pattern: string) -> bool {
+    return true  // Placeholder
+}
+
+fn trim(text: string) -> string {
+    return text  // Placeholder
+}
+
+fn split(text: string, delimiter: string) -> array {
+    return [text]  // Placeholder
+}
+
+fn indexOf(text: string, search: string, start: int) -> int {
+    return -1  // Placeholder
+}
+
+fn substr(text: string, start: int, length: int) -> string {
+    return text  // Placeholder
+}
+
+fn startsWith(text: string, prefix: string) -> bool {
+    return false  // Placeholder
+}
+
+fn endsWith(text: string, suffix: string) -> bool {
+    return false  // Placeholder
+}
+
+fn replace(text: string, search: string, replacement: string) -> string {
+    return text  // Placeholder
+}
+
+fn toLower(text: string) -> string {
+    return text  // Placeholder
+}
+
+fn join(arr: array, delimiter: string) -> string {
+    let result = ""
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (i > 0) { result = result + delimiter }
+        result = result + str(arr[i])
+    }
+    return result
+}
+
+fn typeof(value: any) -> string {
+    return "unknown"  // Placeholder
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true  // Placeholder
+}
+
+fn keys(m: map) -> array {
+    return []  // Placeholder
+}

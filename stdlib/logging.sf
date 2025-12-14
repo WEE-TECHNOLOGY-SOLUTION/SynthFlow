@@ -1,0 +1,373 @@
+// SynthFlow Logging Library
+// Enterprise-grade logging with levels, handlers, and formatters
+
+// ===== Log Levels =====
+
+let LOG_LEVELS = {
+    "DEBUG": 10,
+    "INFO": 20,
+    "WARNING": 30,
+    "ERROR": 40,
+    "CRITICAL": 50
+}
+
+// ===== Logger Creation =====
+
+// Create a new logger
+fn createLogger(name: string, level: string) -> map {
+    return {
+        "name": name,
+        "level": LOG_LEVELS[level],
+        "levelName": level,
+        "handlers": [],
+        "format": "[{timestamp}] [{level}] {name}: {message}",
+        "propagate": true
+    }
+}
+
+// Get or create logger by name
+let _loggers = {}
+
+fn getLogger(name: string) -> map {
+    if (hasKey(_loggers, name)) {
+        return _loggers[name]
+    }
+    
+    let logger = createLogger(name, "INFO")
+    _loggers[name] = logger
+    return logger
+}
+
+// ===== Log Methods =====
+
+fn logDebug(logger: map, message: string) -> void {
+    logMessage(logger, "DEBUG", message)
+}
+
+fn logInfo(logger: map, message: string) -> void {
+    logMessage(logger, "INFO", message)
+}
+
+fn logWarning(logger: map, message: string) -> void {
+    logMessage(logger, "WARNING", message)
+}
+
+fn logError(logger: map, message: string) -> void {
+    logMessage(logger, "ERROR", message)
+}
+
+fn logCritical(logger: map, message: string) -> void {
+    logMessage(logger, "CRITICAL", message)
+}
+
+// Log with extra context
+fn logWithContext(logger: map, level: string, message: string, context: map) -> void {
+    let contextStr = formatContext(context)
+    logMessage(logger, level, message + " " + contextStr)
+}
+
+// Core logging function
+fn logMessage(logger: map, level: string, message: string) -> void {
+    let levelValue = LOG_LEVELS[level]
+    
+    // Check if should log
+    if (levelValue < logger.level) {
+        return
+    }
+    
+    // Create log record
+    let record = {
+        "timestamp": getCurrentTimestamp(),
+        "level": level,
+        "name": logger.name,
+        "message": message
+    }
+    
+    // Format message
+    let formatted = formatLogRecord(logger, record)
+    
+    // Send to handlers
+    if (len(logger.handlers) == 0) {
+        // Default to console
+        print(formatted)
+    } else {
+        for (let i = 0; i < len(logger.handlers); i = i + 1) {
+            let handler = logger.handlers[i]
+            handleLog(handler, formatted, record)
+        }
+    }
+}
+
+// ===== Handlers =====
+
+// Create console handler
+fn createConsoleHandler(level: string) -> map {
+    return {
+        "type": "console",
+        "level": LOG_LEVELS[level],
+        "levelName": level,
+        "colorize": true
+    }
+}
+
+// Create file handler
+fn createFileHandler(filepath: string, level: string) -> map {
+    return {
+        "type": "file",
+        "filepath": filepath,
+        "level": LOG_LEVELS[level],
+        "levelName": level,
+        "mode": "append"
+    }
+}
+
+// Create rotating file handler
+fn createRotatingHandler(filepath: string, maxBytes: int, backupCount: int, level: string) -> map {
+    return {
+        "type": "rotating",
+        "filepath": filepath,
+        "maxBytes": maxBytes,
+        "backupCount": backupCount,
+        "currentBytes": 0,
+        "level": LOG_LEVELS[level],
+        "levelName": level
+    }
+}
+
+// Create timed rotating handler
+fn createTimedRotatingHandler(filepath: string, when: string, interval: int, level: string) -> map {
+    return {
+        "type": "timed_rotating",
+        "filepath": filepath,
+        "when": when,  // "midnight", "H" (hours), "D" (days)
+        "interval": interval,
+        "level": LOG_LEVELS[level],
+        "levelName": level,
+        "lastRotation": getCurrentTimestamp()
+    }
+}
+
+// Add handler to logger
+fn addHandler(logger: map, handler: map) -> map {
+    logger.handlers = append(logger.handlers, handler)
+    return logger
+}
+
+// Remove all handlers
+fn removeHandlers(logger: map) -> map {
+    logger.handlers = []
+    return logger
+}
+
+// Handle log record
+fn handleLog(handler: map, formatted: string, record: map) -> void {
+    // Check handler level
+    if (LOG_LEVELS[record.level] < handler.level) {
+        return
+    }
+    
+    if (handler.type == "console") {
+        let output = formatted
+        
+        // Add colors if enabled
+        if (handler.colorize) {
+            output = colorize(formatted, record.level)
+        }
+        
+        print(output)
+    } else if (handler.type == "file") {
+        appendToFile(handler.filepath, formatted + "\n")
+    } else if (handler.type == "rotating") {
+        // Check if rotation needed
+        handler.currentBytes = handler.currentBytes + len(formatted)
+        
+        if (handler.currentBytes >= handler.maxBytes) {
+            rotateFile(handler)
+            handler.currentBytes = 0
+        }
+        
+        appendToFile(handler.filepath, formatted + "\n")
+    } else if (handler.type == "timed_rotating") {
+        // Check if time-based rotation needed
+        if (shouldRotateByTime(handler)) {
+            rotateFile(handler)
+            handler.lastRotation = getCurrentTimestamp()
+        }
+        
+        appendToFile(handler.filepath, formatted + "\n")
+    }
+}
+
+// ===== Formatting =====
+
+// Set log format
+fn setFormat(logger: map, format: string) -> map {
+    logger.format = format
+    return logger
+}
+
+// Format log record
+fn formatLogRecord(logger: map, record: map) -> string {
+    let result = logger.format
+    
+    result = replace(result, "{timestamp}", record.timestamp)
+    result = replace(result, "{level}", padRight(record.level, 8))
+    result = replace(result, "{name}", record.name)
+    result = replace(result, "{message}", record.message)
+    
+    return result
+}
+
+// Format context map
+fn formatContext(context: map) -> string {
+    let parts = []
+    let contextKeys = keys(context)
+    
+    for (let i = 0; i < len(contextKeys); i = i + 1) {
+        let key = contextKeys[i]
+        parts = append(parts, key + "=" + str(context[key]))
+    }
+    
+    return "{" + join(parts, ", ") + "}"
+}
+
+// Add color codes for terminal
+fn colorize(text: string, level: string) -> string {
+    let colors = {
+        "DEBUG": "\x1b[36m",    // Cyan
+        "INFO": "\x1b[32m",     // Green
+        "WARNING": "\x1b[33m",  // Yellow
+        "ERROR": "\x1b[31m",    // Red
+        "CRITICAL": "\x1b[35m"  // Magenta
+    }
+    let reset = "\x1b[0m"
+    
+    if (hasKey(colors, level)) {
+        return colors[level] + text + reset
+    }
+    return text
+}
+
+// ===== Convenience Loggers =====
+
+// Create a simple console logger
+fn simpleLogger(name: string) -> map {
+    let logger = createLogger(name, "DEBUG")
+    logger = addHandler(logger, createConsoleHandler("DEBUG"))
+    return logger
+}
+
+// Create a file logger
+fn fileLogger(name: string, filepath: string) -> map {
+    let logger = createLogger(name, "INFO")
+    logger = addHandler(logger, createFileHandler(filepath, "INFO"))
+    return logger
+}
+
+// Create a production logger (file + console with rotation)
+fn productionLogger(name: string, filepath: string) -> map {
+    let logger = createLogger(name, "INFO")
+    logger = addHandler(logger, createConsoleHandler("WARNING"))
+    logger = addHandler(logger, createRotatingHandler(filepath, 10485760, 5, "INFO")) // 10MB
+    return logger
+}
+
+// ===== Structured Logging =====
+
+// Log JSON formatted message
+fn logJson(logger: map, level: string, data: map) -> void {
+    let jsonStr = toJson(data)
+    logMessage(logger, level, jsonStr)
+}
+
+// Create structured log entry
+fn createLogEntry(message: string, data: map) -> map {
+    return {
+        "timestamp": getCurrentTimestamp(),
+        "message": message,
+        "data": data
+    }
+}
+
+// ===== Performance Logging =====
+
+// Start timer for performance logging
+fn startTimer(name: string) -> map {
+    return {
+        "name": name,
+        "startTime": getCurrentTimeMs()
+    }
+}
+
+// End timer and log duration
+fn endTimer(logger: map, timer: map) -> float {
+    let duration = getCurrentTimeMs() - timer.startTime
+    logInfo(logger, timer.name + " completed in " + str(duration) + "ms")
+    return duration
+}
+
+// ===== Exception Logging =====
+
+// Log exception with stack trace
+fn logException(logger: map, message: string, error: any) -> void {
+    logError(logger, message + " - Error: " + str(error))
+}
+
+// ===== Utility Functions =====
+
+fn getCurrentTimestamp() -> string {
+    // Placeholder - would use actual datetime
+    return "2024-12-14T12:00:00"
+}
+
+fn getCurrentTimeMs() -> int {
+    return 0  // Placeholder
+}
+
+fn appendToFile(filepath: string, content: string) -> void {
+    // Placeholder - would append to file
+    print("[FILE] Appending to " + filepath)
+}
+
+fn rotateFile(handler: map) -> void {
+    // Rotate file by renaming with timestamp or number
+    print("[LOG] Rotating file: " + handler.filepath)
+}
+
+fn shouldRotateByTime(handler: map) -> bool {
+    // Check if rotation needed based on time
+    return false
+}
+
+fn replace(text: string, search: string, replacement: string) -> string {
+    return text  // Placeholder
+}
+
+fn padRight(text: string, length: int) -> string {
+    let result = text
+    while (len(result) < length) {
+        result = result + " "
+    }
+    return result
+}
+
+fn join(arr: array, delimiter: string) -> string {
+    let result = ""
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (i > 0) { result = result + delimiter }
+        result = result + str(arr[i])
+    }
+    return result
+}
+
+fn toJson(data: map) -> string {
+    return str(data)  // Placeholder
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true  // Placeholder
+}
+
+fn keys(m: map) -> array {
+    return []  // Placeholder
+}

@@ -1,0 +1,96 @@
+// SynthFlow Web Framework
+// Minimal API for building web applications
+//
+// Usage:
+//   route("/", text("Hello!"))
+//   route("/api/users", json(users))
+//   serve(3000)
+//
+
+// ===== Response Builders =====
+
+// json(data) - Create JSON response (built-in)
+// html(content) - Create HTML response (built-in)  
+// text(content) - Create text response (built-in)
+
+// ===== Routing =====
+
+// route(path, handler) - Register route (built-in)
+// route("POST /path", handler) - Register with method
+
+// ===== Middleware =====
+
+// use(name) - Add middleware (built-in)
+
+// ===== Built-in Middleware Names =====
+
+let LOGGER = "logger"
+let CORS = "cors"
+let AUTH = "auth"
+
+// ===== Convenience Helpers =====
+
+// redirect(url) - Create redirect response
+fn redirect(url) {
+    return {
+        __type: "redirect",
+        location: url
+    }
+}
+
+// status(code, body) - Create response with status
+fn status(code, body) {
+    return {
+        __type: "status",
+        code: code,
+        content: body
+    }
+}
+
+// notFound() - 404 response
+fn notFound() {
+    return json({ error: "Not Found" })
+}
+
+// badRequest(msg) - 400 response
+fn badRequest(msg) {
+    return json({ error: msg })
+}
+
+// ok(data) - 200 JSON response
+fn ok(data) {
+    return json(data)
+}
+
+// ===== HTML Helpers =====
+
+// page(title, body) - Create HTML page
+fn page(title, body) {
+    return html("<!DOCTYPE html><html><head><title>" + title + "</title></head><body>" + body + "</body></html>")
+}
+
+// h1(text) - Heading
+fn h1(text) {
+    return "<h1>" + text + "</h1>"
+}
+
+// p(text) - Paragraph
+fn p(text) {
+    return "<p>" + text + "</p>"
+}
+
+// link(href, text) - Link
+fn link(href, text) {
+    return "<a href=\"" + href + "\">" + text + "</a>"
+}
+
+// ===== Example =====
+
+// let users = [{ id: 1, name: "Alice" }]
+// 
+// route("/", text("Welcome to SynthFlow Web!"))
+// route("/api/users", json(users))
+// route("/api/users/:id", (req) => json(users[int(req.params.id)]))
+// route("POST /api/users", (req) => json(append(users, req.body)))
+// 
+// serve(3000)

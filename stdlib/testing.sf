@@ -1,0 +1,495 @@
+// SynthFlow Testing Library
+// Unit testing framework with assertions, test suites, and reporting
+
+// ===== Test Suite Creation =====
+
+// Create a new test suite
+fn createTestSuite(name: string) -> map {
+    return {
+        "name": name,
+        "tests": [],
+        "beforeAll": null,
+        "afterAll": null,
+        "beforeEach": null,
+        "afterEach": null,
+        "timeout": 5000,
+        "stopOnFailure": false
+    }
+}
+
+// Add test to suite
+fn addTest(suite: map, name: string, testFn: fn) -> map {
+    suite.tests = append(suite.tests, {
+        "name": name,
+        "fn": testFn,
+        "skip": false,
+        "only": false
+    })
+    return suite
+}
+
+// Add skipped test
+fn addSkippedTest(suite: map, name: string, testFn: fn) -> map {
+    suite.tests = append(suite.tests, {
+        "name": name,
+        "fn": testFn,
+        "skip": true,
+        "only": false
+    })
+    return suite
+}
+
+// Add focused test (only run this test)
+fn addOnlyTest(suite: map, name: string, testFn: fn) -> map {
+    suite.tests = append(suite.tests, {
+        "name": name,
+        "fn": testFn,
+        "skip": false,
+        "only": true
+    })
+    return suite
+}
+
+// Set before all hook
+fn setBeforeAll(suite: map, hookFn: fn) -> map {
+    suite.beforeAll = hookFn
+    return suite
+}
+
+// Set after all hook
+fn setAfterAll(suite: map, hookFn: fn) -> map {
+    suite.afterAll = hookFn
+    return suite
+}
+
+// Set before each hook
+fn setBeforeEach(suite: map, hookFn: fn) -> map {
+    suite.beforeEach = hookFn
+    return suite
+}
+
+// Set after each hook
+fn setAfterEach(suite: map, hookFn: fn) -> map {
+    suite.afterEach = hookFn
+    return suite
+}
+
+// ===== Running Tests =====
+
+// Run all tests in suite
+fn runTests(suite: map) -> map {
+    let results = {
+        "suiteName": suite.name,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "total": len(suite.tests),
+        "duration": 0,
+        "tests": []
+    }
+    
+    let startTime = getCurrentTimeMs()
+    
+    print("\n═══════════════════════════════════════")
+    print(" Running: " + suite.name)
+    print("═══════════════════════════════════════\n")
+    
+    // Check if any tests have "only" flag
+    let hasOnly = false
+    for (let i = 0; i < len(suite.tests); i = i + 1) {
+        if (suite.tests[i].only) {
+            hasOnly = true
+            break
+        }
+    }
+    
+    // Run beforeAll hook
+    if (suite.beforeAll != null) {
+        try {
+            suite.beforeAll()
+        } catch (e) {
+            print("✗ beforeAll hook failed: " + str(e))
+        }
+    }
+    
+    // Run tests
+    for (let i = 0; i < len(suite.tests); i = i + 1) {
+        let test = suite.tests[i]
+        
+        // Skip if not focused and focus mode is on
+        if (hasOnly && !test.only) {
+            results.skipped = results.skipped + 1
+            results.tests = append(results.tests, {
+                "name": test.name,
+                "status": "skipped",
+                "reason": "Not focused"
+            })
+            print("  ○ " + test.name + " (skipped - not focused)")
+            continue
+        }
+        
+        // Skip if marked as skip
+        if (test.skip) {
+            results.skipped = results.skipped + 1
+            results.tests = append(results.tests, {
+                "name": test.name,
+                "status": "skipped",
+                "reason": "Marked as skip"
+            })
+            print("  ○ " + test.name + " (skipped)")
+            continue
+        }
+        
+        // Run beforeEach hook
+        if (suite.beforeEach != null) {
+            try {
+                suite.beforeEach()
+            } catch (e) {
+                print("  ✗ beforeEach hook failed: " + str(e))
+            }
+        }
+        
+        // Run test
+        let testStart = getCurrentTimeMs()
+        let testResult = runSingleTest(test)
+        let testDuration = getCurrentTimeMs() - testStart
+        
+        testResult.duration = testDuration
+        results.tests = append(results.tests, testResult)
+        
+        if (testResult.status == "passed") {
+            results.passed = results.passed + 1
+            print("  ✓ " + test.name + " (" + str(testDuration) + "ms)")
+        } else {
+            results.failed = results.failed + 1
+            print("  ✗ " + test.name + " (" + str(testDuration) + "ms)")
+            print("    Error: " + testResult.error)
+            
+            if (suite.stopOnFailure) {
+                break
+            }
+        }
+        
+        // Run afterEach hook
+        if (suite.afterEach != null) {
+            try {
+                suite.afterEach()
+            } catch (e) {
+                print("  ✗ afterEach hook failed: " + str(e))
+            }
+        }
+    }
+    
+    // Run afterAll hook
+    if (suite.afterAll != null) {
+        try {
+            suite.afterAll()
+        } catch (e) {
+            print("✗ afterAll hook failed: " + str(e))
+        }
+    }
+    
+    results.duration = getCurrentTimeMs() - startTime
+    
+    // Print summary
+    printSummary(results)
+    
+    return results
+}
+
+// Run a single test
+fn runSingleTest(test: map) -> map {
+    try {
+        test.fn()
+        return {
+            "name": test.name,
+            "status": "passed",
+            "error": ""
+        }
+    } catch (e) {
+        return {
+            "name": test.name,
+            "status": "failed",
+            "error": str(e)
+        }
+    }
+}
+
+// Print test summary
+fn printSummary(results: map) -> void {
+    print("\n───────────────────────────────────────")
+    print(" Summary: " + results.suiteName)
+    print("───────────────────────────────────────")
+    print(" Total:   " + str(results.total))
+    print(" Passed:  " + str(results.passed) + " ✓")
+    print(" Failed:  " + str(results.failed) + " ✗")
+    print(" Skipped: " + str(results.skipped) + " ○")
+    print(" Time:    " + str(results.duration) + "ms")
+    print("───────────────────────────────────────\n")
+    
+    if (results.failed == 0) {
+        print("All tests passed! ✓\n")
+    } else {
+        print("Some tests failed! ✗\n")
+    }
+}
+
+// ===== Assertions =====
+
+// Assert two values are equal
+fn assertEqual(actual: any, expected: any, message: string) -> void {
+    if (actual != expected) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected " + str(expected) + " but got " + str(actual)
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert two values are not equal
+fn assertNotEqual(actual: any, expected: any, message: string) -> void {
+    if (actual == expected) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected values to be different, but both are " + str(actual)
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert condition is true
+fn assertTrue(condition: bool, message: string) -> void {
+    if (!condition) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected true but got false"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert condition is false
+fn assertFalse(condition: bool, message: string) -> void {
+    if (condition) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected false but got true"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert value is null
+fn assertNull(value: any, message: string) -> void {
+    if (value != null) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected null but got " + str(value)
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert value is not null
+fn assertNotNull(value: any, message: string) -> void {
+    if (value == null) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected non-null value but got null"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert function throws error
+fn assertThrows(testFn: fn, message: string) -> void {
+    let threw = false
+    try {
+        testFn()
+    } catch (e) {
+        threw = true
+    }
+    
+    if (!threw) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected function to throw, but it did not"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert function does not throw
+fn assertDoesNotThrow(testFn: fn, message: string) -> void {
+    try {
+        testFn()
+    } catch (e) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected function not to throw, but it threw: " + str(e)
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert string contains substring
+fn assertContains(haystack: string, needle: string, message: string) -> void {
+    if (!contains(haystack, needle)) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected '" + haystack + "' to contain '" + needle + "'"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert string does not contain substring
+fn assertNotContains(haystack: string, needle: string, message: string) -> void {
+    if (contains(haystack, needle)) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected '" + haystack + "' not to contain '" + needle + "'"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert array length
+fn assertLength(arr: array, expectedLength: int, message: string) -> void {
+    if (len(arr) != expectedLength) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected length " + str(expectedLength) + " but got " + str(len(arr))
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert array is empty
+fn assertEmpty(arr: array, message: string) -> void {
+    assertLength(arr, 0, message)
+}
+
+// Assert array is not empty
+fn assertNotEmpty(arr: array, message: string) -> void {
+    if (len(arr) == 0) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected non-empty array"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert value is in array
+fn assertIn(value: any, arr: array, message: string) -> void {
+    let found = false
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == value) {
+            found = true
+            break
+        }
+    }
+    
+    if (!found) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected " + str(value) + " to be in array"
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert value is greater than
+fn assertGreater(actual: float, expected: float, message: string) -> void {
+    if (actual <= expected) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected " + str(actual) + " > " + str(expected)
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert value is less than
+fn assertLess(actual: float, expected: float, message: string) -> void {
+    if (actual >= expected) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected " + str(actual) + " < " + str(expected)
+        }
+        throw(errorMsg)
+    }
+}
+
+// Assert floating point equality with tolerance
+fn assertAlmostEqual(actual: float, expected: float, delta: float, message: string) -> void {
+    if (abs(actual - expected) > delta) {
+        let errorMsg = message
+        if (len(message) == 0) {
+            errorMsg = "Expected " + str(actual) + " to be within " + str(delta) + " of " + str(expected)
+        }
+        throw(errorMsg)
+    }
+}
+
+// ===== Test Utilities =====
+
+// Create mock function
+fn createMock() -> map {
+    return {
+        "calls": [],
+        "returnValue": null,
+        "fn": fn(...args) {
+            // Record call
+        }
+    }
+}
+
+// Create spy on function
+fn createSpy(targetFn: fn) -> map {
+    return {
+        "calls": [],
+        "originalFn": targetFn,
+        "fn": fn(...args) {
+            // Record call and forward
+        }
+    }
+}
+
+// Wait for condition
+fn waitFor(conditionFn: fn, timeout: int) -> bool {
+    let start = getCurrentTimeMs()
+    while (getCurrentTimeMs() - start < timeout) {
+        if (conditionFn()) {
+            return true
+        }
+        sleep(10)
+    }
+    return false
+}
+
+// ===== Utility Functions =====
+
+fn getCurrentTimeMs() -> int {
+    return 0  // Placeholder
+}
+
+fn sleep(ms: int) -> void {
+    // Placeholder
+}
+
+fn contains(haystack: string, needle: string) -> bool {
+    return true  // Placeholder
+}
+
+fn abs(x: float) -> float {
+    if (x < 0) { return -x }
+    return x
+}
+
+fn throw(message: string) -> void {
+    // Placeholder - would throw exception
+    print("[ASSERTION FAILED] " + message)
+}

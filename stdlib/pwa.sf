@@ -1,0 +1,255 @@
+// SynthFlow PWA (Progressive Web App) Module
+// Build web apps that install on mobile devices
+//
+// Usage:
+//   import pwa
+//   let manifest = pwa.createManifest("My App", "#7c3aed")
+//   pwa.registerServiceWorker()
+//
+
+// ===== PWA Configuration =====
+
+let PWA_VERSION = "1.0.0"
+
+// Default app configuration
+let defaultConfig = {
+    name: "SynthFlow App",
+    shortName: "SF App",
+    description: "Built with SynthFlow",
+    startUrl: "/",
+    display: "standalone",
+    orientation: "portrait",
+    themeColor: "#7c3aed",
+    backgroundColor: "#ffffff",
+    scope: "/"
+}
+
+// ===== Manifest Generation =====
+
+// Create PWA manifest JSON
+fn createManifest(name, themeColor) {
+    let config = defaultConfig
+    if (name != null) {
+        config.name = name
+        config.shortName = name
+    }
+    if (themeColor != null) {
+        config.themeColor = themeColor
+    }
+    
+    return {
+        name: config.name,
+        short_name: config.shortName,
+        description: config.description,
+        start_url: config.startUrl,
+        display: config.display,
+        orientation: config.orientation,
+        theme_color: config.themeColor,
+        background_color: config.backgroundColor,
+        scope: config.scope,
+        icons: [
+            { src: "/icons/icon-72.png", sizes: "72x72", type: "image/png" },
+            { src: "/icons/icon-96.png", sizes: "96x96", type: "image/png" },
+            { src: "/icons/icon-128.png", sizes: "128x128", type: "image/png" },
+            { src: "/icons/icon-144.png", sizes: "144x144", type: "image/png" },
+            { src: "/icons/icon-152.png", sizes: "152x152", type: "image/png" },
+            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+            { src: "/icons/icon-384.png", sizes: "384x384", type: "image/png" },
+            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
+        ]
+    }
+}
+
+// ===== HTML Meta Tags =====
+
+// Generate PWA HTML head content
+fn pwaHead(config) {
+    let c = config
+    if (c == null) {
+        c = defaultConfig
+    }
+    
+    return `
+<!-- PWA Meta Tags -->
+<meta name="application-name" content="${c.name}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="${c.shortName}">
+<meta name="theme-color" content="${c.themeColor}">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="/manifest.json">
+
+<!-- iOS Icons -->
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+`
+}
+
+// ===== Service Worker =====
+
+// Generate service worker JavaScript
+fn serviceWorkerCode(cacheName, urlsToCache) {
+    let urls = urlsToCache
+    if (urls == null) {
+        urls = ["/", "/index.html", "/styles.css", "/app.js"]
+    }
+    
+    return `
+// SynthFlow PWA Service Worker
+const CACHE_NAME = '${cacheName}-v${PWA_VERSION}';
+const urlsToCache = ${str(urls)};
+
+// Install event - cache assets
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('Opened cache');
+                return cache.addAll(urlsToCache);
+            })
+    );
+    self.skipWaiting();
+});
+
+// Activate event - cleanup old caches
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
+});
+
+// Fetch event - serve from cache, fallback to network
+self.addEventListener('fetch', event => {
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                if (response) {
+                    return response;
+                }
+                return fetch(event.request);
+            })
+    );
+});
+`
+}
+
+// ===== Service Worker Registration =====
+
+// Generate registration script for HTML
+fn registerServiceWorkerScript() {
+    return `
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('ServiceWorker registered:', registration.scope);
+            })
+            .catch(error => {
+                console.log('ServiceWorker registration failed:', error);
+            });
+    });
+}
+</script>
+`
+}
+
+// ===== PWA Install Prompt =====
+
+// Generate install prompt UI
+fn installPromptScript() {
+    return `
+<script>
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallButton();
+});
+
+function showInstallButton() {
+    const btn = document.getElementById('install-btn');
+    if (btn) {
+        btn.style.display = 'block';
+        btn.addEventListener('click', () => {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((result) => {
+                if (result.outcome === 'accepted') {
+                    console.log('User accepted install');
+                }
+                deferredPrompt = null;
+            });
+        });
+    }
+}
+</script>
+`
+}
+
+// ===== Complete PWA Page =====
+
+// Generate complete PWA HTML page
+fn pwaPage(title, body, config) {
+    let c = config
+    if (c == null) {
+        c = defaultConfig
+    }
+    
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    ${pwaHead(c)}
+    <title>${title}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: ${c.backgroundColor};
+            min-height: 100vh;
+        }
+        #install-btn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: ${c.themeColor};
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    ${body}
+    <button id="install-btn">Install App</button>
+    ${registerServiceWorkerScript()}
+    ${installPromptScript()}
+</body>
+</html>`
+}
+
+// ===== Export =====
+
+// Usage example:
+// let manifest = createManifest("My App", "#3b82f6")
+// let sw = serviceWorkerCode("my-app", ["/", "/app.js"])
+// let page = pwaPage("My App", "<h1>Hello</h1>", null)

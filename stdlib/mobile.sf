@@ -1,0 +1,306 @@
+// SynthFlow Mobile Component Library
+// React Native compatible components for mobile app development
+//
+// Usage:
+//   import mobile
+//   fn App() { return View({}, [Text("Hello Mobile!")]) }
+//
+
+// ===== Core Components =====
+
+// View - Container component (like div)
+fn View(style, children) {
+    return {
+        __component: "View",
+        style: style,
+        children: children
+    }
+}
+
+// Text - Text display component
+fn Text(content, style) {
+    return {
+        __component: "Text",
+        content: content,
+        style: style
+    }
+}
+
+// Button - Touchable button
+fn Button(title, onPress, style) {
+    return {
+        __component: "Button",
+        title: title,
+        onPress: onPress,
+        style: style
+    }
+}
+
+// Image - Image display
+fn Image(source, style) {
+    return {
+        __component: "Image",
+        source: source,
+        style: style
+    }
+}
+
+// TextInput - Text input field
+fn TextInput(placeholder, value, onChange, style) {
+    return {
+        __component: "TextInput",
+        placeholder: placeholder,
+        value: value,
+        onChange: onChange,
+        style: style
+    }
+}
+
+// ScrollView - Scrollable container
+fn ScrollView(children, style) {
+    return {
+        __component: "ScrollView",
+        children: children,
+        style: style
+    }
+}
+
+// FlatList - Efficient list rendering
+fn FlatList(data, renderItem, keyExtractor, style) {
+    return {
+        __component: "FlatList",
+        data: data,
+        renderItem: renderItem,
+        keyExtractor: keyExtractor,
+        style: style
+    }
+}
+
+// TouchableOpacity - Touchable with opacity feedback
+fn TouchableOpacity(onPress, children, style) {
+    return {
+        __component: "TouchableOpacity",
+        onPress: onPress,
+        children: children,
+        style: style
+    }
+}
+
+// ===== Layout Components =====
+
+// SafeAreaView - Respects device safe areas
+fn SafeAreaView(children, style) {
+    return {
+        __component: "SafeAreaView",
+        children: children,
+        style: style
+    }
+}
+
+// StatusBar - Control status bar appearance
+fn StatusBar(barStyle, backgroundColor) {
+    return {
+        __component: "StatusBar",
+        barStyle: barStyle,
+        backgroundColor: backgroundColor
+    }
+}
+
+// ===== Navigation Components =====
+
+// Screen - A screen in navigation
+fn Screen(name, component, options) {
+    return {
+        __component: "Screen",
+        name: name,
+        component: component,
+        options: options
+    }
+}
+
+// Navigator - Stack navigator
+fn Navigator(screens, initialRoute) {
+    return {
+        __component: "Navigator",
+        screens: screens,
+        initialRoute: initialRoute
+    }
+}
+
+// ===== Style Helpers =====
+
+// Common styles
+let styles = {
+    container: {
+        flex: 1,
+        padding: 16
+    },
+    center: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center"
+    },
+    row: {
+        flexDirection: "row",
+        alignItems: "center"
+    },
+    spaceBetween: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center"
+    },
+    card: {
+        backgroundColor: "#ffffff",
+        borderRadius: 8,
+        padding: 16,
+        marginVertical: 8,
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: "bold",
+        marginBottom: 8
+    },
+    subtitle: {
+        fontSize: 18,
+        fontWeight: "600",
+        marginBottom: 4
+    },
+    body: {
+        fontSize: 16,
+        lineHeight: 24
+    },
+    caption: {
+        fontSize: 12,
+        color: "#666666"
+    },
+    primaryButton: {
+        backgroundColor: "#7c3aed",
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+        alignItems: "center"
+    },
+    primaryButtonText: {
+        color: "#ffffff",
+        fontSize: 16,
+        fontWeight: "600"
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: "#cccccc",
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        fontSize: 16
+    }
+}
+
+// ===== Component Helpers =====
+
+// Card component
+fn Card(children, style) {
+    let cardStyle = styles.card
+    if (style != null) {
+        // Merge styles
+        for (let key in style) {
+            cardStyle[key] = style[key]
+        }
+    }
+    return View(cardStyle, children)
+}
+
+// Header component
+fn Header(title, leftAction, rightAction) {
+    return View({
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 16,
+        backgroundColor: "#7c3aed"
+    }, [
+        leftAction,
+        Text(title, { color: "#ffffff", fontSize: 18, fontWeight: "bold" }),
+        rightAction
+    ])
+}
+
+// ListItem component
+fn ListItem(title, subtitle, onPress) {
+    return TouchableOpacity(onPress, [
+        View({ padding: 16, borderBottomWidth: 1, borderBottomColor: "#eeeeee" }, [
+            Text(title, styles.subtitle),
+            subtitle != null ? Text(subtitle, styles.caption) : null
+        ])
+    ], null)
+}
+
+// Badge component
+fn Badge(text, color) {
+    let bgColor = color
+    if (bgColor == null) {
+        bgColor = "#7c3aed"
+    }
+    return View({
+        backgroundColor: bgColor,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 12
+    }, [Text(text, { color: "#ffffff", fontSize: 12 })])
+}
+
+// Avatar component
+fn Avatar(imageUrl, size) {
+    let s = size
+    if (s == null) {
+        s = 40
+    }
+    return Image(imageUrl, {
+        width: s,
+        height: s,
+        borderRadius: s / 2
+    })
+}
+
+// ===== State Management =====
+
+// Simple state hook simulation
+fn useState(initialValue) {
+    let state = { value: initialValue }
+    
+    fn getValue() {
+        return state.value
+    }
+    
+    fn setValue(newValue) {
+        state.value = newValue
+    }
+    
+    return [getValue, setValue]
+}
+
+// ===== Example App =====
+
+// Usage example:
+// 
+// fn App() {
+//     let [count, setCount] = useState(0)
+//     
+//     return SafeAreaView([
+//         Header("My App", null, null),
+//         View(styles.container, [
+//             Card([
+//                 Text("Welcome to SynthFlow Mobile!", styles.title),
+//                 Text("Count: " + str(count()), styles.body),
+//                 TouchableOpacity(fn() { setCount(count() + 1) }, [
+//                     View(styles.primaryButton, [
+//                         Text("Increment", styles.primaryButtonText)
+//                     ])
+//                 ], null)
+//             ], null)
+//         ])
+//     ], null)
+// }

@@ -1,0 +1,539 @@
+// SynthFlow Database Library
+// Database connectivity and ORM-like operations
+
+// ===== Connection Management =====
+
+// Database connection configuration
+let DB_CONFIG = {
+    "type": "sqlite",  // sqlite, mysql, postgres
+    "host": "localhost",
+    "port": 3306,
+    "database": "",
+    "username": "",
+    "password": "",
+    "poolSize": 5
+}
+
+// Create database connection
+fn connect(connectionString: string) -> map {
+    // Parse connection string: type://user:pass@host:port/database
+    let config = parseConnectionString(connectionString)
+    
+    print("[DATABASE] Connecting to: " + config.type + "://" + config.host + "/" + config.database)
+    
+    return {
+        "id": generateId(),
+        "type": config.type,
+        "host": config.host,
+        "database": config.database,
+        "connected": true,
+        "pool": [],
+        "lastError": ""
+    }
+}
+
+// Connect with explicit configuration
+fn connectWithConfig(config: map) -> map {
+    return connect(
+        config.type + "://" + 
+        config.username + ":" + config.password + "@" +
+        config.host + ":" + str(config.port) + "/" +
+        config.database
+    )
+}
+
+// Close database connection
+fn close(connection: map) -> void {
+    print("[DATABASE] Closing connection: " + connection.id)
+    connection.connected = false
+}
+
+// Check if connection is alive
+fn isConnected(connection: map) -> bool {
+    return connection.connected
+}
+
+// Reconnect if disconnected
+fn reconnect(connection: map) -> bool {
+    if (!connection.connected) {
+        connection.connected = true
+        return true
+    }
+    return false
+}
+
+// ===== Query Execution =====
+
+// Execute SELECT query
+fn query(connection: map, sql: string, params: array) -> array {
+    let preparedSql = prepareStatement(sql, params)
+    print("[DATABASE] Query: " + preparedSql)
+    
+    // Placeholder - would execute actual query
+    return []
+}
+
+// Execute single SELECT query returning one row
+fn queryOne(connection: map, sql: string, params: array) -> map {
+    let results = query(connection, sql, params)
+    if (len(results) > 0) {
+        return results[0]
+    }
+    return {}
+}
+
+// Execute INSERT/UPDATE/DELETE query
+fn execute(connection: map, sql: string, params: array) -> int {
+    let preparedSql = prepareStatement(sql, params)
+    print("[DATABASE] Execute: " + preparedSql)
+    
+    // Returns affected row count
+    return 0
+}
+
+// Execute raw SQL (no parameter binding)
+fn rawQuery(connection: map, sql: string) -> array {
+    print("[DATABASE] Raw Query: " + sql)
+    return []
+}
+
+// ===== Transaction Management =====
+
+// Begin transaction
+fn beginTransaction(connection: map) -> bool {
+    print("[DATABASE] BEGIN TRANSACTION")
+    return true
+}
+
+// Commit transaction
+fn commit(connection: map) -> bool {
+    print("[DATABASE] COMMIT")
+    return true
+}
+
+// Rollback transaction
+fn rollback(connection: map) -> bool {
+    print("[DATABASE] ROLLBACK")
+    return true
+}
+
+// Execute operations in transaction
+fn transaction(connection: map, operations: fn) -> bool {
+    beginTransaction(connection)
+    
+    try {
+        operations(connection)
+        commit(connection)
+        return true
+    } catch (e) {
+        rollback(connection)
+        return false
+    }
+}
+
+// ===== Query Builder =====
+
+// Create SELECT query builder
+fn selectFrom(tableName: string) -> map {
+    return {
+        "type": "select",
+        "table": tableName,
+        "columns": ["*"],
+        "where": [],
+        "orderBy": [],
+        "limit": 0,
+        "offset": 0,
+        "joins": []
+    }
+}
+
+// Add columns to select
+fn columns(builder: map, cols: array) -> map {
+    builder.columns = cols
+    return builder
+}
+
+// Add WHERE clause
+fn where(builder: map, column: string, operator: string, value: any) -> map {
+    builder.where = append(builder.where, {
+        "column": column,
+        "operator": operator,
+        "value": value,
+        "logic": "AND"
+    })
+    return builder
+}
+
+// Add OR WHERE clause
+fn orWhere(builder: map, column: string, operator: string, value: any) -> map {
+    builder.where = append(builder.where, {
+        "column": column,
+        "operator": operator,
+        "value": value,
+        "logic": "OR"
+    })
+    return builder
+}
+
+// Add ORDER BY clause
+fn orderBy(builder: map, column: string, direction: string) -> map {
+    builder.orderBy = append(builder.orderBy, {
+        "column": column,
+        "direction": direction
+    })
+    return builder
+}
+
+// Add LIMIT clause
+fn limit(builder: map, count: int) -> map {
+    builder.limit = count
+    return builder
+}
+
+// Add OFFSET clause
+fn offset(builder: map, count: int) -> map {
+    builder.offset = count
+    return builder
+}
+
+// Add JOIN clause
+fn join(builder: map, table: string, on: string, joinType: string) -> map {
+    builder.joins = append(builder.joins, {
+        "table": table,
+        "on": on,
+        "type": joinType
+    })
+    return builder
+}
+
+// Build and execute query
+fn get(connection: map, builder: map) -> array {
+    let sql = buildQuery(builder)
+    return query(connection, sql, [])
+}
+
+// Build SQL from query builder
+fn buildQuery(builder: map) -> string {
+    let sql = "SELECT " + join(builder.columns, ", ")
+    sql = sql + " FROM " + builder.table
+    
+    // Joins
+    for (let i = 0; i < len(builder.joins); i = i + 1) {
+        let j = builder.joins[i]
+        sql = sql + " " + j.type + " JOIN " + j.table + " ON " + j.on
+    }
+    
+    // Where
+    if (len(builder.where) > 0) {
+        sql = sql + " WHERE "
+        for (let i = 0; i < len(builder.where); i = i + 1) {
+            let w = builder.where[i]
+            if (i > 0) {
+                sql = sql + " " + w.logic + " "
+            }
+            sql = sql + w.column + " " + w.operator + " " + escape(w.value)
+        }
+    }
+    
+    // Order By
+    if (len(builder.orderBy) > 0) {
+        sql = sql + " ORDER BY "
+        for (let i = 0; i < len(builder.orderBy); i = i + 1) {
+            let o = builder.orderBy[i]
+            if (i > 0) { sql = sql + ", " }
+            sql = sql + o.column + " " + o.direction
+        }
+    }
+    
+    // Limit
+    if (builder.limit > 0) {
+        sql = sql + " LIMIT " + str(builder.limit)
+    }
+    
+    // Offset
+    if (builder.offset > 0) {
+        sql = sql + " OFFSET " + str(builder.offset)
+    }
+    
+    return sql
+}
+
+// ===== ORM-like Helpers =====
+
+// Create table
+fn createTable(connection: map, tableName: string, schema: map) -> bool {
+    let sql = "CREATE TABLE IF NOT EXISTS " + tableName + " ("
+    
+    let schemaKeys = keys(schema)
+    for (let i = 0; i < len(schemaKeys); i = i + 1) {
+        let colName = schemaKeys[i]
+        let colDef = schema[colName]
+        
+        if (i > 0) { sql = sql + ", " }
+        sql = sql + colName + " " + colDef
+    }
+    
+    sql = sql + ")"
+    
+    execute(connection, sql, [])
+    return true
+}
+
+// Drop table
+fn dropTable(connection: map, tableName: string) -> bool {
+    execute(connection, "DROP TABLE IF EXISTS " + tableName, [])
+    return true
+}
+
+// Check if table exists
+fn tableExists(connection: map, tableName: string) -> bool {
+    let results = query(connection, 
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", 
+        [tableName])
+    return len(results) > 0
+}
+
+// Insert record
+fn insert(connection: map, tableName: string, data: map) -> int {
+    let dataKeys = keys(data)
+    let columns = join(dataKeys, ", ")
+    let placeholders = []
+    let values = []
+    
+    for (let i = 0; i < len(dataKeys); i = i + 1) {
+        placeholders = append(placeholders, "?")
+        values = append(values, data[dataKeys[i]])
+    }
+    
+    let sql = "INSERT INTO " + tableName + " (" + columns + ") VALUES (" + join(placeholders, ", ") + ")"
+    return execute(connection, sql, values)
+}
+
+// Insert multiple records
+fn insertMany(connection: map, tableName: string, records: array) -> int {
+    let count = 0
+    for (let i = 0; i < len(records); i = i + 1) {
+        count = count + insert(connection, tableName, records[i])
+    }
+    return count
+}
+
+// Select records
+fn select(connection: map, tableName: string, whereClause: map) -> array {
+    let builder = selectFrom(tableName)
+    
+    let whereKeys = keys(whereClause)
+    for (let i = 0; i < len(whereKeys); i = i + 1) {
+        let key = whereKeys[i]
+        builder = where(builder, key, "=", whereClause[key])
+    }
+    
+    return get(connection, builder)
+}
+
+// Select all records
+fn selectAll(connection: map, tableName: string) -> array {
+    return query(connection, "SELECT * FROM " + tableName, [])
+}
+
+// Find record by ID
+fn findById(connection: map, tableName: string, id: any) -> map {
+    let results = query(connection, 
+        "SELECT * FROM " + tableName + " WHERE id = ?", 
+        [id])
+    
+    if (len(results) > 0) {
+        return results[0]
+    }
+    return {}
+}
+
+// Update records
+fn update(connection: map, tableName: string, data: map, whereClause: map) -> int {
+    let sets = []
+    let values = []
+    
+    let dataKeys = keys(data)
+    for (let i = 0; i < len(dataKeys); i = i + 1) {
+        let key = dataKeys[i]
+        sets = append(sets, key + " = ?")
+        values = append(values, data[key])
+    }
+    
+    let sql = "UPDATE " + tableName + " SET " + join(sets, ", ")
+    
+    // Where clause
+    let whereKeys = keys(whereClause)
+    if (len(whereKeys) > 0) {
+        sql = sql + " WHERE "
+        for (let i = 0; i < len(whereKeys); i = i + 1) {
+            let key = whereKeys[i]
+            if (i > 0) { sql = sql + " AND " }
+            sql = sql + key + " = ?"
+            values = append(values, whereClause[key])
+        }
+    }
+    
+    return execute(connection, sql, values)
+}
+
+// Delete records
+fn delete(connection: map, tableName: string, whereClause: map) -> int {
+    let sql = "DELETE FROM " + tableName
+    let values = []
+    
+    let whereKeys = keys(whereClause)
+    if (len(whereKeys) > 0) {
+        sql = sql + " WHERE "
+        for (let i = 0; i < len(whereKeys); i = i + 1) {
+            let key = whereKeys[i]
+            if (i > 0) { sql = sql + " AND " }
+            sql = sql + key + " = ?"
+            values = append(values, whereClause[key])
+        }
+    }
+    
+    return execute(connection, sql, values)
+}
+
+// Count records
+fn count(connection: map, tableName: string, whereClause: map) -> int {
+    let sql = "SELECT COUNT(*) as count FROM " + tableName
+    let values = []
+    
+    let whereKeys = keys(whereClause)
+    if (len(whereKeys) > 0) {
+        sql = sql + " WHERE "
+        for (let i = 0; i < len(whereKeys); i = i + 1) {
+            let key = whereKeys[i]
+            if (i > 0) { sql = sql + " AND " }
+            sql = sql + key + " = ?"
+            values = append(values, whereClause[key])
+        }
+    }
+    
+    let result = queryOne(connection, sql, values)
+    if (hasKey(result, "count")) {
+        return result["count"]
+    }
+    return 0
+}
+
+// ===== Migration Support =====
+
+// Run migration
+fn migrate(connection: map, migrations: array) -> bool {
+    // Create migrations table if not exists
+    createTable(connection, "_migrations", {
+        "id": "INTEGER PRIMARY KEY",
+        "name": "TEXT NOT NULL",
+        "executed_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    })
+    
+    for (let i = 0; i < len(migrations); i = i + 1) {
+        let migration = migrations[i]
+        
+        // Check if already executed
+        let existing = select(connection, "_migrations", { "name": migration.name })
+        if (len(existing) == 0) {
+            print("[DATABASE] Running migration: " + migration.name)
+            
+            // Run migration
+            migration.up(connection)
+            
+            // Record migration
+            insert(connection, "_migrations", { "name": migration.name })
+        }
+    }
+    
+    return true
+}
+
+// Rollback last migration
+fn rollbackLast(connection: map, migrations: array) -> bool {
+    let executed = query(connection, 
+        "SELECT * FROM _migrations ORDER BY id DESC LIMIT 1", 
+        [])
+    
+    if (len(executed) > 0) {
+        let lastMigration = executed[0].name
+        
+        // Find migration and run down
+        for (let i = 0; i < len(migrations); i = i + 1) {
+            if (migrations[i].name == lastMigration) {
+                print("[DATABASE] Rolling back: " + lastMigration)
+                migrations[i].down(connection)
+                delete(connection, "_migrations", { "name": lastMigration })
+                return true
+            }
+        }
+    }
+    
+    return false
+}
+
+// ===== Utility Functions =====
+
+fn prepareStatement(sql: string, params: array) -> string {
+    let result = sql
+    for (let i = 0; i < len(params); i = i + 1) {
+        result = replaceFirst(result, "?", escape(params[i]))
+    }
+    return result
+}
+
+fn escape(value: any) -> string {
+    if (typeof(value) == "string") {
+        return "'" + replaceAll(str(value), "'", "''") + "'"
+    }
+    return str(value)
+}
+
+fn parseConnectionString(connStr: string) -> map {
+    // Placeholder parser
+    return {
+        "type": "sqlite",
+        "host": "localhost",
+        "port": 0,
+        "database": "database.db",
+        "username": "",
+        "password": ""
+    }
+}
+
+fn generateId() -> string {
+    return "conn_" + str(random(1000000))
+}
+
+fn random(max: int) -> int {
+    return 0  // Placeholder
+}
+
+fn join(arr: array, delimiter: string) -> string {
+    let result = ""
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (i > 0) { result = result + delimiter }
+        result = result + str(arr[i])
+    }
+    return result
+}
+
+fn replaceFirst(text: string, search: string, replace: string) -> string {
+    return text  // Placeholder
+}
+
+fn replaceAll(text: string, search: string, replace: string) -> string {
+    return text  // Placeholder
+}
+
+fn hasKey(m: map, key: string) -> bool {
+    return true  // Placeholder
+}
+
+fn keys(m: map) -> array {
+    return []  // Placeholder
+}
+
+fn typeof(value: any) -> string {
+    return "unknown"  // Placeholder
+}

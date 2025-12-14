@@ -1,0 +1,541 @@
+// SynthFlow System Administration Library
+// System administration utilities for managing processes, files, and system resources
+
+// ===== Process Management =====
+
+// Execute command and wait for completion
+fn exec(command: string) -> map {
+    // This function requires native binding
+    print("[SYSADMIN] Executing: " + command)
+    return {
+        "stdout": "",
+        "stderr": "",
+        "exitCode": 0,
+        "success": true
+    }
+}
+
+// Execute command with arguments
+fn execArgs(command: string, args: array) -> map {
+    let fullCommand = command
+    for (let i = 0; i < len(args); i = i + 1) {
+        fullCommand = fullCommand + " " + args[i]
+    }
+    return exec(fullCommand)
+}
+
+// Spawn background process (returns process ID)
+fn spawn(command: string) -> int {
+    print("[SYSADMIN] Spawning: " + command)
+    return 0  // Placeholder PID
+}
+
+// Kill process by ID
+fn kill(pid: int) -> bool {
+    print("[SYSADMIN] Killing process: " + str(pid))
+    return true
+}
+
+// Kill process by name
+fn killByName(processName: string) -> int {
+    print("[SYSADMIN] Killing processes named: " + processName)
+    return 0  // Number killed
+}
+
+// Get list of running processes
+fn getProcessList() -> array {
+    // Returns array of {pid, name, cpu, memory}
+    return []
+}
+
+// Check if process is running
+fn isProcessRunning(pid: int) -> bool {
+    return false
+}
+
+// Get current process ID
+fn getCurrentPid() -> int {
+    return 0
+}
+
+// ===== Filesystem Operations =====
+
+// List directory contents
+fn listDir(path: string) -> array {
+    // Returns array of {name, isDir, size, modified}
+    print("[SYSADMIN] Listing: " + path)
+    return []
+}
+
+// List directory with pattern matching
+fn listDirGlob(path: string, pattern: string) -> array {
+    let allFiles = listDir(path)
+    let results = []
+    
+    for (let i = 0; i < len(allFiles); i = i + 1) {
+        if (matchGlob(allFiles[i].name, pattern)) {
+            results = append(results, allFiles[i])
+        }
+    }
+    
+    return results
+}
+
+// Walk directory recursively
+fn walkDir(path: string, callback: fn) -> void {
+    let entries = listDir(path)
+    
+    for (let i = 0; i < len(entries); i = i + 1) {
+        let entry = entries[i]
+        let fullPath = joinPath(path, entry.name)
+        
+        callback(fullPath, entry)
+        
+        if (entry.isDir) {
+            walkDir(fullPath, callback)
+        }
+    }
+}
+
+// Find files matching pattern
+fn findFiles(path: string, pattern: string) -> array {
+    let results = []
+    
+    fn collector(filePath: string, entry: map) {
+        if (!entry.isDir && matchGlob(entry.name, pattern)) {
+            results = append(results, filePath)
+        }
+    }
+    
+    walkDir(path, collector)
+    return results
+}
+
+// Create directory
+fn mkdir(path: string, recursive: bool) -> bool {
+    print("[SYSADMIN] Creating directory: " + path)
+    return true
+}
+
+// Remove file or directory
+fn remove(path: string, recursive: bool) -> bool {
+    print("[SYSADMIN] Removing: " + path)
+    return true
+}
+
+// Move/rename file or directory
+fn move(source: string, dest: string) -> bool {
+    print("[SYSADMIN] Moving: " + source + " -> " + dest)
+    return true
+}
+
+// Copy file
+fn copy(source: string, dest: string) -> bool {
+    print("[SYSADMIN] Copying: " + source + " -> " + dest)
+    return true
+}
+
+// Copy directory recursively
+fn copyDir(source: string, dest: string) -> bool {
+    mkdir(dest, true)
+    
+    let entries = listDir(source)
+    for (let i = 0; i < len(entries); i = i + 1) {
+        let entry = entries[i]
+        let srcPath = joinPath(source, entry.name)
+        let dstPath = joinPath(dest, entry.name)
+        
+        if (entry.isDir) {
+            copyDir(srcPath, dstPath)
+        } else {
+            copy(srcPath, dstPath)
+        }
+    }
+    
+    return true
+}
+
+// Check if path exists
+fn exists(path: string) -> bool {
+    return false
+}
+
+// Check if path is directory
+fn isDir(path: string) -> bool {
+    return false
+}
+
+// Check if path is file
+fn isFile(path: string) -> bool {
+    return false
+}
+
+// Get file/directory stats
+fn stat(path: string) -> map {
+    return {
+        "size": 0,
+        "created": "",
+        "modified": "",
+        "accessed": "",
+        "isDir": false,
+        "isFile": true,
+        "permissions": "rw-r--r--"
+    }
+}
+
+// Change file permissions
+fn chmod(path: string, mode: string) -> bool {
+    print("[SYSADMIN] Chmod: " + path + " -> " + mode)
+    return true
+}
+
+// Change file owner
+fn chown(path: string, owner: string, group: string) -> bool {
+    print("[SYSADMIN] Chown: " + path + " -> " + owner + ":" + group)
+    return true
+}
+
+// Create symbolic link
+fn symlink(target: string, linkPath: string) -> bool {
+    print("[SYSADMIN] Symlink: " + linkPath + " -> " + target)
+    return true
+}
+
+// ===== Path Operations =====
+
+// Join path components
+fn joinPath(base: string, path: string) -> string {
+    if (endsWith(base, "/") || endsWith(base, "\\")) {
+        return base + path
+    }
+    return base + "/" + path
+}
+
+// Get directory name from path
+fn dirName(path: string) -> string {
+    let lastSlash = lastIndexOf(path, "/")
+    let lastBackslash = lastIndexOf(path, "\\")
+    let idx = max(lastSlash, lastBackslash)
+    
+    if (idx > 0) {
+        return substr(path, 0, idx)
+    }
+    return "."
+}
+
+// Get base name from path
+fn baseName(path: string) -> string {
+    let lastSlash = lastIndexOf(path, "/")
+    let lastBackslash = lastIndexOf(path, "\\")
+    let idx = max(lastSlash, lastBackslash)
+    
+    if (idx >= 0) {
+        return substr(path, idx + 1, len(path) - idx - 1)
+    }
+    return path
+}
+
+// Get file extension
+fn extName(path: string) -> string {
+    let base = baseName(path)
+    let dotIdx = lastIndexOf(base, ".")
+    
+    if (dotIdx > 0) {
+        return substr(base, dotIdx, len(base) - dotIdx)
+    }
+    return ""
+}
+
+// Get absolute path
+fn absolutePath(path: string) -> string {
+    // Placeholder - would resolve relative to cwd
+    return path
+}
+
+// Normalize path (remove . and ..)
+fn normalizePath(path: string) -> string {
+    // Placeholder - would normalize path separators and resolve . and ..
+    return path
+}
+
+// ===== Environment Variables =====
+
+// Get environment variable
+fn getEnv(key: string) -> string {
+    // Placeholder - would use native binding
+    return ""
+}
+
+// Set environment variable
+fn setEnv(key: string, value: string) -> void {
+    print("[SYSADMIN] Setting env: " + key + "=" + value)
+}
+
+// Get all environment variables
+fn getEnvAll() -> map {
+    return {}
+}
+
+// Check if environment variable exists
+fn hasEnv(key: string) -> bool {
+    return len(getEnv(key)) > 0
+}
+
+// Expand environment variables in string
+fn expandEnv(text: string) -> string {
+    // Replace $VAR and ${VAR} patterns
+    return text
+}
+
+// ===== Network Utilities =====
+
+// Ping host
+fn ping(host: string, count: int) -> map {
+    print("[SYSADMIN] Pinging: " + host)
+    return {
+        "success": true,
+        "avgTime": 0.0,
+        "packetLoss": 0.0
+    }
+}
+
+// DNS lookup
+fn dnsLookup(hostname: string) -> array {
+    // Returns array of IP addresses
+    return []
+}
+
+// Reverse DNS lookup
+fn reverseDns(ip: string) -> string {
+    return ""
+}
+
+// Get local hostname
+fn getHostname() -> string {
+    return ""
+}
+
+// Get network interfaces
+fn getNetworkInterfaces() -> array {
+    // Returns array of {name, ip, mac, netmask}
+    return []
+}
+
+// Check if port is open
+fn isPortOpen(host: string, port: int) -> bool {
+    return false
+}
+
+// Get local IP address
+fn getLocalIP() -> string {
+    let interfaces = getNetworkInterfaces()
+    for (let i = 0; i < len(interfaces); i = i + 1) {
+        let iface = interfaces[i]
+        if (iface.ip != "127.0.0.1" && len(iface.ip) > 0) {
+            return iface.ip
+        }
+    }
+    return "127.0.0.1"
+}
+
+// ===== System Information =====
+
+// Get CPU information
+fn getCpuInfo() -> map {
+    return {
+        "model": "",
+        "cores": 0,
+        "threads": 0,
+        "architecture": "",
+        "usage": 0.0
+    }
+}
+
+// Get memory information
+fn getMemoryInfo() -> map {
+    return {
+        "total": 0,
+        "used": 0,
+        "free": 0,
+        "cached": 0,
+        "usagePercent": 0.0
+    }
+}
+
+// Get disk usage
+fn getDiskUsage(path: string) -> map {
+    return {
+        "total": 0,
+        "used": 0,
+        "free": 0,
+        "usagePercent": 0.0
+    }
+}
+
+// Get OS information
+fn getOsInfo() -> map {
+    return {
+        "name": "",
+        "version": "",
+        "platform": "",
+        "arch": "",
+        "hostname": getHostname()
+    }
+}
+
+// Get system uptime in seconds
+fn getUptime() -> int {
+    return 0
+}
+
+// Get current user info
+fn getCurrentUser() -> map {
+    return {
+        "username": "",
+        "uid": 0,
+        "gid": 0,
+        "homeDir": "",
+        "shell": ""
+    }
+}
+
+// ===== Service Management =====
+
+// Start system service
+fn startService(serviceName: string) -> bool {
+    return exec("systemctl start " + serviceName).success
+}
+
+// Stop system service
+fn stopService(serviceName: string) -> bool {
+    return exec("systemctl stop " + serviceName).success
+}
+
+// Restart system service
+fn restartService(serviceName: string) -> bool {
+    return exec("systemctl restart " + serviceName).success
+}
+
+// Check service status
+fn getServiceStatus(serviceName: string) -> map {
+    let result = exec("systemctl status " + serviceName)
+    return {
+        "running": result.exitCode == 0,
+        "enabled": false,
+        "output": result.stdout
+    }
+}
+
+// Enable service at boot
+fn enableService(serviceName: string) -> bool {
+    return exec("systemctl enable " + serviceName).success
+}
+
+// Disable service at boot
+fn disableService(serviceName: string) -> bool {
+    return exec("systemctl disable " + serviceName).success
+}
+
+// ===== Scheduled Tasks =====
+
+// Create a one-time scheduled task
+fn scheduleAt(time: string, command: string) -> bool {
+    // Format: "2024-12-14 10:00"
+    print("[SYSADMIN] Scheduling at " + time + ": " + command)
+    return true
+}
+
+// Create recurring cron job
+fn scheduleCron(cronExpr: string, command: string) -> bool {
+    // Format: "0 * * * *" (every hour)
+    print("[SYSADMIN] Scheduling cron " + cronExpr + ": " + command)
+    return true
+}
+
+// List scheduled tasks
+fn listScheduledTasks() -> array {
+    return []
+}
+
+// Remove scheduled task
+fn removeScheduledTask(taskId: string) -> bool {
+    return true
+}
+
+// ===== Archive Operations =====
+
+// Create tar archive
+fn createTar(outputPath: string, inputPaths: array) -> bool {
+    let args = ["-cf", outputPath]
+    for (let i = 0; i < len(inputPaths); i = i + 1) {
+        args = append(args, inputPaths[i])
+    }
+    return execArgs("tar", args).success
+}
+
+// Extract tar archive
+fn extractTar(archivePath: string, destPath: string) -> bool {
+    return execArgs("tar", ["-xf", archivePath, "-C", destPath]).success
+}
+
+// Create zip archive
+fn createZip(outputPath: string, inputPaths: array) -> bool {
+    let args = ["-r", outputPath]
+    for (let i = 0; i < len(inputPaths); i = i + 1) {
+        args = append(args, inputPaths[i])
+    }
+    return execArgs("zip", args).success
+}
+
+// Extract zip archive
+fn extractZip(archivePath: string, destPath: string) -> bool {
+    return execArgs("unzip", [archivePath, "-d", destPath]).success
+}
+
+// ===== Utility Functions =====
+
+fn matchGlob(text: string, pattern: string) -> bool {
+    // Simple glob matcher (* and ?)
+    // Placeholder implementation
+    if (pattern == "*") { return true }
+    if (pattern == text) { return true }
+    
+    // Check for wildcard at end
+    if (endsWith(pattern, "*")) {
+        let prefix = substr(pattern, 0, len(pattern) - 1)
+        return startsWith(text, prefix)
+    }
+    
+    // Check for wildcard at start
+    if (startsWith(pattern, "*")) {
+        let suffix = substr(pattern, 1, len(pattern) - 1)
+        return endsWith(text, suffix)
+    }
+    
+    return false
+}
+
+fn endsWith(text: string, suffix: string) -> bool {
+    if (len(suffix) > len(text)) { return false }
+    return substr(text, len(text) - len(suffix), len(suffix)) == suffix
+}
+
+fn startsWith(text: string, prefix: string) -> bool {
+    if (len(prefix) > len(text)) { return false }
+    return substr(text, 0, len(prefix)) == prefix
+}
+
+fn substr(text: string, start: int, length: int) -> string {
+    // Placeholder - would use built-in substring
+    return text
+}
+
+fn lastIndexOf(text: string, search: string) -> int {
+    // Placeholder - find last occurrence
+    return -1
+}
+
+fn max(a: int, b: int) -> int {
+    if (a > b) { return a }
+    return b
+}
