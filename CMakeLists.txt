@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(SynthFlow VERSION 0.0.27)
+project(SynthFlow VERSION 0.0.30)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -60,9 +60,15 @@ elseif(APPLE)
     # For now, just compile the stub version
 endif()
 
-# Interpreter
+# HTTP Server
+add_library(http_server compiler/src/http/http_server.cpp)
+if(WIN32)
+    target_link_libraries(http_server ws2_32)
+endif()
+
+# Interpreter (depends on http_server for web framework)
 add_library(interpreter compiler/src/interpreter/interpreter.cpp)
-target_link_libraries(interpreter ast http_client)
+target_link_libraries(interpreter ast http_client http_server)
 
 # JavaScript Transpiler
 add_library(js_transpiler compiler/src/codegen/js_transpiler.cpp)
@@ -74,7 +80,7 @@ target_link_libraries(js_transpiler ast)
 
 # Main Compiler Executable
 add_executable(synthflow compiler/src/main.cpp)
-target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js_transpiler ast lexer http_client CLI11::CLI11)
+target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js_transpiler ast lexer http_client http_server CLI11::CLI11)
 
 # LSP Server
 add_executable(synthflow-lsp lsp-server/src/main.cpp)
@@ -82,10 +88,10 @@ target_link_libraries(synthflow-lsp parser semantic ast lexer)
 
 # MCP Server
 add_executable(synthflow-mcp mcp-server/src/main.cpp)
-target_link_libraries(synthflow-mcp parser semantic interpreter ast lexer)
+target_link_libraries(synthflow-mcp parser semantic interpreter ast lexer http_server)
 
 # ------------------------------------------------------------------------------
 # Installation
 # ------------------------------------------------------------------------------
-install(TARGETS synthflow synthflow-lsp synthflow-mcp lexer parser ast semantic synthflow_codegen interpreter http_client DESTINATION bin)
+install(TARGETS synthflow synthflow-lsp synthflow-mcp lexer parser ast semantic synthflow_codegen interpreter http_client http_server DESTINATION bin)
 install(DIRECTORY compiler/include/ DESTINATION include)
