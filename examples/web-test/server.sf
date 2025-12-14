@@ -1,0 +1,163 @@
+// SynthFlow Web Framework Test - Simple Web Server
+// Demonstrates the web framework capabilities of v0.0.30
+
+// Define data for API
+let users = [
+    { id: 1, name: "Alice", email: "alice@example.com" },
+    { id: 2, name: "Bob", email: "bob@example.com" },
+    { id: 3, name: "Charlie", email: "charlie@example.com" }
+]
+
+// Home page - Full HTML with CSS
+route("/", html("
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>SynthFlow Web Server</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            .container {
+                background: white;
+                border-radius: 20px;
+                padding: 40px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                text-align: center;
+                max-width: 600px;
+            }
+            h1 {
+                color: #667eea;
+                margin-bottom: 10px;
+            }
+            .subtitle {
+                color: #666;
+                font-size: 18px;
+            }
+            .features {
+                text-align: left;
+                margin: 30px 0;
+                padding: 20px;
+                background: #f8f9fa;
+                border-radius: 10px;
+            }
+            .feature {
+                padding: 8px 0;
+                border-bottom: 1px solid #eee;
+            }
+            .feature:last-child {
+                border-bottom: none;
+            }
+            .emoji {
+                margin-right: 10px;
+            }
+            a {
+                display: inline-block;
+                margin: 10px;
+                padding: 12px 24px;
+                background: #667eea;
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                transition: transform 0.2s;
+            }
+            a:hover {
+                transform: scale(1.05);
+            }
+        </style>
+    </head>
+    <body>
+        <div class='container'>
+            <h1>SynthFlow Web Server</h1>
+            <p class='subtitle'>v0.0.30 - Web Framework Test</p>
+            
+            <div class='features'>
+                <div class='feature'><span class='emoji'>✅</span> HTTP Server Running</div>
+                <div class='feature'><span class='emoji'>✅</span> Route Handling</div>
+                <div class='feature'><span class='emoji'>✅</span> HTML Response</div>
+                <div class='feature'><span class='emoji'>✅</span> JSON API</div>
+            </div>
+            
+            <a href='/api/hello'>Test API</a>
+            <a href='/api/users'>Get Users</a>
+            <a href='/about'>About</a>
+        </div>
+    </body>
+    </html>
+"))
+
+// API endpoint - returns plain text
+route("/api/hello", text("Hello from SynthFlow Web Framework! The server is running successfully."))
+
+// API endpoint - returns JSON data
+route("/api/users", json(users))
+
+// Dynamic route with parameter
+route("/api/users/:id", (req) => {
+    let id = int(req.params.id) - 1
+    if (id >= 0 && id < len(users)) {
+        return json(users[id])
+    }
+    return json({ error: "User not found" })
+})
+
+// About page
+route("/about", html("
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>About - SynthFlow</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                background: #1a1a2e;
+                color: white;
+                min-height: 100vh;
+                margin: 0;
+                padding: 40px;
+            }
+            h1 { color: #667eea; }
+            p { line-height: 1.8; max-width: 600px; }
+            a { color: #667eea; }
+            ul { line-height: 2; }
+        </style>
+    </head>
+    <body>
+        <h1>About SynthFlow</h1>
+        <p>
+            SynthFlow is an AI-native programming language designed to bridge 
+            the gap between human intent and machine execution.
+        </p>
+        <h2>Features:</h2>
+        <ul>
+            <li>Clean, readable syntax</li>
+            <li>Native AI integration (Gemini)</li>
+            <li>Quantum computing simulation</li>
+            <li>Web framework with minimal API</li>
+            <li>Mobile development (React Native, PWA)</li>
+        </ul>
+        <p><a href='/'>Back Home</a></p>
+    </body>
+    </html>
+"))
+
+// Status API
+route("/api/status", json({
+    status: "running",
+    version: "0.0.30",
+    framework: "SynthFlow Web",
+    features: ["routes", "json", "html", "text"]
+}))
+
+// Start server
+print("Starting SynthFlow Web Server...")
+print("Server running at http://localhost:3000")
+print("Press Ctrl+C to stop")
+
+serve(3000)

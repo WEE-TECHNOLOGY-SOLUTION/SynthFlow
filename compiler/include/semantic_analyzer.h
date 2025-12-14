@@ -83,6 +83,32 @@ public:
         // HTTP built-in functions
         symbolTable["http_get"] = {"http_get", true, false, "", false};
         symbolTable["http_post"] = {"http_post", true, false, "", false};
+        
+        // Array built-in functions
+        symbolTable["append"] = {"append", true, false, "", false};
+        symbolTable["push"] = {"push", true, false, "", false};
+        symbolTable["typeof"] = {"typeof", true, false, "", false};
+        symbolTable["range"] = {"range", true, false, "", false};
+        
+        // Math built-in functions
+        symbolTable["abs"] = {"abs", true, false, "", false};
+        symbolTable["sqrt"] = {"sqrt", true, false, "", false};
+        symbolTable["pow"] = {"pow", true, false, "", false};
+        symbolTable["sin"] = {"sin", true, false, "", false};
+        symbolTable["cos"] = {"cos", true, false, "", false};
+        symbolTable["exp"] = {"exp", true, false, "", false};
+        symbolTable["ln"] = {"ln", true, false, "", false};
+        symbolTable["floor"] = {"floor", true, false, "", false};
+        symbolTable["ceil"] = {"ceil", true, false, "", false};
+        symbolTable["round"] = {"round", true, false, "", false};
+        
+        // Web Framework built-in functions
+        symbolTable["route"] = {"route", true, false, "", false};
+        symbolTable["serve"] = {"serve", true, false, "", false};
+        symbolTable["json"] = {"json", true, false, "", false};
+        symbolTable["html"] = {"html", true, false, "", false};
+        symbolTable["text"] = {"text", true, false, "", false};
+        symbolTable["use"] = {"use", true, false, "", false};
     }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);
