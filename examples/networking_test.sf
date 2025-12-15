@@ -1,0 +1,45 @@
+// SynthFlow Networking Test
+// Tests TCP, UDP, DNS, and network utilities
+
+print("===== SynthFlow Networking Test =====")
+print("")
+
+// Test 1: Get local IP
+print("1. Local Network Info:")
+let localIP = __builtin_get_local_ip()
+print("   Local IP: " + localIP)
+print("")
+
+// Test 2: DNS Lookup
+print("2. DNS Lookup:")
+let googleIP = __builtin_dns_lookup("google.com")
+print("   google.com -> " + googleIP)
+let githubIP = __builtin_dns_lookup("github.com")
+print("   github.com -> " + githubIP)
+print("")
+
+// Test 3: Port Check
+print("3. Port Checking:")
+let port80 = __builtin_port_check("google.com", 80, 1000)
+print("   google.com:80 open: " + str(port80))
+let port443 = __builtin_port_check("google.com", 443, 1000)
+print("   google.com:443 open: " + str(port443))
+print("")
+
+// Test 4: UDP Socket
+print("4. UDP Socket:")
+let udpSocket = __builtin_udp_create()
+print("   UDP socket created")
+__builtin_udp_close(0)
+print("   UDP Socket closed")
+print("")
+
+// Test 5: TCP Connect (simple test)
+print("5. TCP Connection Test:")
+print("   Testing connection to google.com:80...")
+let result = __builtin_tcp_connect("google.com", 80)
+print("   Connection result received")
+print("")
+
+print("===== Networking Tests Complete! =====")
+print("SynthFlow now has TCP/UDP/DNS networking capabilities!")

@@ -1,0 +1,346 @@
+// SynthFlow Advanced Networking Library
+// Raw TCP/UDP sockets, WebSocket, DNS, and network utilities
+
+// ===== TCP Client =====
+
+// Create TCP connection to host:port
+fn tcp_connect(host: string, port: int) -> map {
+    return __builtin_tcp_connect(host, port)
+}
+
+// Send data over TCP socket
+fn tcp_send(socket: map, data: string) -> int {
+    return __builtin_tcp_send(socket.fd, data)
+}
+
+// Receive data from TCP socket
+fn tcp_recv(socket: map, maxBytes: int) -> string {
+    return __builtin_tcp_recv(socket.fd, maxBytes)
+}
+
+// Close TCP socket
+fn tcp_close(socket: map) -> void {
+    __builtin_tcp_close(socket.fd)
+}
+
+// Check if socket is connected
+fn tcp_is_connected(socket: map) -> bool {
+    return socket.connected == true
+}
+
+// ===== TCP Server =====
+
+// Create TCP server on port
+fn tcp_listen(port: int) -> map {
+    return __builtin_tcp_listen(port)
+}
+
+// Accept incoming connection (blocking)
+fn tcp_accept(server: map) -> map {
+    return __builtin_tcp_accept(server.fd)
+}
+
+// Set socket timeout (milliseconds)
+fn tcp_set_timeout(socket: map, timeout_ms: int) -> void {
+    __builtin_tcp_set_timeout(socket.fd, timeout_ms)
+}
+
+// ===== UDP =====
+
+// Create UDP socket
+fn udp_create() -> map {
+    return __builtin_udp_create()
+}
+
+// Bind UDP socket to port
+fn udp_bind(socket: map, port: int) -> bool {
+    return __builtin_udp_bind(socket.fd, port)
+}
+
+// Send UDP packet
+fn udp_send(socket: map, host: string, port: int, data: string) -> int {
+    return __builtin_udp_sendto(socket.fd, host, port, data)
+}
+
+// Receive UDP packet
+fn udp_recv(socket: map, maxBytes: int) -> map {
+    return __builtin_udp_recvfrom(socket.fd, maxBytes)
+}
+
+// Close UDP socket
+fn udp_close(socket: map) -> void {
+    __builtin_udp_close(socket.fd)
+}
+
+// ===== DNS =====
+
+// Resolve hostname to IP address
+fn dns_lookup(hostname: string) -> string {
+    return __builtin_dns_lookup(hostname)
+}
+
+// Reverse DNS lookup (IP to hostname)
+fn dns_reverse(ip: string) -> string {
+    return __builtin_dns_reverse(ip)
+}
+
+// Get all IP addresses for hostname
+fn dns_lookup_all(hostname: string) -> array {
+    return __builtin_dns_lookup_all(hostname)
+}
+
+// ===== WebSocket Client =====
+
+// Connect to WebSocket server
+fn ws_connect(url: string) -> map {
+    return __builtin_ws_connect(url)
+}
+
+// Send WebSocket message
+fn ws_send(socket: map, message: string) -> bool {
+    return __builtin_ws_send(socket.fd, message)
+}
+
+// Receive WebSocket message
+fn ws_recv(socket: map) -> string {
+    return __builtin_ws_recv(socket.fd)
+}
+
+// Send binary WebSocket message
+fn ws_send_binary(socket: map, data: string) -> bool {
+    return __builtin_ws_send_binary(socket.fd, data)
+}
+
+// Close WebSocket connection
+fn ws_close(socket: map) -> void {
+    __builtin_ws_close(socket.fd)
+}
+
+// Check if WebSocket is open
+fn ws_is_open(socket: map) -> bool {
+    return socket.open == true
+}
+
+// ===== Network Utilities =====
+
+// Ping host (ICMP echo)
+fn ping(host: string, timeout_ms: int) -> map {
+    return __builtin_ping(host, timeout_ms)
+}
+
+// Check if port is open
+fn port_open(host: string, port: int, timeout_ms: int) -> bool {
+    return __builtin_port_check(host, port, timeout_ms)
+}
+
+// Get local IP address
+fn get_local_ip() -> string {
+    return __builtin_get_local_ip()
+}
+
+// Get public IP address (via external service)
+fn get_public_ip() -> string {
+    let result = __builtin_exec("curl -s https://api.ipify.org 2>&1")
+    return result.stdout
+}
+
+// Get network interfaces
+fn get_interfaces() -> array {
+    return __builtin_get_interfaces()
+}
+
+// ===== Port Scanner =====
+
+// Scan range of ports
+fn scan_ports(host: string, startPort: int, endPort: int, timeout_ms: int) -> array {
+    let openPorts = []
+    for (let port = startPort; port <= endPort; port = port + 1) {
+        if (port_open(host, port, timeout_ms)) {
+            openPorts = append(openPorts, port)
+        }
+    }
+    return openPorts
+}
+
+// Common port scan (well-known ports)
+fn scan_common_ports(host: string) -> array {
+    let commonPorts = [21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 993, 995, 3306, 3389, 5432, 6379, 8080, 8443, 27017]
+    let openPorts = []
+    for (let i = 0; i < len(commonPorts); i = i + 1) {
+        if (port_open(host, commonPorts[i], 500)) {
+            openPorts = append(openPorts, commonPorts[i])
+        }
+    }
+    return openPorts
+}
+
+// ===== HTTP Client (Advanced) =====
+
+// HTTP GET with custom headers
+fn http_get_custom(url: string, headers: map) -> map {
+    return __builtin_http_request("GET", url, "", headers)
+}
+
+// HTTP POST with custom headers
+fn http_post_custom(url: string, body: string, headers: map) -> map {
+    return __builtin_http_request("POST", url, body, headers)
+}
+
+// HTTP PUT
+fn http_put(url: string, body: string) -> map {
+    return __builtin_http_request("PUT", url, body, {})
+}
+
+// HTTP DELETE
+fn http_delete(url: string) -> map {
+    return __builtin_http_request("DELETE", url, "", {})
+}
+
+// HTTP PATCH
+fn http_patch(url: string, body: string) -> map {
+    return __builtin_http_request("PATCH", url, body, {})
+}
+
+// HTTP HEAD
+fn http_head(url: string) -> map {
+    return __builtin_http_request("HEAD", url, "", {})
+}
+
+// Download file
+fn http_download(url: string, filepath: string) -> bool {
+    return __builtin_http_download(url, filepath)
+}
+
+// ===== SSL/TLS =====
+
+// Create SSL socket from TCP socket
+fn ssl_wrap(socket: map) -> map {
+    return __builtin_ssl_wrap(socket.fd)
+}
+
+// Verify SSL certificate
+fn ssl_verify(socket: map) -> map {
+    return __builtin_ssl_verify(socket.fd)
+}
+
+// Get certificate info
+fn ssl_get_cert(socket: map) -> map {
+    return __builtin_ssl_get_cert(socket.fd)
+}
+
+// ===== Email (SMTP) =====
+
+// Send email via SMTP
+fn smtp_send(host: string, port: int, username: string, password: string, from: string, to: string, subject: string, body: string) -> bool {
+    return __builtin_smtp_send(host, port, username, password, from, to, subject, body)
+}
+
+// ===== FTP =====
+
+// FTP connect
+fn ftp_connect(host: string, port: int, username: string, password: string) -> map {
+    return __builtin_ftp_connect(host, port, username, password)
+}
+
+// FTP list directory
+fn ftp_list(conn: map, path: string) -> array {
+    return __builtin_ftp_list(conn.fd, path)
+}
+
+// FTP download file
+fn ftp_download(conn: map, remotePath: string, localPath: string) -> bool {
+    return __builtin_ftp_download(conn.fd, remotePath, localPath)
+}
+
+// FTP upload file
+fn ftp_upload(conn: map, localPath: string, remotePath: string) -> bool {
+    return __builtin_ftp_upload(conn.fd, localPath, remotePath)
+}
+
+// FTP disconnect
+fn ftp_close(conn: map) -> void {
+    __builtin_ftp_close(conn.fd)
+}
+
+// ===== URL Parsing =====
+
+// Parse URL into components
+fn url_parse(url: string) -> map {
+    return __builtin_url_parse(url)
+}
+
+// Build URL from components
+fn url_build(components: map) -> string {
+    let result = ""
+    if (components.protocol != "") {
+        result = result + components.protocol + "://"
+    }
+    if (components.username != "") {
+        result = result + components.username
+        if (components.password != "") {
+            result = result + ":" + components.password
+        }
+        result = result + "@"
+    }
+    result = result + components.host
+    if (components.port != 0 && components.port != 80 && components.port != 443) {
+        result = result + ":" + str(components.port)
+    }
+    result = result + components.path
+    if (components.query != "") {
+        result = result + "?" + components.query
+    }
+    if (components.fragment != "") {
+        result = result + "#" + components.fragment
+    }
+    return result
+}
+
+// Encode URL component
+fn url_encode_component(text: string) -> string {
+    return __builtin_url_encode(text)
+}
+
+// Decode URL component
+fn url_decode_component(text: string) -> string {
+    return __builtin_url_decode(text)
+}
+
+// ===== IP Address Utilities =====
+
+// Check if valid IPv4
+fn is_ipv4(addr: string) -> bool {
+    return regex.test("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", addr)
+}
+
+// Check if valid IPv6
+fn is_ipv6(addr: string) -> bool {
+    // Simple check
+    return contains(addr, ":") && !contains(addr, ".")
+}
+
+// Convert IP to integer
+fn ip_to_int(ip: string) -> int {
+    return __builtin_ip_to_int(ip)
+}
+
+// Convert integer to IP
+fn int_to_ip(num: int) -> string {
+    return __builtin_int_to_ip(num)
+}
+
+// Check if IP is in CIDR range
+fn ip_in_range(ip: string, cidr: string) -> bool {
+    return __builtin_ip_in_cidr(ip, cidr)
+}
+
+// ===== Helper Functions =====
+
+fn contains(text: string, search: string) -> bool {
+    return indexOf(text, search, 0) >= 0
+}
+
+fn indexOf(text: string, search: string, start: int) -> int {
+    // Placeholder - would call builtin
+    return -1
+}

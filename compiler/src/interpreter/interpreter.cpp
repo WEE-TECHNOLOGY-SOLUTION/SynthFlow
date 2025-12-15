@@ -13,8 +13,11 @@
 // Platform-specific includes for OS/subprocess functionality
 #ifdef _WIN32
 #include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <direct.h>
 #include <process.h>
+#pragma comment(lib, "ws2_32.lib")
 #define getcwd _getcwd
 #define chdir _chdir
 #define popen _popen
@@ -23,6 +26,10 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 #include <dirent.h>
 #include <pwd.h>
 #endif
@@ -1112,6 +1119,373 @@ void Interpreter::registerBuiltins() {
                 }
             }
             return Value("");
+        }
+    )));
+    
+    // ========================================
+    // NETWORKING BUILT-INS
+    // ========================================
+    
+    // __builtin_tcp_connect(host, port) - Connect TCP socket
+    globalEnv->define("__builtin_tcp_connect", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isInt()) {
+                throw std::runtime_error("__builtin_tcp_connect(host, port) requires string and int");
+            }
+            
+            std::string host = args[0].asString();
+            int port = static_cast<int>(args[1].asInt());
+            
+            #ifdef _WIN32
+            WSADATA wsaData;
+            WSAStartup(MAKEWORD(2, 2), &wsaData);
+            #endif
+            
+            int sock = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
+            if (sock < 0) {
+                auto result = std::make_shared<std::map<std::string, Value>>();
+                (*result)["fd"] = Value(static_cast<int64_t>(-1));
+                (*result)["connected"] = Value(false);
+                (*result)["error"] = Value("Failed to create socket");
+                return Value(result);
+            }
+            
+            struct sockaddr_in serverAddr;
+            memset(&serverAddr, 0, sizeof(serverAddr));
+            serverAddr.sin_family = AF_INET;
+            serverAddr.sin_port = htons(port);
+            
+            // Resolve hostname
+            struct hostent* he = gethostbyname(host.c_str());
+            if (he == nullptr) {
+                #ifdef _WIN32
+                closesocket(sock);
+                #else
+                close(sock);
+                #endif
+                auto result = std::make_shared<std::map<std::string, Value>>();
+                (*result)["fd"] = Value(static_cast<int64_t>(-1));
+                (*result)["connected"] = Value(false);
+                (*result)["error"] = Value("Failed to resolve hostname");
+                return Value(result);
+            }
+            memcpy(&serverAddr.sin_addr, he->h_addr_list[0], he->h_length);
+            
+            int connResult = connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+            if (connResult < 0) {
+                #ifdef _WIN32
+                closesocket(sock);
+                #else
+                close(sock);
+                #endif
+                auto result = std::make_shared<std::map<std::string, Value>>();
+                (*result)["fd"] = Value(static_cast<int64_t>(-1));
+                (*result)["connected"] = Value(false);
+                (*result)["error"] = Value("Connection failed");
+                return Value(result);
+            }
+            
+            auto result = std::make_shared<std::map<std::string, Value>>();
+            (*result)["fd"] = Value(static_cast<int64_t>(sock));
+            (*result)["connected"] = Value(true);
+            (*result)["host"] = Value(host);
+            (*result)["port"] = Value(static_cast<int64_t>(port));
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_tcp_send(fd, data) - Send data over TCP
+    globalEnv->define("__builtin_tcp_send", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isInt() || !args[1].isString()) {
+                throw std::runtime_error("__builtin_tcp_send(fd, data) requires int and string");
+            }
+            int sock = static_cast<int>(args[0].asInt());
+            std::string data = args[1].asString();
+            int sent = send(sock, data.c_str(), static_cast<int>(data.length()), 0);
+            return Value(static_cast<int64_t>(sent));
+        }
+    )));
+    
+    // __builtin_tcp_recv(fd, maxBytes) - Receive data from TCP
+    globalEnv->define("__builtin_tcp_recv", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isInt() || !args[1].isInt()) {
+                throw std::runtime_error("__builtin_tcp_recv(fd, maxBytes) requires two ints");
+            }
+            int sock = static_cast<int>(args[0].asInt());
+            int maxBytes = static_cast<int>(args[1].asInt());
+            std::vector<char> buffer(maxBytes + 1, 0);
+            int received = recv(sock, buffer.data(), maxBytes, 0);
+            if (received <= 0) return Value("");
+            return Value(std::string(buffer.data(), received));
+        }
+    )));
+    
+    // __builtin_tcp_close(fd) - Close TCP socket
+    globalEnv->define("__builtin_tcp_close", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) return Value();
+            int sock = static_cast<int>(args[0].asInt());
+            #ifdef _WIN32
+            closesocket(sock);
+            #else
+            close(sock);
+            #endif
+            return Value();
+        }
+    )));
+    
+    // __builtin_tcp_listen(port) - Create TCP server
+    globalEnv->define("__builtin_tcp_listen", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) {
+                throw std::runtime_error("__builtin_tcp_listen(port) requires int");
+            }
+            int port = static_cast<int>(args[0].asInt());
+            
+            #ifdef _WIN32
+            WSADATA wsaData;
+            WSAStartup(MAKEWORD(2, 2), &wsaData);
+            #endif
+            
+            int sock = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
+            if (sock < 0) {
+                auto result = std::make_shared<std::map<std::string, Value>>();
+                (*result)["fd"] = Value(static_cast<int64_t>(-1));
+                (*result)["listening"] = Value(false);
+                return Value(result);
+            }
+            
+            int opt = 1;
+            #ifdef _WIN32
+            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+            #else
+            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+            #endif
+            
+            struct sockaddr_in serverAddr;
+            memset(&serverAddr, 0, sizeof(serverAddr));
+            serverAddr.sin_family = AF_INET;
+            serverAddr.sin_addr.s_addr = INADDR_ANY;
+            serverAddr.sin_port = htons(port);
+            
+            if (bind(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+                #ifdef _WIN32
+                closesocket(sock);
+                #else
+                close(sock);
+                #endif
+                auto result = std::make_shared<std::map<std::string, Value>>();
+                (*result)["fd"] = Value(static_cast<int64_t>(-1));
+                (*result)["listening"] = Value(false);
+                (*result)["error"] = Value("Bind failed");
+                return Value(result);
+            }
+            
+            if (listen(sock, 10) < 0) {
+                #ifdef _WIN32
+                closesocket(sock);
+                #else
+                close(sock);
+                #endif
+                auto result = std::make_shared<std::map<std::string, Value>>();
+                (*result)["fd"] = Value(static_cast<int64_t>(-1));
+                (*result)["listening"] = Value(false);
+                (*result)["error"] = Value("Listen failed");
+                return Value(result);
+            }
+            
+            auto result = std::make_shared<std::map<std::string, Value>>();
+            (*result)["fd"] = Value(static_cast<int64_t>(sock));
+            (*result)["listening"] = Value(true);
+            (*result)["port"] = Value(static_cast<int64_t>(port));
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_tcp_accept(fd) - Accept incoming connection
+    globalEnv->define("__builtin_tcp_accept", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) {
+                throw std::runtime_error("__builtin_tcp_accept(fd) requires int");
+            }
+            int serverSock = static_cast<int>(args[0].asInt());
+            struct sockaddr_in clientAddr;
+            socklen_t clientLen = sizeof(clientAddr);
+            int clientSock = static_cast<int>(accept(serverSock, (struct sockaddr*)&clientAddr, &clientLen));
+            
+            if (clientSock < 0) {
+                auto result = std::make_shared<std::map<std::string, Value>>();
+                (*result)["fd"] = Value(static_cast<int64_t>(-1));
+                (*result)["connected"] = Value(false);
+                return Value(result);
+            }
+            
+            auto result = std::make_shared<std::map<std::string, Value>>();
+            (*result)["fd"] = Value(static_cast<int64_t>(clientSock));
+            (*result)["connected"] = Value(true);
+            (*result)["remote_addr"] = Value(std::string(inet_ntoa(clientAddr.sin_addr)));
+            (*result)["remote_port"] = Value(static_cast<int64_t>(ntohs(clientAddr.sin_port)));
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_dns_lookup(hostname) - DNS resolve
+    globalEnv->define("__builtin_dns_lookup", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_dns_lookup(hostname) requires string");
+            }
+            std::string hostname = args[0].asString();
+            
+            #ifdef _WIN32
+            WSADATA wsaData;
+            WSAStartup(MAKEWORD(2, 2), &wsaData);
+            #endif
+            
+            struct hostent* he = gethostbyname(hostname.c_str());
+            if (he == nullptr) return Value("");
+            
+            struct in_addr addr;
+            memcpy(&addr, he->h_addr_list[0], sizeof(struct in_addr));
+            return Value(std::string(inet_ntoa(addr)));
+        }
+    )));
+    
+    // __builtin_port_check(host, port, timeout_ms) - Check if port is open
+    globalEnv->define("__builtin_port_check", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 3) {
+                throw std::runtime_error("__builtin_port_check(host, port, timeout) requires 3 args");
+            }
+            std::string host = args[0].asString();
+            int port = static_cast<int>(args[1].asInt());
+            int timeout_ms = static_cast<int>(args[2].asInt());
+            
+            #ifdef _WIN32
+            WSADATA wsaData;
+            WSAStartup(MAKEWORD(2, 2), &wsaData);
+            #endif
+            
+            int sock = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
+            if (sock < 0) return Value(false);
+            
+            // Set timeout
+            #ifdef _WIN32
+            DWORD tv = timeout_ms;
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+            setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
+            #else
+            struct timeval tv;
+            tv.tv_sec = timeout_ms / 1000;
+            tv.tv_usec = (timeout_ms % 1000) * 1000;
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+            setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+            #endif
+            
+            struct sockaddr_in serverAddr;
+            memset(&serverAddr, 0, sizeof(serverAddr));
+            serverAddr.sin_family = AF_INET;
+            serverAddr.sin_port = htons(port);
+            
+            struct hostent* he = gethostbyname(host.c_str());
+            if (he == nullptr) {
+                #ifdef _WIN32
+                closesocket(sock);
+                #else
+                close(sock);
+                #endif
+                return Value(false);
+            }
+            memcpy(&serverAddr.sin_addr, he->h_addr_list[0], he->h_length);
+            
+            int result = connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+            #ifdef _WIN32
+            closesocket(sock);
+            #else
+            close(sock);
+            #endif
+            
+            return Value(result == 0);
+        }
+    )));
+    
+    // __builtin_get_local_ip() - Get local IP address
+    globalEnv->define("__builtin_get_local_ip", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            char hostname[256];
+            if (gethostname(hostname, sizeof(hostname)) != 0) {
+                return Value("127.0.0.1");
+            }
+            
+            #ifdef _WIN32
+            WSADATA wsaData;
+            WSAStartup(MAKEWORD(2, 2), &wsaData);
+            #endif
+            
+            struct hostent* he = gethostbyname(hostname);
+            if (he == nullptr) return Value("127.0.0.1");
+            
+            struct in_addr addr;
+            memcpy(&addr, he->h_addr_list[0], sizeof(struct in_addr));
+            return Value(std::string(inet_ntoa(addr)));
+        }
+    )));
+    
+    // __builtin_udp_create() - Create UDP socket
+    globalEnv->define("__builtin_udp_create", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            #ifdef _WIN32
+            WSADATA wsaData;
+            WSAStartup(MAKEWORD(2, 2), &wsaData);
+            #endif
+            
+            int sock = static_cast<int>(socket(AF_INET, SOCK_DGRAM, 0));
+            auto result = std::make_shared<std::map<std::string, Value>>();
+            (*result)["fd"] = Value(static_cast<int64_t>(sock));
+            (*result)["type"] = Value("udp");
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_udp_sendto(fd, host, port, data) - Send UDP packet
+    globalEnv->define("__builtin_udp_sendto", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 4) {
+                throw std::runtime_error("__builtin_udp_sendto requires fd, host, port, data");
+            }
+            int sock = static_cast<int>(args[0].asInt());
+            std::string host = args[1].asString();
+            int port = static_cast<int>(args[2].asInt());
+            std::string data = args[3].asString();
+            
+            struct sockaddr_in destAddr;
+            memset(&destAddr, 0, sizeof(destAddr));
+            destAddr.sin_family = AF_INET;
+            destAddr.sin_port = htons(port);
+            
+            struct hostent* he = gethostbyname(host.c_str());
+            if (he == nullptr) return Value(static_cast<int64_t>(-1));
+            memcpy(&destAddr.sin_addr, he->h_addr_list[0], he->h_length);
+            
+            int sent = sendto(sock, data.c_str(), static_cast<int>(data.length()), 0,
+                             (struct sockaddr*)&destAddr, sizeof(destAddr));
+            return Value(static_cast<int64_t>(sent));
+        }
+    )));
+    
+    // __builtin_udp_close(fd) - Close UDP socket
+    globalEnv->define("__builtin_udp_close", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) return Value();
+            int sock = static_cast<int>(args[0].asInt());
+            #ifdef _WIN32
+            closesocket(sock);
+            #else
+            close(sock);
+            #endif
+            return Value();
         }
     )));
 }

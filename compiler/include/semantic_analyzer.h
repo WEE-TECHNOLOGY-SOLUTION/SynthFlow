@@ -138,6 +138,20 @@ public:
         symbolTable["__builtin_sleep"] = {"__builtin_sleep", true, false, "", false};
         symbolTable["__builtin_substring"] = {"__builtin_substring", true, false, "", false};
         symbolTable["__builtin_which"] = {"__builtin_which", true, false, "", false};
+        
+        // Networking built-in functions
+        symbolTable["__builtin_tcp_connect"] = {"__builtin_tcp_connect", true, false, "", false};
+        symbolTable["__builtin_tcp_send"] = {"__builtin_tcp_send", true, false, "", false};
+        symbolTable["__builtin_tcp_recv"] = {"__builtin_tcp_recv", true, false, "", false};
+        symbolTable["__builtin_tcp_close"] = {"__builtin_tcp_close", true, false, "", false};
+        symbolTable["__builtin_tcp_listen"] = {"__builtin_tcp_listen", true, false, "", false};
+        symbolTable["__builtin_tcp_accept"] = {"__builtin_tcp_accept", true, false, "", false};
+        symbolTable["__builtin_dns_lookup"] = {"__builtin_dns_lookup", true, false, "", false};
+        symbolTable["__builtin_port_check"] = {"__builtin_port_check", true, false, "", false};
+        symbolTable["__builtin_get_local_ip"] = {"__builtin_get_local_ip", true, false, "", false};
+        symbolTable["__builtin_udp_create"] = {"__builtin_udp_create", true, false, "", false};
+        symbolTable["__builtin_udp_sendto"] = {"__builtin_udp_sendto", true, false, "", false};
+        symbolTable["__builtin_udp_close"] = {"__builtin_udp_close", true, false, "", false};
     }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);

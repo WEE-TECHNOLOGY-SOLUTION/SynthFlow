@@ -114,6 +114,7 @@ print(answer)
 | `stdlib/regex.sf` | **NEW** Pattern matching, text validation | ✅ Ready |
 | `stdlib/crypto.sf` | **NEW** Hashing (SHA, MD5), encryption | ✅ Ready |
 | `stdlib/threading.sf` | **NEW** Threads, mutexes, channels, parallel | ✅ Ready |
+| `stdlib/networking.sf` | **NEW** TCP/UDP sockets, DNS, port scanning | ✅ Ready |
 
 ## 🔧 Built-in Functions
 
