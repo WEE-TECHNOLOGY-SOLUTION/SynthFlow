@@ -447,15 +447,290 @@ fn createMock() -> map {
     }
 }
 
-// Create spy on function
-fn createSpy(targetFn: fn) -> map {
-    return {
+// ===== Mocking Framework =====
+
+// Mock registry for tracking all mocks
+let mockRegistry = {
+    "mocks": [],
+    "spies": [],
+    "stubs": []
+}
+
+// Create a mock function
+fn createMock(name: string) -> map {
+    let mock = {
+        "name": name,
         "calls": [],
-        "originalFn": targetFn,
-        "fn": fn(...args) {
-            // Record call and forward
+        "callCount": 0,
+        "returnValue": null,
+        "returnValues": [],
+        "throwError": null,
+        "implementation": null,
+        "calledWith": [],
+        
+        // Call the mock
+        "call": fn(...args) -> any {
+            mock.calls = append(mock.calls, {
+                "args": args,
+                "timestamp": __builtin_time_ms()
+            })
+            mock.callCount = mock.callCount + 1
+            mock.calledWith = args
+            
+            if (mock.throwError != null) {
+                throw(mock.throwError)
+            }
+            
+            if (mock.implementation != null) {
+                return mock.implementation(args)
+            }
+            
+            if (len(mock.returnValues) > 0) {
+                let idx = min(mock.callCount - 1, len(mock.returnValues) - 1)
+                return mock.returnValues[idx]
+            }
+            
+            return mock.returnValue
         }
     }
+    
+    mockRegistry.mocks = append(mockRegistry.mocks, mock)
+    return mock
+}
+
+// Set return value for mock
+fn mockReturnValue(mock: map, value: any) -> map {
+    mock.returnValue = value
+    return mock
+}
+
+// Set multiple return values (one per call)
+fn mockReturnValueOnce(mock: map, values: array) -> map {
+    mock.returnValues = values
+    return mock
+}
+
+// Set mock implementation
+fn mockImplementation(mock: map, impl: fn) -> map {
+    mock.implementation = impl
+    return mock
+}
+
+// Set mock to throw error
+fn mockThrows(mock: map, errorMessage: string) -> map {
+    mock.throwError = errorMessage
+    return mock
+}
+
+// Create a spy that wraps an existing function
+fn createSpy(name: string, targetFn: fn) -> map {
+    let spy = {
+        "name": name,
+        "originalFn": targetFn,
+        "calls": [],
+        "callCount": 0,
+        "returnValues": [],
+        "calledWith": [],
+        
+        // Call the spy (forwards to original)
+        "call": fn(...args) -> any {
+            spy.calls = append(spy.calls, {
+                "args": args,
+                "timestamp": __builtin_time_ms()
+            })
+            spy.callCount = spy.callCount + 1
+            spy.calledWith = args
+            
+            let result = targetFn(args)
+            spy.returnValues = append(spy.returnValues, result)
+            return result
+        }
+    }
+    
+    mockRegistry.spies = append(mockRegistry.spies, spy)
+    return spy
+}
+
+// Create a stub (mock with preset behavior)
+fn createStub(name: string, returnValue: any) -> map {
+    let stub = createMock(name)
+    stub.returnValue = returnValue
+    mockRegistry.stubs = append(mockRegistry.stubs, stub)
+    return stub
+}
+
+// Create a stub that returns different values each call
+fn createStubSequence(name: string, values: array) -> map {
+    let stub = createMock(name)
+    stub.returnValues = values
+    mockRegistry.stubs = append(mockRegistry.stubs, stub)
+    return stub
+}
+
+// ===== Mock Verification =====
+
+// Verify mock was called
+fn verifyCalled(mock: map) -> bool {
+    if (mock.callCount == 0) {
+        throw("Expected " + mock.name + " to have been called, but it was not called")
+        return false
+    }
+    return true
+}
+
+// Verify mock was not called
+fn verifyNotCalled(mock: map) -> bool {
+    if (mock.callCount > 0) {
+        throw("Expected " + mock.name + " to not have been called, but it was called " + str(mock.callCount) + " times")
+        return false
+    }
+    return true
+}
+
+// Verify mock was called exactly n times
+fn verifyCalledTimes(mock: map, times: int) -> bool {
+    if (mock.callCount != times) {
+        throw("Expected " + mock.name + " to have been called " + str(times) + " times, but it was called " + str(mock.callCount) + " times")
+        return false
+    }
+    return true
+}
+
+// Verify mock was called at least n times
+fn verifyCalledAtLeast(mock: map, times: int) -> bool {
+    if (mock.callCount < times) {
+        throw("Expected " + mock.name + " to have been called at least " + str(times) + " times, but it was called " + str(mock.callCount) + " times")
+        return false
+    }
+    return true
+}
+
+// Verify mock was called with specific arguments
+fn verifyCalledWith(mock: map, expectedArgs: array) -> bool {
+    for (let i = 0; i < len(mock.calls); i = i + 1) {
+        let callArgs = mock.calls[i].args
+        if (arraysEqual(callArgs, expectedArgs)) {
+            return true
+        }
+    }
+    throw("Expected " + mock.name + " to have been called with " + str(expectedArgs) + ", but it was not")
+    return false
+}
+
+// Verify last call was with specific arguments
+fn verifyLastCalledWith(mock: map, expectedArgs: array) -> bool {
+    if (mock.callCount == 0) {
+        throw("Expected " + mock.name + " to have been called, but it was not called")
+        return false
+    }
+    let lastCall = mock.calls[mock.callCount - 1]
+    if (!arraysEqual(lastCall.args, expectedArgs)) {
+        throw("Expected " + mock.name + " to have been last called with " + str(expectedArgs) + ", but was called with " + str(lastCall.args))
+        return false
+    }
+    return true
+}
+
+// Get all calls to mock
+fn getMockCalls(mock: map) -> array {
+    return mock.calls
+}
+
+// Get nth call arguments
+fn getNthCall(mock: map, n: int) -> map {
+    if (n < 0 || n >= len(mock.calls)) {
+        return { "error": "Call index out of range" }
+    }
+    return mock.calls[n]
+}
+
+// Reset mock state
+fn resetMock(mock: map) -> map {
+    mock.calls = []
+    mock.callCount = 0
+    mock.calledWith = []
+    mock.returnValues = []
+    return mock
+}
+
+// Reset all mocks
+fn resetAllMocks() -> void {
+    for (let i = 0; i < len(mockRegistry.mocks); i = i + 1) {
+        resetMock(mockRegistry.mocks[i])
+    }
+    for (let i = 0; i < len(mockRegistry.spies); i = i + 1) {
+        resetMock(mockRegistry.spies[i])
+    }
+    for (let i = 0; i < len(mockRegistry.stubs); i = i + 1) {
+        resetMock(mockRegistry.stubs[i])
+    }
+}
+
+// Clear all mocks from registry
+fn clearAllMocks() -> void {
+    mockRegistry.mocks = []
+    mockRegistry.spies = []
+    mockRegistry.stubs = []
+}
+
+// ===== Mock Object =====
+
+// Create a mock object with multiple methods
+fn createMockObject(methodNames: array) -> map {
+    let mockObj = {}
+    for (let i = 0; i < len(methodNames); i = i + 1) {
+        let methodName = methodNames[i]
+        mockObj[methodName] = createMock(methodName)
+    }
+    return mockObj
+}
+
+// ===== Fake Timers =====
+
+let fakeTimers = {
+    "enabled": false,
+    "currentTime": 0,
+    "timers": []
+}
+
+// Enable fake timers
+fn useFakeTimers() -> void {
+    fakeTimers.enabled = true
+    fakeTimers.currentTime = 0
+    fakeTimers.timers = []
+}
+
+// Advance time by ms
+fn advanceTimersByTime(ms: int) -> void {
+    if (!fakeTimers.enabled) { return }
+    fakeTimers.currentTime = fakeTimers.currentTime + ms
+    
+    // Execute due timers
+    for (let i = 0; i < len(fakeTimers.timers); i = i + 1) {
+        let timer = fakeTimers.timers[i]
+        if (timer.executeAt <= fakeTimers.currentTime && !timer.executed) {
+            timer.callback()
+            timer.executed = true
+        }
+    }
+}
+
+// Add a timer
+fn addFakeTimer(callback: fn, delayMs: int) -> int {
+    let timer = {
+        "id": len(fakeTimers.timers),
+        "callback": callback,
+        "executeAt": fakeTimers.currentTime + delayMs,
+        "executed": false
+    }
+    fakeTimers.timers = append(fakeTimers.timers, timer)
+    return timer.id
+}
+
+// Restore real timers
+fn useRealTimers() -> void {
+    fakeTimers.enabled = false
+    fakeTimers.timers = []
 }
 
 // Wait for condition
@@ -473,15 +748,18 @@ fn waitFor(conditionFn: fn, timeout: int) -> bool {
 // ===== Utility Functions =====
 
 fn getCurrentTimeMs() -> int {
-    return 0  // Placeholder
+    if (fakeTimers.enabled) {
+        return fakeTimers.currentTime
+    }
+    return __builtin_time_ms()
 }
 
 fn sleep(ms: int) -> void {
-    // Placeholder
+    __builtin_sleep(ms)
 }
 
 fn contains(haystack: string, needle: string) -> bool {
-    return true  // Placeholder
+    return __builtin_contains(haystack, needle)
 }
 
 fn abs(x: float) -> float {
@@ -490,6 +768,19 @@ fn abs(x: float) -> float {
 }
 
 fn throw(message: string) -> void {
-    // Placeholder - would throw exception
     print("[ASSERTION FAILED] " + message)
 }
+
+fn arraysEqual(a: array, b: array) -> bool {
+    if (len(a) != len(b)) { return false }
+    for (let i = 0; i < len(a); i = i + 1) {
+        if (a[i] != b[i]) { return false }
+    }
+    return true
+}
+
+fn min(a: int, b: int) -> int {
+    if (a < b) { return a }
+    return b
+}
+
