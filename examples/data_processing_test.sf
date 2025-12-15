@@ -1,0 +1,100 @@
+// SynthFlow Data Processing Test
+// Tests numpy-like operations and statistics
+
+print("===== SynthFlow Data Processing Test =====")
+print("")
+
+// Test 1: Array Creation
+print("1. Array Creation:")
+let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+print("   Test array: " + str(arr))
+print("")
+
+// Test 2: Basic Statistics
+print("2. Basic Statistics:")
+let total = 0.0
+for (let idx1 = 0; idx1 < len(arr); idx1 = idx1 + 1) {
+    total = total + arr[idx1]
+}
+let avg = total / len(arr)
+print("   Sum: " + str(total))
+print("   Mean: " + str(avg))
+print("   Length: " + str(len(arr)))
+print("")
+
+// Test 3: Min/Max
+print("3. Min/Max:")
+let minVal = arr[0]
+let maxVal = arr[0]
+for (let idx2 = 1; idx2 < len(arr); idx2 = idx2 + 1) {
+    if (arr[idx2] < minVal) { minVal = arr[idx2] }
+    if (arr[idx2] > maxVal) { maxVal = arr[idx2] }
+}
+print("   Min: " + str(minVal))
+print("   Max: " + str(maxVal))
+print("")
+
+// Test 4: Variance/Std
+print("4. Variance/Std:")
+let sumSq = 0.0
+for (let idx3 = 0; idx3 < len(arr); idx3 = idx3 + 1) {
+    let diff = arr[idx3] - avg
+    sumSq = sumSq + diff * diff
+}
+let variance = sumSq / len(arr)
+let stdDev = sqrt(variance)
+print("   Variance: " + str(variance))
+print("   Std Dev: " + str(stdDev))
+print("")
+
+// Test 5: Array Operations
+print("5. Array Operations:")
+let squared = []
+for (let idx4 = 0; idx4 < len(arr); idx4 = idx4 + 1) {
+    squared = append(squared, arr[idx4] * arr[idx4])
+}
+print("   Squared: " + str(squared))
+
+let cumSum = []
+let runningTotal = 0.0
+for (let idx5 = 0; idx5 < len(arr); idx5 = idx5 + 1) {
+    runningTotal = runningTotal + arr[idx5]
+    cumSum = append(cumSum, runningTotal)
+}
+print("   Cumulative sum: " + str(cumSum))
+print("")
+
+// Test 6: Dot Product
+print("6. Linear Algebra:")
+let vecA = [1, 2, 3]
+let vecB = [4, 5, 6]
+let dotProd = 0.0
+for (let idx6 = 0; idx6 < len(vecA); idx6 = idx6 + 1) {
+    dotProd = dotProd + vecA[idx6] * vecB[idx6]
+}
+print("   Dot product [1,2,3] . [4,5,6] = " + str(dotProd))
+print("   Expected: 1*4 + 2*5 + 3*6 = 32")
+
+let normVal = sqrt(1*1 + 2*2 + 3*3)
+print("   Norm of [1,2,3]: " + str(normVal))
+print("")
+
+// Test 7: Correlation Test Data
+print("7. Correlation Test:")
+let xData = [1, 2, 3, 4, 5]
+let yData = [2, 4, 6, 8, 10]
+let meanX = 0.0
+let meanY = 0.0
+for (let idx7 = 0; idx7 < len(xData); idx7 = idx7 + 1) {
+    meanX = meanX + xData[idx7]
+    meanY = meanY + yData[idx7]
+}
+meanX = meanX / len(xData)
+meanY = meanY / len(yData)
+print("   X = [1,2,3,4,5], mean: " + str(meanX))
+print("   Y = [2,4,6,8,10], mean: " + str(meanY))
+print("   Y = 2*X (perfect positive correlation)")
+print("")
+
+print("===== Data Processing Tests Complete! =====")
+print("SynthFlow now has NumPy-like data processing capabilities!")

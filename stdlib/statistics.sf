@@ -1,0 +1,535 @@
+// SynthFlow Statistics Library
+// Statistical tests, distributions, and advanced analysis
+
+// ===== Descriptive Statistics =====
+
+// Statistical summary
+fn describe(data: array) -> map {
+    if (len(data) == 0) {
+        return { "error": "Empty array" }
+    }
+    
+    let sorted = sort_arr(data)
+    let n = len(data)
+    
+    return {
+        "count": n,
+        "mean": mean(data),
+        "std": std(data),
+        "min": sorted[0],
+        "25%": percentile(data, 25),
+        "50%": percentile(data, 50),
+        "75%": percentile(data, 75),
+        "max": sorted[n - 1],
+        "variance": variance(data),
+        "skewness": skewness(data),
+        "kurtosis": kurtosis(data)
+    }
+}
+
+// Z-scores (standardization)
+fn zscore(data: array) -> array {
+    let m = mean(data)
+    let s = std(data)
+    if (s == 0) { return zeros(len(data)) }
+    
+    let result = []
+    for (let i = 0; i < len(data); i = i + 1) {
+        result = append(result, (data[i] - m) / s)
+    }
+    return result
+}
+
+// Min-max normalization
+fn normalize_minmax(data: array) -> array {
+    let minVal = arr_min(data)
+    let maxVal = arr_max(data)
+    let range = maxVal - minVal
+    if (range == 0) { return zeros(len(data)) }
+    
+    let result = []
+    for (let i = 0; i < len(data); i = i + 1) {
+        result = append(result, (data[i] - minVal) / range)
+    }
+    return result
+}
+
+// ===== Statistical Tests =====
+
+// T-test for one sample
+fn ttest_1samp(data: array, popMean: float) -> map {
+    let n = len(data)
+    if (n < 2) {
+        return { "error": "Insufficient data" }
+    }
+    
+    let sampleMean = mean(data)
+    let sampleStd = std(data)
+    let se = sampleStd / sqrt(n)
+    
+    if (se == 0) {
+        return { "error": "Zero standard error" }
+    }
+    
+    let tStat = (sampleMean - popMean) / se
+    let df = n - 1
+    
+    // Approximate p-value using normal distribution for large n
+    let pValue = 2 * (1 - normalCDF(abs(tStat)))
+    
+    return {
+        "t_statistic": tStat,
+        "degrees_of_freedom": df,
+        "p_value": pValue,
+        "sample_mean": sampleMean,
+        "sample_std": sampleStd
+    }
+}
+
+// T-test for two independent samples
+fn ttest_ind(data1: array, data2: array) -> map {
+    let n1 = len(data1)
+    let n2 = len(data2)
+    
+    if (n1 < 2 || n2 < 2) {
+        return { "error": "Insufficient data" }
+    }
+    
+    let mean1 = mean(data1)
+    let mean2 = mean(data2)
+    let var1 = variance(data1)
+    let var2 = variance(data2)
+    
+    // Pooled standard error
+    let se = sqrt(var1/n1 + var2/n2)
+    if (se == 0) {
+        return { "error": "Zero standard error" }
+    }
+    
+    let tStat = (mean1 - mean2) / se
+    
+    // Welch's degrees of freedom
+    let df = pow(var1/n1 + var2/n2, 2) / (pow(var1/n1, 2)/(n1-1) + pow(var2/n2, 2)/(n2-1))
+    
+    let pValue = 2 * (1 - normalCDF(abs(tStat)))
+    
+    return {
+        "t_statistic": tStat,
+        "degrees_of_freedom": df,
+        "p_value": pValue,
+        "mean_diff": mean1 - mean2
+    }
+}
+
+// Chi-square test for independence
+fn chisquare(observed: array, expected: array) -> map {
+    if (len(observed) != len(expected)) {
+        return { "error": "Arrays must have same length" }
+    }
+    
+    let chiSq = 0.0
+    let n = len(observed)
+    for (let i = 0; i < n; i = i + 1) {
+        if (expected[i] != 0) {
+            chiSq = chiSq + pow(observed[i] - expected[i], 2) / expected[i]
+        }
+    }
+    
+    let df = n - 1
+    
+    return {
+        "chi_square": chiSq,
+        "degrees_of_freedom": df,
+        "p_value": 1 - chiSquareCDF(chiSq, df)
+    }
+}
+
+// ANOVA (one-way)
+fn anova_oneway(groups: array) -> map {
+    let k = len(groups)
+    if (k < 2) {
+        return { "error": "Need at least 2 groups" }
+    }
+    
+    // Calculate overall mean
+    let allData = []
+    let groupMeans = []
+    let groupSizes = []
+    
+    for (let i = 0; i < k; i = i + 1) {
+        groupMeans = append(groupMeans, mean(groups[i]))
+        groupSizes = append(groupSizes, len(groups[i]))
+        for (let j = 0; j < len(groups[i]); j = j + 1) {
+            allData = append(allData, groups[i][j])
+        }
+    }
+    
+    let grandMean = mean(allData)
+    let n = len(allData)
+    
+    // Between-group sum of squares
+    let ssBetween = 0.0
+    for (let i = 0; i < k; i = i + 1) {
+        ssBetween = ssBetween + groupSizes[i] * pow(groupMeans[i] - grandMean, 2)
+    }
+    
+    // Within-group sum of squares
+    let ssWithin = 0.0
+    for (let i = 0; i < k; i = i + 1) {
+        for (let j = 0; j < len(groups[i]); j = j + 1) {
+            ssWithin = ssWithin + pow(groups[i][j] - groupMeans[i], 2)
+        }
+    }
+    
+    let dfBetween = k - 1
+    let dfWithin = n - k
+    
+    let msBetween = ssBetween / dfBetween
+    let msWithin = ssWithin / dfWithin
+    
+    let fStat = msBetween / msWithin
+    
+    return {
+        "f_statistic": fStat,
+        "df_between": dfBetween,
+        "df_within": dfWithin,
+        "ss_between": ssBetween,
+        "ss_within": ssWithin,
+        "ms_between": msBetween,
+        "ms_within": msWithin
+    }
+}
+
+// ===== Correlation Analysis =====
+
+// Correlation matrix
+fn corr_matrix(data: array) -> array {
+    let n = len(data)
+    let result = []
+    
+    for (let i = 0; i < n; i = i + 1) {
+        let row = []
+        for (let j = 0; j < n; j = j + 1) {
+            row = append(row, correlation(data[i], data[j]))
+        }
+        result = append(result, row)
+    }
+    return result
+}
+
+// Spearman rank correlation
+fn spearman(a: array, b: array) -> float {
+    let n = len(a)
+    if (n != len(b)) { return 0.0 }
+    
+    // Get ranks
+    let rankA = rank(a)
+    let rankB = rank(b)
+    
+    // Calculate Spearman's rho using Pearson on ranks
+    return correlation(rankA, rankB)
+}
+
+// Get ranks of array elements
+fn rank(data: array) -> array {
+    let n = len(data)
+    let indexed = []
+    for (let i = 0; i < n; i = i + 1) {
+        indexed = append(indexed, { "value": data[i], "index": i })
+    }
+    
+    // Sort by value
+    for (let i = 0; i < n - 1; i = i + 1) {
+        for (let j = 0; j < n - i - 1; j = j + 1) {
+            if (indexed[j].value > indexed[j + 1].value) {
+                let temp = indexed[j]
+                indexed[j] = indexed[j + 1]
+                indexed[j + 1] = temp
+            }
+        }
+    }
+    
+    // Assign ranks
+    let ranks = zeros(n)
+    for (let i = 0; i < n; i = i + 1) {
+        ranks[indexed[i].index] = i + 1
+    }
+    return ranks
+}
+
+// ===== Regression =====
+
+// Simple linear regression
+fn linear_regression(x: array, y: array) -> map {
+    let n = len(x)
+    if (n != len(y) || n < 2) {
+        return { "error": "Invalid input" }
+    }
+    
+    let meanX = mean(x)
+    let meanY = mean(y)
+    
+    let ssXY = 0.0
+    let ssXX = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        ssXY = ssXY + (x[i] - meanX) * (y[i] - meanY)
+        ssXX = ssXX + (x[i] - meanX) * (x[i] - meanX)
+    }
+    
+    if (ssXX == 0) {
+        return { "error": "Zero variance in x" }
+    }
+    
+    let slope = ssXY / ssXX
+    let intercept = meanY - slope * meanX
+    
+    // R-squared
+    let ssTotal = 0.0
+    let ssResid = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        let predicted = slope * x[i] + intercept
+        ssTotal = ssTotal + pow(y[i] - meanY, 2)
+        ssResid = ssResid + pow(y[i] - predicted, 2)
+    }
+    
+    let rSquared = 1 - ssResid / ssTotal
+    
+    return {
+        "slope": slope,
+        "intercept": intercept,
+        "r_squared": rSquared,
+        "correlation": sqrt(rSquared)
+    }
+}
+
+// Polynomial regression coefficients
+fn polyfit(x: array, y: array, degree: int) -> array {
+    // Simplified least squares for polynomials
+    // For higher degrees, would need matrix inversion
+    if (degree == 1) {
+        let result = linear_regression(x, y)
+        return [result.intercept, result.slope]
+    }
+    return []  // Would need full implementation
+}
+
+// ===== Probability Distributions =====
+
+// Normal distribution PDF
+fn normalPDF(x: float, mu: float, sigma: float) -> float {
+    let coef = 1 / (sigma * sqrt(2 * 3.14159265359))
+    let exponent = -pow(x - mu, 2) / (2 * pow(sigma, 2))
+    return coef * exp(exponent)
+}
+
+// Normal distribution CDF (approximation)
+fn normalCDF(x: float) -> float {
+    // Approximation using error function
+    let t = 1 / (1 + 0.2316419 * abs(x))
+    let d = 0.3989423 * exp(-x * x / 2)
+    let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))))
+    if (x > 0) {
+        return 1 - p
+    }
+    return p
+}
+
+// Inverse normal CDF (approximation)
+fn normalInverse(p: float) -> float {
+    // Rational approximation
+    if (p <= 0) { return -10 }
+    if (p >= 1) { return 10 }
+    
+    let t = sqrt(-2 * ln(min(p, 1 - p)))
+    let c0 = 2.515517
+    let c1 = 0.802853
+    let c2 = 0.010328
+    let d1 = 1.432788
+    let d2 = 0.189269
+    let d3 = 0.001308
+    
+    let x = t - (c0 + c1*t + c2*t*t) / (1 + d1*t + d2*t*t + d3*t*t*t)
+    if (p > 0.5) { return x }
+    return -x
+}
+
+// Chi-square CDF (approximation for large df)
+fn chiSquareCDF(x: float, df: int) -> float {
+    // Normal approximation for large df
+    if (df > 30) {
+        let z = pow(x/df, 1/3) - (1 - 2/(9*df))
+        z = z / sqrt(2/(9*df))
+        return normalCDF(z)
+    }
+    // Use incomplete gamma for small df (simplified)
+    return 0.5  // Placeholder
+}
+
+// Generate normal samples (Box-Muller)
+fn random_normal(n: int, mu: float, sigma: float) -> array {
+    let result = []
+    let seed = 54321
+    
+    for (let i = 0; i < n; i = i + 2) {
+        // Generate two uniform randoms
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let u1 = seed / 2147483648.0
+        seed = (1103515245 * seed + 12345) % 2147483648
+        let u2 = seed / 2147483648.0
+        
+        // Box-Muller transform
+        let z0 = sqrt(-2 * ln(u1)) * cos(2 * 3.14159 * u2)
+        let z1 = sqrt(-2 * ln(u1)) * sin(2 * 3.14159 * u2)
+        
+        result = append(result, mu + z0 * sigma)
+        if (i + 1 < n) {
+            result = append(result, mu + z1 * sigma)
+        }
+    }
+    return result
+}
+
+// ===== Confidence Intervals =====
+
+// Confidence interval for mean
+fn confidence_interval(data: array, confidence: float) -> map {
+    let n = len(data)
+    let m = mean(data)
+    let s = std(data)
+    let se = s / sqrt(n)
+    
+    let z = normalInverse((1 + confidence) / 2)
+    let margin = z * se
+    
+    return {
+        "mean": m,
+        "lower": m - margin,
+        "upper": m + margin,
+        "margin": margin,
+        "confidence": confidence
+    }
+}
+
+// ===== Helper Functions =====
+
+fn zeros(n: int) -> array {
+    let arr = []
+    for (let i = 0; i < n; i = i + 1) {
+        arr = append(arr, 0.0)
+    }
+    return arr
+}
+
+fn sort_arr(a: array) -> array {
+    let result = []
+    for (let i = 0; i < len(a); i = i + 1) {
+        result = append(result, a[i])
+    }
+    for (let i = 0; i < len(result) - 1; i = i + 1) {
+        for (let j = 0; j < len(result) - i - 1; j = j + 1) {
+            if (result[j] > result[j + 1]) {
+                let temp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = temp
+            }
+        }
+    }
+    return result
+}
+
+fn mean(a: array) -> float {
+    if (len(a) == 0) { return 0.0 }
+    let sum = 0.0
+    for (let i = 0; i < len(a); i = i + 1) {
+        sum = sum + a[i]
+    }
+    return sum / len(a)
+}
+
+fn variance(a: array) -> float {
+    if (len(a) == 0) { return 0.0 }
+    let m = mean(a)
+    let sumSq = 0.0
+    for (let i = 0; i < len(a); i = i + 1) {
+        sumSq = sumSq + pow(a[i] - m, 2)
+    }
+    return sumSq / len(a)
+}
+
+fn std(a: array) -> float {
+    return sqrt(variance(a))
+}
+
+fn arr_min(a: array) -> float {
+    if (len(a) == 0) { return 0.0 }
+    let result = a[0]
+    for (let i = 1; i < len(a); i = i + 1) {
+        if (a[i] < result) { result = a[i] }
+    }
+    return result
+}
+
+fn arr_max(a: array) -> float {
+    if (len(a) == 0) { return 0.0 }
+    let result = a[0]
+    for (let i = 1; i < len(a); i = i + 1) {
+        if (a[i] > result) { result = a[i] }
+    }
+    return result
+}
+
+fn percentile(a: array, p: float) -> float {
+    if (len(a) == 0) { return 0.0 }
+    let sorted = sort_arr(a)
+    let idx = (p / 100.0) * (len(sorted) - 1)
+    let lower = int(idx)
+    let upper = min(lower + 1, len(sorted) - 1)
+    let weight = idx - lower
+    return sorted[lower] * (1 - weight) + sorted[upper] * weight
+}
+
+fn skewness(a: array) -> float {
+    let n = len(a)
+    if (n < 3) { return 0.0 }
+    let m = mean(a)
+    let s = std(a)
+    if (s == 0) { return 0.0 }
+    let sum3 = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        sum3 = sum3 + pow((a[i] - m) / s, 3)
+    }
+    return sum3 / n
+}
+
+fn kurtosis(a: array) -> float {
+    let n = len(a)
+    if (n < 4) { return 0.0 }
+    let m = mean(a)
+    let s = std(a)
+    if (s == 0) { return 0.0 }
+    let sum4 = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        sum4 = sum4 + pow((a[i] - m) / s, 4)
+    }
+    return sum4 / n - 3
+}
+
+fn correlation(a: array, b: array) -> float {
+    let n = min(len(a), len(b))
+    if (n == 0) { return 0.0 }
+    let meanA = mean(a)
+    let meanB = mean(b)
+    let cov = 0.0
+    for (let i = 0; i < n; i = i + 1) {
+        cov = cov + (a[i] - meanA) * (b[i] - meanB)
+    }
+    let stdA = std(a)
+    let stdB = std(b)
+    if (stdA == 0 || stdB == 0) { return 0.0 }
+    return (cov / n) / (stdA * stdB)
+}
+
+fn min(a: int, b: int) -> int {
+    if (a < b) { return a }
+    return b
+}

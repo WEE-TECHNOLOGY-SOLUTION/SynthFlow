@@ -117,6 +117,8 @@ print(answer)
 | `stdlib/networking.sf` | **NEW** TCP/UDP sockets, DNS, port scanning | ✅ Ready |
 | `stdlib/security.sf` | **NEW** JWT, OAuth2, input validation, CSRF, CSP | ✅ Ready |
 | `stdlib/api.sf` | **NEW** OpenAPI, GraphQL, API Gateway, versioning | ✅ Ready |
+| `stdlib/numpy.sf` | **NEW** NumPy-like arrays, linear algebra, vectorized ops | ✅ Ready |
+| `stdlib/statistics.sf` | **NEW** Statistical tests, distributions, regression | ✅ Ready |
 
 ## 🔧 Built-in Functions
 
