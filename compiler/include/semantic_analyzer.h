@@ -175,6 +175,31 @@ public:
         symbolTable["__builtin_index_of"] = {"__builtin_index_of", true, false, "", false};
         symbolTable["__builtin_uppercase"] = {"__builtin_uppercase", true, false, "", false};
         symbolTable["__builtin_ends_with"] = {"__builtin_ends_with", true, false, "", false};
+        
+        // FFI / Systems built-in functions
+        symbolTable["__builtin_alloc_buffer"] = {"__builtin_alloc_buffer", true, false, "", false};
+        symbolTable["__builtin_free_buffer"] = {"__builtin_free_buffer", true, false, "", false};
+        symbolTable["__builtin_buffer_write"] = {"__builtin_buffer_write", true, false, "", false};
+        symbolTable["__builtin_buffer_read"] = {"__builtin_buffer_read", true, false, "", false};
+        symbolTable["__builtin_time_ms"] = {"__builtin_time_ms", true, false, "", false};
+        symbolTable["__builtin_sleep"] = {"__builtin_sleep", true, false, "", false};
+        symbolTable["__builtin_substring"] = {"__builtin_substring", true, false, "", false};
+        symbolTable["__builtin_load_library"] = {"__builtin_load_library", true, false, "", false};
+        symbolTable["__builtin_unload_library"] = {"__builtin_unload_library", true, false, "", false};
+        symbolTable["__builtin_get_proc_address"] = {"__builtin_get_proc_address", true, false, "", false};
+        symbolTable["__builtin_ffi_call"] = {"__builtin_ffi_call", true, false, "", false};
+        symbolTable["__builtin_mmap"] = {"__builtin_mmap", true, false, "", false};
+        symbolTable["__builtin_munmap"] = {"__builtin_munmap", true, false, "", false};
+        symbolTable["__builtin_gpio_mode"] = {"__builtin_gpio_mode", true, false, "", false};
+        symbolTable["__builtin_gpio_write"] = {"__builtin_gpio_write", true, false, "", false};
+        symbolTable["__builtin_gpio_read"] = {"__builtin_gpio_read", true, false, "", false};
+        symbolTable["__builtin_i2c_open"] = {"__builtin_i2c_open", true, false, "", false};
+        symbolTable["__builtin_i2c_write"] = {"__builtin_i2c_write", true, false, "", false};
+        symbolTable["__builtin_i2c_read"] = {"__builtin_i2c_read", true, false, "", false};
+        symbolTable["__builtin_i2c_close"] = {"__builtin_i2c_close", true, false, "", false};
+        symbolTable["__builtin_spi_open"] = {"__builtin_spi_open", true, false, "", false};
+        symbolTable["__builtin_spi_transfer"] = {"__builtin_spi_transfer", true, false, "", false};
+        symbolTable["__builtin_spi_close"] = {"__builtin_spi_close", true, false, "", false};
     }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);

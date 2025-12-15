@@ -1823,6 +1823,171 @@ void Interpreter::registerBuiltins() {
             return Value(str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0);
         }
     )));
+    
+    // ========================================
+    // FFI / SYSTEMS BUILT-INS
+    // ========================================
+    
+    // Memory buffer storage
+    static std::map<int64_t, std::vector<uint8_t>> memoryBuffers;
+    static int64_t nextBufferId = 1;
+    
+    // __builtin_alloc_buffer(size) - Allocate memory buffer
+    globalEnv->define("__builtin_alloc_buffer", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) return Value(static_cast<int64_t>(0));
+            int64_t size = args[0].asInt();
+            if (size <= 0 || size > 1024 * 1024 * 100) return Value(static_cast<int64_t>(0)); // Max 100MB
+            
+            int64_t id = nextBufferId++;
+            memoryBuffers[id] = std::vector<uint8_t>(size, 0);
+            return Value(id);
+        }
+    )));
+    
+    // __builtin_free_buffer(id) - Free memory buffer
+    globalEnv->define("__builtin_free_buffer", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) return Value(false);
+            int64_t id = args[0].asInt();
+            auto it = memoryBuffers.find(id);
+            if (it != memoryBuffers.end()) {
+                memoryBuffers.erase(it);
+                return Value(true);
+            }
+            return Value(false);
+        }
+    )));
+    
+    // __builtin_buffer_write(id, offset, data) - Write to buffer
+    globalEnv->define("__builtin_buffer_write", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 3 || !args[0].isInt() || !args[1].isInt() || !args[2].isArray()) {
+                return Value(false);
+            }
+            int64_t id = args[0].asInt();
+            int64_t offset = args[1].asInt();
+            auto data = args[2].asArray();
+            
+            auto it = memoryBuffers.find(id);
+            if (it == memoryBuffers.end()) return Value(false);
+            
+            for (size_t i = 0; i < data->size() && offset + i < it->second.size(); ++i) {
+                it->second[offset + i] = static_cast<uint8_t>((*data)[i].asInt());
+            }
+            return Value(true);
+        }
+    )));
+    
+    // __builtin_buffer_read(id, offset, length) - Read from buffer
+    globalEnv->define("__builtin_buffer_read", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 3 || !args[0].isInt() || !args[1].isInt() || !args[2].isInt()) {
+                return Value(std::make_shared<std::vector<Value>>());
+            }
+            int64_t id = args[0].asInt();
+            int64_t offset = args[1].asInt();
+            int64_t length = args[2].asInt();
+            
+            auto result = std::make_shared<std::vector<Value>>();
+            auto it = memoryBuffers.find(id);
+            if (it == memoryBuffers.end()) return Value(result);
+            
+            for (int64_t i = 0; i < length && offset + i < static_cast<int64_t>(it->second.size()); ++i) {
+                result->push_back(Value(static_cast<int64_t>(it->second[offset + i])));
+            }
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_time_ms() - Get current time in milliseconds
+    globalEnv->define("__builtin_time_ms", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            auto now = std::chrono::system_clock::now();
+            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+            return Value(static_cast<int64_t>(ms));
+        }
+    )));
+    
+    // __builtin_sleep(ms) - Sleep for milliseconds
+    globalEnv->define("__builtin_sleep", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) return Value();
+            int64_t ms = args[0].asInt();
+            std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+            return Value();
+        }
+    )));
+    
+    // __builtin_substring(str, start, end) - Get substring
+    globalEnv->define("__builtin_substring", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 3 || !args[0].isString() || !args[1].isInt() || !args[2].isInt()) {
+                return Value("");
+            }
+            std::string str = args[0].asString();
+            int64_t start = args[1].asInt();
+            int64_t end = args[2].asInt();
+            
+            if (start < 0) start = 0;
+            if (end > static_cast<int64_t>(str.length())) end = str.length();
+            if (start >= end) return Value("");
+            
+            return Value(str.substr(start, end - start));
+        }
+    )));
+    
+    // Placeholder FFI functions (would need native implementation)
+    globalEnv->define("__builtin_load_library", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(static_cast<int64_t>(0)); }
+    )));
+    globalEnv->define("__builtin_unload_library", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(); }
+    )));
+    globalEnv->define("__builtin_get_proc_address", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(static_cast<int64_t>(0)); }
+    )));
+    globalEnv->define("__builtin_ffi_call", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(); }
+    )));
+    globalEnv->define("__builtin_mmap", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(static_cast<int64_t>(0)); }
+    )));
+    globalEnv->define("__builtin_munmap", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(false); }
+    )));
+    
+    // GPIO/I2C/SPI placeholders
+    globalEnv->define("__builtin_gpio_mode", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(true); }
+    )));
+    globalEnv->define("__builtin_gpio_write", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(true); }
+    )));
+    globalEnv->define("__builtin_gpio_read", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(static_cast<int64_t>(0)); }
+    )));
+    globalEnv->define("__builtin_i2c_open", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(static_cast<int64_t>(1)); }
+    )));
+    globalEnv->define("__builtin_i2c_write", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(true); }
+    )));
+    globalEnv->define("__builtin_i2c_read", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(std::make_shared<std::vector<Value>>()); }
+    )));
+    globalEnv->define("__builtin_i2c_close", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(true); }
+    )));
+    globalEnv->define("__builtin_spi_open", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(static_cast<int64_t>(1)); }
+    )));
+    globalEnv->define("__builtin_spi_transfer", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(std::make_shared<std::vector<Value>>()); }
+    )));
+    globalEnv->define("__builtin_spi_close", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value { return Value(true); }
+    )));
 }
 
 // Execute statements
