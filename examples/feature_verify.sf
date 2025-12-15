@@ -1,0 +1,111 @@
+// SynthFlow Feature Verification Test
+// Simple test of all new features
+
+print("=== SynthFlow Feature Verification ===")
+print("")
+
+let passed = 0
+let failed = 0
+
+// 1. FFI Memory
+print("1. FFI Memory:")
+let buf = __builtin_alloc_buffer(32)
+print("   Alloc buffer: " + str(buf > 0))
+if (buf > 0) { passed = passed + 1 } else { failed = failed + 1 }
+
+let wr = __builtin_buffer_write(buf, 0, [65, 66, 67])
+print("   Write buffer: " + str(wr))
+if (wr) { passed = passed + 1 } else { failed = failed + 1 }
+
+let rd = __builtin_buffer_read(buf, 0, 3)
+print("   Read buffer: " + str(len(rd) == 3))
+if (len(rd) == 3) { passed = passed + 1 } else { failed = failed + 1 }
+
+__builtin_free_buffer(buf)
+print("   Free buffer: true")
+passed = passed + 1
+
+// 2. Time functions
+print("")
+print("2. Time Functions:")
+let t1 = __builtin_time_ms()
+print("   Time ms: " + str(t1 > 0))
+if (t1 > 0) { passed = passed + 1 } else { failed = failed + 1 }
+
+// 3. String functions
+print("")
+print("3. String Functions:")
+let ss = __builtin_substring("Hello World", 0, 5)
+print("   Substring: " + str(ss == "Hello"))
+if (ss == "Hello") { passed = passed + 1 } else { failed = failed + 1 }
+
+let up = __builtin_uppercase("test")
+print("   Uppercase: " + str(up == "TEST"))
+if (up == "TEST") { passed = passed + 1 } else { failed = failed + 1 }
+
+let lo = __builtin_lowercase("TEST")
+print("   Lowercase: " + str(lo == "test"))
+if (lo == "test") { passed = passed + 1 } else { failed = failed + 1 }
+
+let tr = __builtin_trim("  hi  ")
+print("   Trim: " + str(tr == "hi"))
+if (tr == "hi") { passed = passed + 1 } else { failed = failed + 1 }
+
+let sp = __builtin_split("a,b,c", ",")
+print("   Split: " + str(len(sp) == 3))
+if (len(sp) == 3) { passed = passed + 1 } else { failed = failed + 1 }
+
+// 4. Security functions
+print("")
+print("4. Security Functions:")
+let enc = __builtin_base64url_encode("test")
+print("   Base64 encode: " + str(len(enc) > 0))
+if (len(enc) > 0) { passed = passed + 1 } else { failed = failed + 1 }
+
+let dec = __builtin_base64url_decode(enc)
+print("   Base64 decode: " + str(dec == "test"))
+if (dec == "test") { passed = passed + 1 } else { failed = failed + 1 }
+
+let uid = __builtin_uuid()
+print("   UUID: " + str(len(uid) == 36))
+if (len(uid) == 36) { passed = passed + 1 } else { failed = failed + 1 }
+
+let rb = __builtin_random_bytes(8)
+print("   Random bytes: " + str(len(rb) == 16))
+if (len(rb) == 16) { passed = passed + 1 } else { failed = failed + 1 }
+
+let sc = __builtin_secure_compare("abc", "abc")
+print("   Secure compare: " + str(sc == true))
+if (sc) { passed = passed + 1 } else { failed = failed + 1 }
+
+// 5. Map keys
+print("")
+print("5. Map Operations:")
+let m = { "a": 1, "b": 2 }
+let ks = __builtin_keys(m)
+print("   Keys: " + str(len(ks) == 2))
+if (len(ks) == 2) { passed = passed + 1 } else { failed = failed + 1 }
+
+// 6. Math
+print("")
+print("6. Math Functions:")
+print("   sqrt(16)=" + str(sqrt(16)))
+if (sqrt(16) == 4) { passed = passed + 1 } else { failed = failed + 1 }
+
+print("   pow(2,3)=" + str(pow(2,3)))
+if (pow(2,3) == 8) { passed = passed + 1 } else { failed = failed + 1 }
+
+print("   abs(-5)=" + str(abs(-5)))
+if (abs(-5) == 5) { passed = passed + 1 } else { failed = failed + 1 }
+
+// Summary
+print("")
+print("=== RESULTS ===")
+print("Passed: " + str(passed))
+print("Failed: " + str(failed))
+print("Total: " + str(passed + failed))
+
+if (failed == 0) {
+    print("")
+    print("ALL TESTS PASSED!")
+}

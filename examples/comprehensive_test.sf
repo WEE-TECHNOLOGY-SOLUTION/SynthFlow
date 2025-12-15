@@ -1,0 +1,215 @@
+// SynthFlow Comprehensive Feature Test
+// Tests all newly implemented features
+
+print("═══════════════════════════════════════════════════════")
+print("   SynthFlow Comprehensive Feature Test Suite")
+print("═══════════════════════════════════════════════════════")
+print("")
+
+let allPassed = true
+let testCount = 0
+let passCount = 0
+
+// Test helper
+fn testResult(name: string, passed: bool) -> void {
+    testCount = testCount + 1
+    if (passed) {
+        passCount = passCount + 1
+        print("  ✅ " + name)
+    } else {
+        print("  ❌ " + name)
+    }
+}
+
+// ===== 1. FFI / Memory Tests =====
+print("\n📦 1. FFI / Memory Management")
+print("─────────────────────────────────")
+
+// Test buffer allocation
+let bufferId = __builtin_alloc_buffer(64)
+testResult("Buffer allocation", bufferId > 0)
+
+// Test buffer write
+let writeData = [72, 101, 108, 108, 111]  // "Hello" in ASCII
+let writeResult = __builtin_buffer_write(bufferId, 0, writeData)
+testResult("Buffer write", writeResult == true)
+
+// Test buffer read
+let readData = __builtin_buffer_read(bufferId, 0, 5)
+testResult("Buffer read", len(readData) == 5)
+testResult("Buffer data integrity", readData[0] == 72)
+
+// Test buffer free
+let freeResult = __builtin_free_buffer(bufferId)
+testResult("Buffer free", freeResult == true)
+
+// ===== 2. Time and Sleep Tests =====
+print("\n⏱️  2. Time Functions")
+print("─────────────────────────────────")
+
+let startTime = __builtin_time_ms()
+testResult("Get time (ms)", startTime > 0)
+
+__builtin_sleep(100)  // Sleep 100ms
+let endTime = __builtin_time_ms()
+let elapsed = endTime - startTime
+testResult("Sleep function", elapsed >= 90)
+
+// ===== 3. String Operations =====
+print("\n📝 3. String Operations")
+print("─────────────────────────────────")
+
+let testStr = "Hello, SynthFlow!"
+let substr = __builtin_substring(testStr, 0, 5)
+testResult("Substring extraction", substr == "Hello")
+
+let upperStr = __builtin_uppercase("hello")
+testResult("Uppercase conversion", upperStr == "HELLO")
+
+let lowerStr = __builtin_lowercase("WORLD")
+testResult("Lowercase conversion", lowerStr == "world")
+
+let trimStr = __builtin_trim("  spaces  ")
+testResult("Trim whitespace", trimStr == "spaces")
+
+let splitArr = __builtin_split("a,b,c", ",")
+testResult("String split", len(splitArr) == 3)
+
+let indexResult = __builtin_index_of("hello world", "world")
+testResult("Index of substring", indexResult == 6)
+
+let endsResult = __builtin_ends_with("file.txt", ".txt")
+testResult("Ends with check", endsResult == true)
+
+// ===== 4. Array Operations =====
+print("\n📊 4. Array Operations")
+print("─────────────────────────────────")
+
+let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+// Sum
+let sumVal = 0.0
+for (let i1 = 0; i1 < len(arr); i1 = i1 + 1) {
+    sumVal = sumVal + arr[i1]
+}
+testResult("Array sum (=55)", sumVal == 55)
+
+// Mean
+let meanVal = sumVal / len(arr)
+testResult("Array mean (=5.5)", meanVal == 5.5)
+
+// Min/Max
+let minVal = arr[0]
+let maxVal = arr[0]
+for (let i2 = 1; i2 < len(arr); i2 = i2 + 1) {
+    if (arr[i2] < minVal) { minVal = arr[i2] }
+    if (arr[i2] > maxVal) { maxVal = arr[i2] }
+}
+testResult("Array min (=1)", minVal == 1)
+testResult("Array max (=10)", maxVal == 10)
+
+// Variance
+let varSum = 0.0
+for (let i3 = 0; i3 < len(arr); i3 = i3 + 1) {
+    let diff = arr[i3] - meanVal
+    varSum = varSum + diff * diff
+}
+let variance = varSum / len(arr)
+testResult("Array variance (=8.25)", variance == 8.25)
+
+// Standard deviation
+let stdDev = sqrt(variance)
+testResult("Standard deviation", stdDev > 2.87 && stdDev < 2.88)
+
+// ===== 5. Linear Algebra =====
+print("\n🔢 5. Linear Algebra")
+print("─────────────────────────────────")
+
+let vecA = [1, 2, 3]
+let vecB = [4, 5, 6]
+
+// Dot product
+let dotProduct = 0.0
+for (let i4 = 0; i4 < len(vecA); i4 = i4 + 1) {
+    dotProduct = dotProduct + vecA[i4] * vecB[i4]
+}
+testResult("Dot product (=32)", dotProduct == 32)
+
+// Vector norm
+let normSquared = 0.0
+for (let i5 = 0; i5 < len(vecA); i5 = i5 + 1) {
+    normSquared = normSquared + vecA[i5] * vecA[i5]
+}
+let norm = sqrt(normSquared)
+testResult("Vector norm", norm > 3.74 && norm < 3.75)
+
+// ===== 6. Security Functions =====
+print("\n🔐 6. Security Functions")
+print("─────────────────────────────────")
+
+let base64Encoded = __builtin_base64url_encode("Hello")
+testResult("Base64URL encode", len(base64Encoded) > 0)
+
+let base64Decoded = __builtin_base64url_decode(base64Encoded)
+testResult("Base64URL decode", base64Decoded == "Hello")
+
+let uuid = __builtin_uuid()
+testResult("UUID generation", len(uuid) == 36)
+
+let randomBytes = __builtin_random_bytes(16)
+testResult("Random bytes", len(randomBytes) == 32)  // Hex encoded = 32 chars
+
+let regexResult = __builtin_regex_test("hello123", "^[a-z]+[0-9]+$")
+testResult("Regex test", regexResult == true)
+
+let secureCompare = __builtin_secure_compare("password", "password")
+testResult("Secure compare (equal)", secureCompare == true)
+
+let secureCompare2 = __builtin_secure_compare("password", "different")
+testResult("Secure compare (different)", secureCompare2 == false)
+
+// ===== 7. Map/Keys Operations =====
+print("\n🗂️  7. Map Operations")
+print("─────────────────────────────────")
+
+let testMap = {
+    "name": "SynthFlow",
+    "version": "0.0.30",
+    "ready": true
+}
+
+let mapKeys = __builtin_keys(testMap)
+testResult("Get map keys", len(mapKeys) == 3)
+
+// ===== 8. Math Functions =====
+print("\n➕ 8. Math Functions")
+print("─────────────────────────────────")
+
+testResult("sqrt(16) = 4", sqrt(16) == 4)
+testResult("pow(2, 3) = 8", pow(2, 3) == 8)
+testResult("abs(-5) = 5", abs(-5) == 5)
+
+let sinVal = sin(0)
+testResult("sin(0) = 0", sinVal == 0)
+
+let cosVal = cos(0)
+testResult("cos(0) = 1", cosVal == 1)
+
+// ===== Summary =====
+print("\n═══════════════════════════════════════════════════════")
+print("   TEST SUMMARY")
+print("═══════════════════════════════════════════════════════")
+print("   Total tests: " + str(testCount))
+print("   Passed: " + str(passCount))
+print("   Failed: " + str(testCount - passCount))
+
+let percentage = (passCount * 100) / testCount
+print("   Success rate: " + str(percentage) + "%")
+
+if (passCount == testCount) {
+    print("\n   🎉 ALL TESTS PASSED! 🎉")
+} else {
+    print("\n   ⚠️  Some tests failed")
+}
+
+print("═══════════════════════════════════════════════════════")
