@@ -1,0 +1,717 @@
+// SynthFlow API Management Library
+// OpenAPI/Swagger, GraphQL, API Gateway, Versioning, and Middleware
+
+// ===== OpenAPI / Swagger =====
+
+let openApiSpec = {
+    "openapi": "3.0.3",
+    "info": {},
+    "servers": [],
+    "paths": {},
+    "components": {
+        "schemas": {},
+        "securitySchemes": {}
+    }
+}
+
+// Initialize OpenAPI spec
+fn openapi_init(title: string, version: string, description: string) -> void {
+    openApiSpec.info = {
+        "title": title,
+        "version": version,
+        "description": description
+    }
+}
+
+// Add server to spec
+fn openapi_add_server(url: string, description: string) -> void {
+    openApiSpec.servers = append(openApiSpec.servers, {
+        "url": url,
+        "description": description
+    })
+}
+
+// Document an endpoint
+fn openapi_add_endpoint(method: string, path: string, config: map) -> void {
+    if (openApiSpec.paths[path] == null) {
+        openApiSpec.paths[path] = {}
+    }
+    
+    let methodLower = __builtin_lowercase(method)
+    openApiSpec.paths[path][methodLower] = {
+        "summary": config.summary,
+        "description": config.description,
+        "tags": config.tags,
+        "operationId": config.operationId,
+        "parameters": config.parameters,
+        "requestBody": config.requestBody,
+        "responses": config.responses,
+        "security": config.security
+    }
+}
+
+// Add schema definition
+fn openapi_add_schema(name: string, schema: map) -> void {
+    openApiSpec.components.schemas[name] = schema
+}
+
+// Add security scheme (API Key, Bearer, OAuth2)
+fn openapi_add_security_scheme(name: string, scheme: map) -> void {
+    openApiSpec.components.securitySchemes[name] = scheme
+}
+
+// Generate OpenAPI JSON
+fn openapi_generate() -> string {
+    return __builtin_json_stringify(openApiSpec)
+}
+
+// Create common response definitions
+fn openapi_response(statusCode: int, description: string, schema: string) -> map {
+    return {
+        str(statusCode): {
+            "description": description,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/" + schema
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Create parameter definition
+fn openapi_param(name: string, location: string, required: bool, paramType: string, description: string) -> map {
+    return {
+        "name": name,
+        "in": location,  // query, path, header, cookie
+        "required": required,
+        "description": description,
+        "schema": {
+            "type": paramType
+        }
+    }
+}
+
+// Create request body definition
+fn openapi_body(contentType: string, schema: string, required: bool) -> map {
+    return {
+        "required": required,
+        "content": {
+            contentType: {
+                "schema": {
+                    "$ref": "#/components/schemas/" + schema
+                }
+            }
+        }
+    }
+}
+
+// ===== GraphQL =====
+
+let graphqlSchema = {
+    "types": {},
+    "queries": {},
+    "mutations": {},
+    "subscriptions": {},
+    "resolvers": {}
+}
+
+// Define GraphQL type
+fn graphql_type(name: string, fields: map) -> void {
+    graphqlSchema.types[name] = {
+        "name": name,
+        "fields": fields
+    }
+}
+
+// Define GraphQL query
+fn graphql_query(name: string, returnType: string, args: map, resolver: fn) -> void {
+    graphqlSchema.queries[name] = {
+        "name": name,
+        "returnType": returnType,
+        "args": args
+    }
+    graphqlSchema.resolvers["Query." + name] = resolver
+}
+
+// Define GraphQL mutation
+fn graphql_mutation(name: string, returnType: string, args: map, resolver: fn) -> void {
+    graphqlSchema.mutations[name] = {
+        "name": name,
+        "returnType": returnType,
+        "args": args
+    }
+    graphqlSchema.resolvers["Mutation." + name] = resolver
+}
+
+// Generate GraphQL SDL
+fn graphql_generate_sdl() -> string {
+    let sdl = ""
+    
+    // Generate types
+    let typeNames = keys(graphqlSchema.types)
+    for (let i = 0; i < len(typeNames); i = i + 1) {
+        let typeName = typeNames[i]
+        let typeInfo = graphqlSchema.types[typeName]
+        sdl = sdl + "type " + typeName + " {\n"
+        
+        let fieldNames = keys(typeInfo.fields)
+        for (let j = 0; j < len(fieldNames); j = j + 1) {
+            let fieldName = fieldNames[j]
+            let fieldType = typeInfo.fields[fieldName]
+            sdl = sdl + "  " + fieldName + ": " + fieldType + "\n"
+        }
+        sdl = sdl + "}\n\n"
+    }
+    
+    // Generate Query type
+    if (len(keys(graphqlSchema.queries)) > 0) {
+        sdl = sdl + "type Query {\n"
+        let queryNames = keys(graphqlSchema.queries)
+        for (let i = 0; i < len(queryNames); i = i + 1) {
+            let queryName = queryNames[i]
+            let queryInfo = graphqlSchema.queries[queryName]
+            sdl = sdl + "  " + queryName
+            if (len(keys(queryInfo.args)) > 0) {
+                sdl = sdl + "(" + format_args(queryInfo.args) + ")"
+            }
+            sdl = sdl + ": " + queryInfo.returnType + "\n"
+        }
+        sdl = sdl + "}\n\n"
+    }
+    
+    // Generate Mutation type
+    if (len(keys(graphqlSchema.mutations)) > 0) {
+        sdl = sdl + "type Mutation {\n"
+        let mutationNames = keys(graphqlSchema.mutations)
+        for (let i = 0; i < len(mutationNames); i = i + 1) {
+            let mutationName = mutationNames[i]
+            let mutationInfo = graphqlSchema.mutations[mutationName]
+            sdl = sdl + "  " + mutationName
+            if (len(keys(mutationInfo.args)) > 0) {
+                sdl = sdl + "(" + format_args(mutationInfo.args) + ")"
+            }
+            sdl = sdl + ": " + mutationInfo.returnType + "\n"
+        }
+        sdl = sdl + "}\n"
+    }
+    
+    return sdl
+}
+
+// Format GraphQL args
+fn format_args(args: map) -> string {
+    let result = []
+    let argNames = keys(args)
+    for (let i = 0; i < len(argNames); i = i + 1) {
+        let argName = argNames[i]
+        result = append(result, argName + ": " + args[argName])
+    }
+    return join(result, ", ")
+}
+
+// Execute GraphQL query
+fn graphql_execute(query: string, variables: map) -> map {
+    // Parse query and execute resolvers
+    // Simplified implementation
+    return {
+        "data": {},
+        "errors": []
+    }
+}
+
+// ===== API Gateway =====
+
+let apiGateway = {
+    "routes": [],
+    "middleware": [],
+    "rateLimits": {},
+    "quotas": {},
+    "apiKeys": {},
+    "logs": []
+}
+
+// Register API route with gateway
+fn gateway_route(method: string, path: string, config: map) -> void {
+    apiGateway.routes = append(apiGateway.routes, {
+        "method": method,
+        "path": path,
+        "handler": config.handler,
+        "rateLimit": config.rateLimit,
+        "quota": config.quota,
+        "auth": config.auth,
+        "cache": config.cache,
+        "transform": config.transform
+    })
+}
+
+// Set rate limit for endpoint
+fn gateway_rate_limit(path: string, requestsPerMinute: int, burstSize: int) -> void {
+    apiGateway.rateLimits[path] = {
+        "requestsPerMinute": requestsPerMinute,
+        "burstSize": burstSize,
+        "tokens": burstSize,
+        "lastRefill": __builtin_time_ms()
+    }
+}
+
+// Check rate limit (token bucket algorithm)
+fn gateway_check_rate_limit(path: string, clientId: string) -> map {
+    let key = path + ":" + clientId
+    
+    if (apiGateway.rateLimits[key] == null) {
+        let config = apiGateway.rateLimits[path]
+        if (config == null) {
+            return { "allowed": true }
+        }
+        apiGateway.rateLimits[key] = {
+            "tokens": config.burstSize,
+            "lastRefill": __builtin_time_ms(),
+            "requestsPerMinute": config.requestsPerMinute,
+            "burstSize": config.burstSize
+        }
+    }
+    
+    let bucket = apiGateway.rateLimits[key]
+    let now = __builtin_time_ms()
+    let elapsed = now - bucket.lastRefill
+    let refillRate = bucket.requestsPerMinute / 60000.0
+    let tokensToAdd = elapsed * refillRate
+    
+    bucket.tokens = min(bucket.burstSize, bucket.tokens + tokensToAdd)
+    bucket.lastRefill = now
+    
+    if (bucket.tokens >= 1) {
+        bucket.tokens = bucket.tokens - 1
+        return { 
+            "allowed": true, 
+            "remaining": floor(bucket.tokens),
+            "resetMs": floor((1 - bucket.tokens) / refillRate)
+        }
+    }
+    
+    return { 
+        "allowed": false, 
+        "retryAfterMs": floor((1 - bucket.tokens) / refillRate)
+    }
+}
+
+// Set quota for API key
+fn gateway_set_quota(apiKey: string, dailyLimit: int, monthlyLimit: int) -> void {
+    apiGateway.quotas[apiKey] = {
+        "dailyLimit": dailyLimit,
+        "monthlyLimit": monthlyLimit,
+        "dailyUsage": 0,
+        "monthlyUsage": 0,
+        "dailyReset": __builtin_time() + 86400,
+        "monthlyReset": __builtin_time() + 2592000
+    }
+}
+
+// Check quota
+fn gateway_check_quota(apiKey: string) -> map {
+    let quota = apiGateway.quotas[apiKey]
+    if (quota == null) {
+        return { "allowed": true }
+    }
+    
+    let now = __builtin_time()
+    
+    // Reset if needed
+    if (now >= quota.dailyReset) {
+        quota.dailyUsage = 0
+        quota.dailyReset = now + 86400
+    }
+    if (now >= quota.monthlyReset) {
+        quota.monthlyUsage = 0
+        quota.monthlyReset = now + 2592000
+    }
+    
+    if (quota.dailyUsage >= quota.dailyLimit) {
+        return { "allowed": false, "reason": "Daily quota exceeded" }
+    }
+    if (quota.monthlyUsage >= quota.monthlyLimit) {
+        return { "allowed": false, "reason": "Monthly quota exceeded" }
+    }
+    
+    quota.dailyUsage = quota.dailyUsage + 1
+    quota.monthlyUsage = quota.monthlyUsage + 1
+    
+    return {
+        "allowed": true,
+        "dailyRemaining": quota.dailyLimit - quota.dailyUsage,
+        "monthlyRemaining": quota.monthlyLimit - quota.monthlyUsage
+    }
+}
+
+// Register API key
+fn gateway_register_api_key(apiKey: string, config: map) -> void {
+    apiGateway.apiKeys[apiKey] = {
+        "name": config.name,
+        "scopes": config.scopes,
+        "rateLimit": config.rateLimit,
+        "quota": config.quota,
+        "active": true,
+        "createdAt": __builtin_time()
+    }
+}
+
+// Validate API key
+fn gateway_validate_api_key(apiKey: string, requiredScope: string) -> map {
+    let key = apiGateway.apiKeys[apiKey]
+    if (key == null) {
+        return { "valid": false, "error": "Invalid API key" }
+    }
+    if (!key.active) {
+        return { "valid": false, "error": "API key disabled" }
+    }
+    if (requiredScope != "" && !array_contains(key.scopes, requiredScope)) {
+        return { "valid": false, "error": "Insufficient scope" }
+    }
+    return { "valid": true, "keyInfo": key }
+}
+
+// ===== API Versioning =====
+
+let apiVersions = {
+    "current": "v1",
+    "supported": ["v1"],
+    "deprecated": [],
+    "handlers": {}
+}
+
+// Register version
+fn api_version_register(version: string, config: map) -> void {
+    if (!array_contains(apiVersions.supported, version)) {
+        apiVersions.supported = append(apiVersions.supported, version)
+    }
+    apiVersions.handlers[version] = config.handler
+}
+
+// Set current version
+fn api_version_set_current(version: string) -> void {
+    apiVersions.current = version
+}
+
+// Deprecate version
+fn api_version_deprecate(version: string, sunsetDate: string) -> void {
+    apiVersions.deprecated = append(apiVersions.deprecated, {
+        "version": version,
+        "sunsetDate": sunsetDate
+    })
+}
+
+// Get version from request
+fn api_version_from_request(request: map) -> string {
+    // Check header first
+    let headerVersion = request.headers["X-API-Version"]
+    if (headerVersion != null && headerVersion != "") {
+        return headerVersion
+    }
+    
+    // Check URL path prefix
+    let path = request.path
+    if (__builtin_starts_with(path, "/v")) {
+        let parts = __builtin_split(path, "/")
+        if (len(parts) > 1 && __builtin_starts_with(parts[1], "v")) {
+            return parts[1]
+        }
+    }
+    
+    // Check Accept header
+    let accept = request.headers["Accept"]
+    if (accept != null && __builtin_contains(accept, "version=")) {
+        // Parse version from Accept header
+        let start = indexOf(accept, "version=", 0)
+        if (start >= 0) {
+            let versionPart = substring(accept, start + 8, start + 10)
+            return "v" + versionPart
+        }
+    }
+    
+    return apiVersions.current
+}
+
+// Version headers for response
+fn api_version_headers(version: string) -> map {
+    let headers = {
+        "X-API-Version": version,
+        "X-API-Supported-Versions": join(apiVersions.supported, ", ")
+    }
+    
+    // Add deprecation warning if applicable
+    for (let i = 0; i < len(apiVersions.deprecated); i = i + 1) {
+        let dep = apiVersions.deprecated[i]
+        if (dep.version == version) {
+            headers["Deprecation"] = "true"
+            headers["Sunset"] = dep.sunsetDate
+        }
+    }
+    
+    return headers
+}
+
+// ===== Request/Response Logging =====
+
+let requestLogs = []
+let maxLogs = 1000
+
+// Log request
+fn log_request(request: map) -> string {
+    let logId = __builtin_uuid()
+    let logEntry = {
+        "id": logId,
+        "timestamp": __builtin_time_ms(),
+        "method": request.method,
+        "path": request.path,
+        "query": request.query,
+        "headers": request.headers,
+        "body": request.body,
+        "clientIp": request.clientIp,
+        "userAgent": request.headers["User-Agent"]
+    }
+    
+    requestLogs = append(requestLogs, logEntry)
+    
+    // Trim logs if too many
+    if (len(requestLogs) > maxLogs) {
+        requestLogs = slice(requestLogs, len(requestLogs) - maxLogs, len(requestLogs))
+    }
+    
+    return logId
+}
+
+// Log response
+fn log_response(logId: string, response: map, durationMs: int) -> void {
+    for (let i = len(requestLogs) - 1; i >= 0; i = i - 1) {
+        if (requestLogs[i].id == logId) {
+            requestLogs[i].response = {
+                "status": response.status,
+                "headers": response.headers,
+                "bodySize": len(response.body)
+            }
+            requestLogs[i].durationMs = durationMs
+            return
+        }
+    }
+}
+
+// Query logs
+fn log_query(filters: map) -> array {
+    let results = []
+    for (let i = 0; i < len(requestLogs); i = i + 1) {
+        let log = requestLogs[i]
+        let matches = true
+        
+        if (filters.method != null && log.method != filters.method) {
+            matches = false
+        }
+        if (filters.path != null && !__builtin_contains(log.path, filters.path)) {
+            matches = false
+        }
+        if (filters.status != null && log.response != null && log.response.status != filters.status) {
+            matches = false
+        }
+        if (filters.minDuration != null && log.durationMs < filters.minDuration) {
+            matches = false
+        }
+        
+        if (matches) {
+            results = append(results, log)
+        }
+    }
+    return results
+}
+
+// Get log statistics
+fn log_stats() -> map {
+    let totalRequests = len(requestLogs)
+    let totalDuration = 0
+    let statusCounts = {}
+    let pathCounts = {}
+    
+    for (let i = 0; i < len(requestLogs); i = i + 1) {
+        let log = requestLogs[i]
+        
+        if (log.durationMs != null) {
+            totalDuration = totalDuration + log.durationMs
+        }
+        
+        if (log.response != null) {
+            let status = str(log.response.status)
+            if (statusCounts[status] == null) {
+                statusCounts[status] = 0
+            }
+            statusCounts[status] = statusCounts[status] + 1
+        }
+        
+        if (pathCounts[log.path] == null) {
+            pathCounts[log.path] = 0
+        }
+        pathCounts[log.path] = pathCounts[log.path] + 1
+    }
+    
+    return {
+        "totalRequests": totalRequests,
+        "avgDurationMs": totalDuration / max(totalRequests, 1),
+        "statusCounts": statusCounts,
+        "topPaths": pathCounts
+    }
+}
+
+// ===== Middleware =====
+
+let middlewareStack = []
+
+// Add middleware
+fn middleware_add(name: string, handler: fn) -> void {
+    middlewareStack = append(middlewareStack, {
+        "name": name,
+        "handler": handler
+    })
+}
+
+// Execute middleware chain
+fn middleware_execute(request: map) -> map {
+    let result = request
+    for (let i = 0; i < len(middlewareStack); i = i + 1) {
+        let mw = middlewareStack[i]
+        result = mw.handler(result)
+        if (result.error != null) {
+            return result
+        }
+    }
+    return result
+}
+
+// Common middleware: CORS
+fn middleware_cors(origins: array, methods: array, headers: array) -> fn {
+    return (request) => {
+        let origin = request.headers["Origin"]
+        if (array_contains(origins, "*") || array_contains(origins, origin)) {
+            request.corsHeaders = {
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": join(methods, ", "),
+                "Access-Control-Allow-Headers": join(headers, ", "),
+                "Access-Control-Max-Age": "86400"
+            }
+        }
+        return request
+    }
+}
+
+// Common middleware: Request ID
+fn middleware_request_id() -> fn {
+    return (request) => {
+        request.requestId = __builtin_uuid()
+        return request
+    }
+}
+
+// Common middleware: Timing
+fn middleware_timing() -> fn {
+    return (request) => {
+        request.startTime = __builtin_time_ms()
+        return request
+    }
+}
+
+// ===== Response Helpers =====
+
+// JSON response with status
+fn api_response(status: int, data: map) -> map {
+    return {
+        "status": status,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": __builtin_json_stringify(data)
+    }
+}
+
+// Success response
+fn api_success(data: map) -> map {
+    return api_response(200, { "success": true, "data": data })
+}
+
+// Error response
+fn api_error(status: int, message: string, code: string) -> map {
+    return api_response(status, {
+        "success": false,
+        "error": {
+            "message": message,
+            "code": code
+        }
+    })
+}
+
+// Paginated response
+fn api_paginated(data: array, page: int, pageSize: int, total: int) -> map {
+    return api_response(200, {
+        "success": true,
+        "data": data,
+        "pagination": {
+            "page": page,
+            "pageSize": pageSize,
+            "total": total,
+            "totalPages": ceil(total / pageSize),
+            "hasNext": page * pageSize < total,
+            "hasPrev": page > 1
+        }
+    })
+}
+
+// ===== Helper Functions =====
+
+fn keys(m: map) -> array {
+    return __builtin_keys(m)
+}
+
+fn join(arr: array, delimiter: string) -> string {
+    return __builtin_join(arr, delimiter)
+}
+
+fn min(a: int, b: int) -> int {
+    if (a < b) { return a }
+    return b
+}
+
+fn max(a: int, b: int) -> int {
+    if (a > b) { return a }
+    return b
+}
+
+fn floor(x: float) -> int {
+    return int(x)
+}
+
+fn ceil(x: float) -> int {
+    let i = int(x)
+    if (x > i) { return i + 1 }
+    return i
+}
+
+fn array_contains(arr: array, item: any) -> bool {
+    for (let i = 0; i < len(arr); i = i + 1) {
+        if (arr[i] == item) { return true }
+    }
+    return false
+}
+
+fn slice(arr: array, start: int, end: int) -> array {
+    let result = []
+    for (let i = start; i < end && i < len(arr); i = i + 1) {
+        result = append(result, arr[i])
+    }
+    return result
+}
+
+fn indexOf(s: string, search: string, start: int) -> int {
+    return __builtin_index_of(s, search, start)
+}
+
+fn substring(s: string, start: int, end: int) -> string {
+    return __builtin_substring(s, start, end)
+}

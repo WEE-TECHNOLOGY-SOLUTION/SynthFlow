@@ -1,0 +1,52 @@
+// SynthFlow API Management Test
+// Tests API management builtins: keys, index_of, uppercase, ends_with
+
+print("===== SynthFlow API Management Test =====")
+print("")
+
+// Test 1: Map Keys
+print("1. Map Keys:")
+let testMap = { "name": "John", "age": 30, "city": "NYC" }
+let mapKeys = __builtin_keys(testMap)
+print("   Keys of map: " + str(mapKeys))
+print("")
+
+// Test 2: Index Of
+print("2. Index Of:")
+let haystack = "Hello, World! Hello again!"
+let idx1 = __builtin_index_of(haystack, "World", 0)
+print("   Index of 'World' in haystack: " + str(idx1))
+let idx2 = __builtin_index_of(haystack, "Hello", 10)
+print("   Index of 'Hello' starting at 10: " + str(idx2))
+let idx3 = __builtin_index_of(haystack, "foo", 0)
+print("   Index of 'foo' (not found): " + str(idx3))
+print("")
+
+// Test 3: Uppercase
+print("3. Uppercase:")
+let upper = __builtin_uppercase("hello world")
+print("   'hello world' uppercased: " + upper)
+print("")
+
+// Test 4: Ends With
+print("4. Ends With:")
+let endsWith1 = __builtin_ends_with("/api/v1/users.json", ".json")
+print("   '/api/v1/users.json' ends with '.json': " + str(endsWith1))
+let endsWith2 = __builtin_ends_with("/api/v1/users", ".json")
+print("   '/api/v1/users' ends with '.json': " + str(endsWith2))
+print("")
+
+// Test 5: Combined String Operations
+print("5. Combined Operations (API Tools):")
+let apiPath = "/api/v1/users/123"
+let isV1 = __builtin_starts_with(apiPath, "/api/v1")
+let hasUsers = __builtin_contains(apiPath, "users")
+let parts = __builtin_split(apiPath, "/")
+print("   Path: " + apiPath)
+print("   Is v1 API: " + str(isV1))
+print("   Has 'users': " + str(hasUsers))
+print("   Path parts: " + str(parts))
+print("")
+
+print("===== API Management Tests Complete! =====")
+print("SynthFlow now has comprehensive API management capabilities!")

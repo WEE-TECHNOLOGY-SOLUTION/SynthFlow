@@ -116,6 +116,7 @@ print(answer)
 | `stdlib/threading.sf` | **NEW** Threads, mutexes, channels, parallel | ✅ Ready |
 | `stdlib/networking.sf` | **NEW** TCP/UDP sockets, DNS, port scanning | ✅ Ready |
 | `stdlib/security.sf` | **NEW** JWT, OAuth2, input validation, CSRF, CSP | ✅ Ready |
+| `stdlib/api.sf` | **NEW** OpenAPI, GraphQL, API Gateway, versioning | ✅ Ready |
 
 ## 🔧 Built-in Functions
 

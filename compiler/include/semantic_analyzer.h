@@ -169,6 +169,12 @@ public:
         symbolTable["__builtin_random_bytes"] = {"__builtin_random_bytes", true, false, "", false};
         symbolTable["__builtin_uuid"] = {"__builtin_uuid", true, false, "", false};
         symbolTable["__builtin_secure_compare"] = {"__builtin_secure_compare", true, false, "", false};
+        
+        // API management built-in functions
+        symbolTable["__builtin_keys"] = {"__builtin_keys", true, false, "", false};
+        symbolTable["__builtin_index_of"] = {"__builtin_index_of", true, false, "", false};
+        symbolTable["__builtin_uppercase"] = {"__builtin_uppercase", true, false, "", false};
+        symbolTable["__builtin_ends_with"] = {"__builtin_ends_with", true, false, "", false};
     }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);

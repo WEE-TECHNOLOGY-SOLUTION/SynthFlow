@@ -1759,6 +1759,70 @@ void Interpreter::registerBuiltins() {
             return Value(result == 0);
         }
     )));
+    
+    // ========================================
+    // API MANAGEMENT BUILT-INS
+    // ========================================
+    
+    // __builtin_keys(map) - Get map keys as array
+    globalEnv->define("__builtin_keys", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isMap()) {
+                return Value(std::make_shared<std::vector<Value>>());
+            }
+            auto map = args[0].asMap();
+            auto keys = std::make_shared<std::vector<Value>>();
+            for (const auto& [key, _] : *map) {
+                keys->push_back(Value(key));
+            }
+            return Value(keys);
+        }
+    )));
+    
+    // __builtin_index_of(str, search, start) - Find index of substring
+    globalEnv->define("__builtin_index_of", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 3 || !args[0].isString() || !args[1].isString()) {
+                return Value(static_cast<int64_t>(-1));
+            }
+            std::string str = args[0].asString();
+            std::string search = args[1].asString();
+            int64_t start = args[2].isInt() ? args[2].asInt() : 0;
+            
+            if (start < 0 || start >= static_cast<int64_t>(str.length())) {
+                return Value(static_cast<int64_t>(-1));
+            }
+            
+            size_t pos = str.find(search, static_cast<size_t>(start));
+            if (pos == std::string::npos) {
+                return Value(static_cast<int64_t>(-1));
+            }
+            return Value(static_cast<int64_t>(pos));
+        }
+    )));
+    
+    // __builtin_uppercase(str) - Convert to uppercase
+    globalEnv->define("__builtin_uppercase", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) return Value("");
+            std::string str = args[0].asString();
+            std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+            return Value(str);
+        }
+    )));
+    
+    // __builtin_ends_with(str, suffix) - Check suffix
+    globalEnv->define("__builtin_ends_with", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                return Value(false);
+            }
+            std::string str = args[0].asString();
+            std::string suffix = args[1].asString();
+            if (suffix.length() > str.length()) return Value(false);
+            return Value(str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0);
+        }
+    )));
 }
 
 // Execute statements
