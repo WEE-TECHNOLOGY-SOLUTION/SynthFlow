@@ -101,8 +101,9 @@ Create mobile apps that compile to:
 │  - synthflow repl    │                      │  - LSP    │
 │  - synthflow check   │                      │  - MCP    │
 ├─────────────────────────────────────────────────────────┤
-│               📚 Standard Library (40+ Modules)          │
-│  AI | HTTP | JSON | Math | Quantum | Neural Network...  │
+│               📚 Standard Library (54 Modules)           │
+│  AI | HTTP | JSON | Math | WebSocket | Template | FFI   │
+│  NumPy | Statistics | Security | API | Testing | ML...  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1137,6 +1138,201 @@ serve(3000)
 
 ---
 
+## WebSocket Real-Time Communication
+
+SynthFlow includes a WebSocket module for real-time bidirectional communication:
+
+```synthflow
+import websocket
+
+// Create WebSocket server
+let server = createWebSocketServer(8080)
+
+// Handle events
+onConnect(server, (client) => {
+    print("Client connected: " + str(client.id))
+    sendToClient(client, "Welcome!")
+})
+
+onMessage(server, (client, message) => {
+    print("Received: " + message)
+    broadcast(server, message)  // Echo to all
+})
+
+// Start server
+startWebSocket(server)
+```
+
+### Room-Based Chat
+
+```synthflow
+let chatRoom = createRoom("general")
+
+// Join room
+joinRoom(client, chatRoom)
+
+// Broadcast to room only
+broadcastToRoom(chatRoom, "User joined!")
+```
+
+---
+
+## Template Engine
+
+SynthFlow includes a Jinja2-like template engine for server-side rendering:
+
+```synthflow
+import template
+
+// Create template
+let html = "Hello, {{ name }}! You have {{ count }} messages."
+
+// Render with data
+let result = renderString(html, {
+    "name": "Alice",
+    "count": 5
+})
+
+print(result)  // "Hello, Alice! You have 5 messages."
+```
+
+### Conditionals and Loops
+
+```synthflow
+let template = "
+{% if loggedIn %}
+    Welcome, {{ username }}!
+{% else %}
+    Please log in.
+{% endif %}
+
+{% for item in items %}
+    - {{ item }}
+{% endfor %}
+"
+
+let html = renderString(template, {
+    "loggedIn": true,
+    "username": "Bob",
+    "items": ["Task 1", "Task 2", "Task 3"]
+})
+```
+
+### Filters
+
+```synthflow
+// Available filters: upper, lower, capitalize, length, trim, escape
+let html = renderString("Name: {{ name | upper }}", { "name": "alice" })
+// Result: "Name: ALICE"
+```
+
+---
+
+## Systems/FFI Programming
+
+The FFI module provides C interoperability and low-level system access:
+
+```synthflow
+import ffi
+
+// Allocate memory buffer
+let buffer = createBuffer(256)
+
+// Write data
+bufferWrite(buffer, 0, [72, 101, 108, 108, 111])  // "Hello"
+
+// Read data
+let data = bufferRead(buffer, 0, 5)
+
+// Free when done
+freeBuffer(buffer)
+```
+
+### C Struct Definitions
+
+```synthflow
+// Define a C struct layout
+let pointStruct = defineStruct("Point", [
+    { "name": "x", "type": "float32" },
+    { "name": "y", "type": "float32" }
+])
+
+// Create instance
+let point = createStructInstance(pointStruct)
+setStructField(point, "x", 10.5)
+setStructField(point, "y", 20.3)
+```
+
+### GPIO/I2C (Embedded)
+
+```synthflow
+// GPIO control
+gpioSetMode(17, "output")
+gpioWrite(17, 1)  // HIGH
+let value = gpioRead(18)
+
+// I2C communication
+let i2c = i2cOpen(1)
+i2cWrite(i2c, 0x48, [0x00, 0x01])
+let data = i2cRead(i2c, 0x48, 2)
+i2cClose(i2c)
+```
+
+---
+
+## Data Science with NumPy-Like Arrays
+
+SynthFlow provides NumPy-like array operations:
+
+```synthflow
+import numpy as np
+
+// Create arrays
+let arr = [1, 2, 3, 4, 5]
+
+// Vectorized operations
+let doubled = scale(arr, 2)      // [2, 4, 6, 8, 10]
+let squares = power(arr, 2)      // [1, 4, 9, 16, 25]
+
+// Statistics
+let mean = mean(arr)             // 3.0
+let std = standardDeviation(arr) // 1.414...
+let variance = variance(arr)     // 2.0
+
+// Linear algebra
+let a = [1, 2, 3]
+let b = [4, 5, 6]
+let dot = dotProduct(a, b)       // 32
+let norm = norm(a)               // 3.74...
+```
+
+### Statistical Analysis
+
+```synthflow
+import statistics
+
+// Descriptive statistics
+let data = [23, 45, 67, 89, 12, 34, 56, 78]
+
+let summary = {
+    "mean": mean(data),
+    "median": median(data),
+    "mode": mode(data),
+    "std": standardDeviation(data)
+}
+
+// Hypothesis testing
+let result = tTest(group1, group2)
+print("t-statistic: " + str(result.tValue))
+print("p-value: " + str(result.pValue))
+
+// Correlation
+let corr = correlation(x, y)
+print("Pearson r: " + str(corr.r))
+```
+
+---
+
 # Part III: Cutting-Edge Features
 
 ---
@@ -1685,44 +1881,35 @@ numberGuessingGame()
 
 ---
 
-# Appendix B: Standard Library
+SynthFlow includes **54 standard library modules**:
 
-SynthFlow includes **40+ standard library modules**:
+| Category | Modules |
+|----------|--------|
+| **Core** | `array.sf`, `string.sf`, `map.sf`, `set.sf`, `list.sf`, `math.sf`, `regex.sf` |
+| **AI/ML** | `ai.sf`, `agent.sf`, `neural_network.sf`, `classification.sf`, `regression.sf`, `clustering.sf` |
+| **Data Science** | `numpy.sf`, `statistics.sf`, `dataframe.sf`, `preprocessing.sf`, `dimensionality_reduction.sf` |
+| **Web** | `http.sf`, `web.sf`, `websocket.sf`, `template.sf`, `scraping.sf`, `api.sf` |
+| **Security** | `security.sf`, `crypto.sf` |
+| **Systems** | `os.sf`, `subprocess.sf`, `ffi.sf`, `io.sf`, `threading.sf`, `async.sf` |
+| **ML Ops** | `pipeline.sf`, `metrics.sf`, `model_selection.sf`, `model_persistence.sf`, `feature_store.sf`, `experiment_tracking.sf` |
+| **Deployment** | `deployment.sf`, `serving.sf`, `monitoring.sf` |
+| **Visualization** | `plotting.sf` (ASCII + SVG + HTML) |
+| **Utilities** | `json.sf`, `config.sf`, `logging.sf`, `datetime.sf`, `testing.sf`, `sysadmin.sf`, `networking.sf`, `database.sf` |
+| **Advanced** | `quantum.sf`, `vectorstore.sf`, `mobile.sf`, `pwa.sf` |
+
+### Key New Modules (v0.0.30)
 
 | Module | Description |
 |--------|-------------|
-| `stdlib/ai.sf` | AI model integration |
-| `stdlib/agent.sf` | Agent framework (SADK) |
-| `stdlib/array.sf` | Array utilities |
-| `stdlib/classification.sf` | ML classifiers |
-| `stdlib/clustering.sf` | Clustering algorithms |
-| `stdlib/config.sf` | Configuration management |
-| `stdlib/database.sf` | Database connectivity |
-| `stdlib/dataframe.sf` | Pandas-like data manipulation |
-| `stdlib/datetime.sf` | Date/time utilities |
-| `stdlib/http.sf` | HTTP client |
-| `stdlib/io.sf` | File I/O |
-| `stdlib/json.sf` | JSON utilities |
-| `stdlib/list.sf` | Linked list |
-| `stdlib/logging.sf` | Logging framework |
-| `stdlib/map.sf` | Map/dictionary |
-| `stdlib/math.sf` | Math functions |
-| `stdlib/metrics.sf` | ML metrics |
-| `stdlib/mobile.sf` | Mobile dev components |
-| `stdlib/neural_network.sf` | Deep learning |
-| `stdlib/pipeline.sf` | ML pipelines |
-| `stdlib/plotting.sf` | ASCII visualization |
-| `stdlib/preprocessing.sf` | Data preprocessing |
-| `stdlib/pwa.sf` | PWA helpers |
-| `stdlib/quantum.sf` | Quantum computing |
-| `stdlib/regression.sf` | Regression models |
-| `stdlib/scraping.sf` | Web scraping |
-| `stdlib/set.sf` | Set data structure |
-| `stdlib/string.sf` | String utilities |
-| `stdlib/sysadmin.sf` | System administration |
-| `stdlib/testing.sf` | Unit testing |
-| `stdlib/vectorstore.sf` | Vector store (RAG) |
-| `stdlib/web.sf` | Web framework helpers |
+| `numpy.sf` | NumPy-like array operations, linear algebra, statistics |
+| `statistics.sf` | Advanced statistics, hypothesis testing, distributions |
+| `websocket.sf` | WebSocket server/client, rooms, real-time events |
+| `template.sf` | Jinja2-like template engine with variables, loops, filters |
+| `ffi.sf` | FFI for C interop, memory buffers, DLL loading, GPIO/I2C/SPI |
+| `api.sf` | OpenAPI/Swagger, GraphQL, rate limiting, API gateway |
+| `security.sf` | JWT, OAuth2, CORS, input validation, encryption |
+| `testing.sf` | Unit tests with mocking, spies, stubs, fake timers |
+| `plotting.sf` | ASCII + SVG + HTML charts, dashboards |
 
 ---
 
