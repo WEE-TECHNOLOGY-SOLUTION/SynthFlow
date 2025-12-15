@@ -549,3 +549,240 @@ fn sort(arr: array) -> array {
     
     return result
 }
+
+// ===== SVG Export =====
+
+// Generate SVG bar chart
+fn barChartSVG(data: array, labels: array, title: string, width: int, height: int) -> string {
+    let maxVal = 0.0
+    for (let i = 0; i < len(data); i = i + 1) {
+        if (data[i] > maxVal) { maxVal = data[i] }
+    }
+    
+    let barWidth = (width - 100) / len(data)
+    let barHeight = height - 80
+    
+    let svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + str(width) + "' height='" + str(height) + "'>\n"
+    svg = svg + "  <style>text { font-family: Arial, sans-serif; }</style>\n"
+    svg = svg + "  <rect width='100%' height='100%' fill='#ffffff'/>\n"
+    
+    // Title
+    svg = svg + "  <text x='" + str(width/2) + "' y='25' text-anchor='middle' font-size='16' font-weight='bold'>" + title + "</text>\n"
+    
+    // Bars
+    let colors = ["#4285f4", "#ea4335", "#fbbc05", "#34a853", "#9c27b0", "#ff5722"]
+    for (let i = 0; i < len(data); i = i + 1) {
+        let barH = (data[i] / maxVal) * barHeight
+        let x = 50 + i * barWidth + 5
+        let y = 40 + barHeight - barH
+        let color = colors[i % len(colors)]
+        
+        svg = svg + "  <rect x='" + str(x) + "' y='" + str(y) + "' width='" + str(barWidth - 10) + "' height='" + str(barH) + "' fill='" + color + "'/>\n"
+        svg = svg + "  <text x='" + str(x + barWidth/2 - 5) + "' y='" + str(height - 15) + "' font-size='10' text-anchor='middle'>" + labels[i] + "</text>\n"
+        svg = svg + "  <text x='" + str(x + barWidth/2 - 5) + "' y='" + str(y - 5) + "' font-size='10' text-anchor='middle'>" + str(data[i]) + "</text>\n"
+    }
+    
+    svg = svg + "</svg>"
+    return svg
+}
+
+// Generate SVG line chart
+fn lineChartSVG(data: array, title: string, width: int, height: int) -> string {
+    let minVal = data[0]
+    let maxVal = data[0]
+    for (let i = 1; i < len(data); i = i + 1) {
+        if (data[i] < minVal) { minVal = data[i] }
+        if (data[i] > maxVal) { maxVal = data[i] }
+    }
+    
+    let range = maxVal - minVal
+    if (range == 0) { range = 1 }
+    
+    let plotWidth = width - 80
+    let plotHeight = height - 80
+    
+    let svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + str(width) + "' height='" + str(height) + "'>\n"
+    svg = svg + "  <style>text { font-family: Arial, sans-serif; }</style>\n"
+    svg = svg + "  <rect width='100%' height='100%' fill='#ffffff'/>\n"
+    
+    // Title
+    svg = svg + "  <text x='" + str(width/2) + "' y='25' text-anchor='middle' font-size='16' font-weight='bold'>" + title + "</text>\n"
+    
+    // Build path
+    let path = "M"
+    for (let i = 0; i < len(data); i = i + 1) {
+        let x = 60 + (i / (len(data) - 1)) * plotWidth
+        let y = 40 + plotHeight - ((data[i] - minVal) / range) * plotHeight
+        if (i == 0) {
+            path = path + str(x) + "," + str(y)
+        } else {
+            path = path + " L" + str(x) + "," + str(y)
+        }
+    }
+    
+    svg = svg + "  <path d='" + path + "' fill='none' stroke='#4285f4' stroke-width='2'/>\n"
+    
+    // Axes
+    svg = svg + "  <line x1='60' y1='40' x2='60' y2='" + str(40 + plotHeight) + "' stroke='#333' stroke-width='1'/>\n"
+    svg = svg + "  <line x1='60' y1='" + str(40 + plotHeight) + "' x2='" + str(60 + plotWidth) + "' y2='" + str(40 + plotHeight) + "' stroke='#333' stroke-width='1'/>\n"
+    
+    svg = svg + "</svg>"
+    return svg
+}
+
+// Generate SVG pie chart
+fn pieChartSVG(data: array, labels: array, title: string, width: int, height: int) -> string {
+    let total = 0.0
+    for (let i = 0; i < len(data); i = i + 1) {
+        total = total + data[i]
+    }
+    
+    let colors = ["#4285f4", "#ea4335", "#fbbc05", "#34a853", "#9c27b0", "#ff5722", "#00bcd4", "#ff9800"]
+    let cx = width / 2
+    let cy = (height - 40) / 2 + 30
+    let radius = min(width, height) / 3
+    
+    let svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + str(width) + "' height='" + str(height) + "'>\n"
+    svg = svg + "  <style>text { font-family: Arial, sans-serif; }</style>\n"
+    svg = svg + "  <rect width='100%' height='100%' fill='#ffffff'/>\n"
+    svg = svg + "  <text x='" + str(width/2) + "' y='25' text-anchor='middle' font-size='16' font-weight='bold'>" + title + "</text>\n"
+    
+    let startAngle = 0.0
+    for (let i = 0; i < len(data); i = i + 1) {
+        let sliceAngle = (data[i] / total) * 360
+        let endAngle = startAngle + sliceAngle
+        
+        let x1 = cx + radius * cos(startAngle * 3.14159 / 180)
+        let y1 = cy + radius * sin(startAngle * 3.14159 / 180)
+        let x2 = cx + radius * cos(endAngle * 3.14159 / 180)
+        let y2 = cy + radius * sin(endAngle * 3.14159 / 180)
+        
+        let largeArc = 0
+        if (sliceAngle > 180) { largeArc = 1 }
+        
+        let path = "M" + str(cx) + "," + str(cy) + " L" + str(x1) + "," + str(y1) + " A" + str(radius) + "," + str(radius) + " 0 " + str(largeArc) + ",1 " + str(x2) + "," + str(y2) + " Z"
+        
+        svg = svg + "  <path d='" + path + "' fill='" + colors[i % len(colors)] + "'/>\n"
+        
+        startAngle = endAngle
+    }
+    
+    // Legend
+    let legendY = height - 20
+    for (let i = 0; i < len(labels); i = i + 1) {
+        let lx = 20 + (i * 100)
+        svg = svg + "  <rect x='" + str(lx) + "' y='" + str(legendY - 10) + "' width='12' height='12' fill='" + colors[i % len(colors)] + "'/>\n"
+        svg = svg + "  <text x='" + str(lx + 16) + "' y='" + str(legendY) + "' font-size='10'>" + labels[i] + "</text>\n"
+    }
+    
+    svg = svg + "</svg>"
+    return svg
+}
+
+// Generate SVG scatter plot
+fn scatterPlotSVG(x: array, y: array, title: string, width: int, height: int) -> string {
+    let xMin = x[0]
+    let xMax = x[0]
+    let yMin = y[0]
+    let yMax = y[0]
+    
+    for (let i = 1; i < len(x); i = i + 1) {
+        if (x[i] < xMin) { xMin = x[i] }
+        if (x[i] > xMax) { xMax = x[i] }
+        if (y[i] < yMin) { yMin = y[i] }
+        if (y[i] > yMax) { yMax = y[i] }
+    }
+    
+    let xRange = xMax - xMin
+    let yRange = yMax - yMin
+    if (xRange == 0) { xRange = 1 }
+    if (yRange == 0) { yRange = 1 }
+    
+    let plotWidth = width - 80
+    let plotHeight = height - 80
+    
+    let svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + str(width) + "' height='" + str(height) + "'>\n"
+    svg = svg + "  <style>text { font-family: Arial, sans-serif; }</style>\n"
+    svg = svg + "  <rect width='100%' height='100%' fill='#ffffff'/>\n"
+    svg = svg + "  <text x='" + str(width/2) + "' y='25' text-anchor='middle' font-size='16' font-weight='bold'>" + title + "</text>\n"
+    
+    // Points
+    for (let i = 0; i < len(x); i = i + 1) {
+        let px = 60 + ((x[i] - xMin) / xRange) * plotWidth
+        let py = 40 + plotHeight - ((y[i] - yMin) / yRange) * plotHeight
+        svg = svg + "  <circle cx='" + str(px) + "' cy='" + str(py) + "' r='4' fill='#4285f4'/>\n"
+    }
+    
+    // Axes
+    svg = svg + "  <line x1='60' y1='40' x2='60' y2='" + str(40 + plotHeight) + "' stroke='#333' stroke-width='1'/>\n"
+    svg = svg + "  <line x1='60' y1='" + str(40 + plotHeight) + "' x2='" + str(60 + plotWidth) + "' y2='" + str(40 + plotHeight) + "' stroke='#333' stroke-width='1'/>\n"
+    
+    svg = svg + "</svg>"
+    return svg
+}
+
+// ===== HTML Export =====
+
+// Generate complete HTML page with chart
+fn chartToHTML(chartSVG: string, title: string) -> string {
+    let html = "<!DOCTYPE html>\n<html>\n<head>\n"
+    html = html + "  <meta charset='UTF-8'>\n"
+    html = html + "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n"
+    html = html + "  <title>" + title + "</title>\n"
+    html = html + "  <style>\n"
+    html = html + "    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }\n"
+    html = html + "    .chart-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }\n"
+    html = html + "  </style>\n"
+    html = html + "</head>\n<body>\n"
+    html = html + "  <div class='chart-container'>\n"
+    html = html + "    " + chartSVG + "\n"
+    html = html + "  </div>\n"
+    html = html + "</body>\n</html>"
+    return html
+}
+
+// Save chart as HTML file
+fn saveChartHTML(chartSVG: string, title: string, filepath: string) -> bool {
+    let html = chartToHTML(chartSVG, title)
+    return write_file(filepath, html)
+}
+
+// Save SVG to file
+fn saveChartSVG(svg: string, filepath: string) -> bool {
+    return write_file(filepath, svg)
+}
+
+// ===== Interactive Dashboard =====
+
+// Generate HTML dashboard with multiple charts
+fn dashboard(charts: array, title: string) -> string {
+    let html = "<!DOCTYPE html>\n<html>\n<head>\n"
+    html = html + "  <meta charset='UTF-8'>\n"
+    html = html + "  <title>" + title + "</title>\n"
+    html = html + "  <style>\n"
+    html = html + "    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; color: white; }\n"
+    html = html + "    h1 { text-align: center; color: #4285f4; }\n"
+    html = html + "    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }\n"
+    html = html + "    .chart-card { background: #16213e; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }\n"
+    html = html + "    svg { max-width: 100%; height: auto; }\n"
+    html = html + "  </style>\n"
+    html = html + "</head>\n<body>\n"
+    html = html + "  <h1>" + title + "</h1>\n"
+    html = html + "  <div class='dashboard'>\n"
+    
+    for (let i = 0; i < len(charts); i = i + 1) {
+        html = html + "    <div class='chart-card'>\n"
+        html = html + "      " + charts[i] + "\n"
+        html = html + "    </div>\n"
+    }
+    
+    html = html + "  </div>\n"
+    html = html + "</body>\n</html>"
+    return html
+}
+
+fn min(a: int, b: int) -> int {
+    if (a < b) { return a }
+    return b
+}
+
