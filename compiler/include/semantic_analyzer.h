@@ -109,6 +109,35 @@ public:
         symbolTable["html"] = {"html", true, false, "", false};
         symbolTable["text"] = {"text", true, false, "", false};
         symbolTable["use"] = {"use", true, false, "", false};
+        
+        // OS & Subprocess built-in functions (Python-like)
+        symbolTable["__builtin_exec"] = {"__builtin_exec", true, false, "", false};
+        symbolTable["__builtin_shell"] = {"__builtin_shell", true, false, "", false};
+        symbolTable["__builtin_env_get"] = {"__builtin_env_get", true, false, "", false};
+        symbolTable["__builtin_env_set"] = {"__builtin_env_set", true, false, "", false};
+        symbolTable["__builtin_getcwd"] = {"__builtin_getcwd", true, false, "", false};
+        symbolTable["__builtin_chdir"] = {"__builtin_chdir", true, false, "", false};
+        symbolTable["__builtin_platform"] = {"__builtin_platform", true, false, "", false};
+        symbolTable["__builtin_arch"] = {"__builtin_arch", true, false, "", false};
+        symbolTable["__builtin_hostname"] = {"__builtin_hostname", true, false, "", false};
+        symbolTable["__builtin_username"] = {"__builtin_username", true, false, "", false};
+        symbolTable["__builtin_homedir"] = {"__builtin_homedir", true, false, "", false};
+        symbolTable["__builtin_tempdir"] = {"__builtin_tempdir", true, false, "", false};
+        symbolTable["__builtin_path_exists"] = {"__builtin_path_exists", true, false, "", false};
+        symbolTable["__builtin_is_file"] = {"__builtin_is_file", true, false, "", false};
+        symbolTable["__builtin_is_dir"] = {"__builtin_is_dir", true, false, "", false};
+        symbolTable["__builtin_listdir"] = {"__builtin_listdir", true, false, "", false};
+        symbolTable["__builtin_mkdir"] = {"__builtin_mkdir", true, false, "", false};
+        symbolTable["__builtin_rmdir"] = {"__builtin_rmdir", true, false, "", false};
+        symbolTable["__builtin_remove"] = {"__builtin_remove", true, false, "", false};
+        symbolTable["__builtin_rename"] = {"__builtin_rename", true, false, "", false};
+        symbolTable["__builtin_getpid"] = {"__builtin_getpid", true, false, "", false};
+        symbolTable["__builtin_exit"] = {"__builtin_exit", true, false, "", false};
+        symbolTable["__builtin_time"] = {"__builtin_time", true, false, "", false};
+        symbolTable["__builtin_time_ms"] = {"__builtin_time_ms", true, false, "", false};
+        symbolTable["__builtin_sleep"] = {"__builtin_sleep", true, false, "", false};
+        symbolTable["__builtin_substring"] = {"__builtin_substring", true, false, "", false};
+        symbolTable["__builtin_which"] = {"__builtin_which", true, false, "", false};
     }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);

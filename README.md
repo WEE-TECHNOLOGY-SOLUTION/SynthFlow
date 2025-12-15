@@ -108,6 +108,12 @@ print(answer)
 | `stdlib/logging.sf` | Enterprise logging | ✅ Ready |
 | `stdlib/testing.sf` | Unit testing framework | ✅ Ready |
 | `stdlib/config.sf` | Configuration management | ✅ Ready |
+| `stdlib/os.sf` | **NEW** OS utilities, env vars, filesystem | ✅ Ready |
+| `stdlib/subprocess.sf` | **NEW** Command execution, pipes, process mgmt | ✅ Ready |
+| `stdlib/async.sf` | **NEW** Promises, async utilities, event loop | ✅ Ready |
+| `stdlib/regex.sf` | **NEW** Pattern matching, text validation | ✅ Ready |
+| `stdlib/crypto.sf` | **NEW** Hashing (SHA, MD5), encryption | ✅ Ready |
+| `stdlib/threading.sf` | **NEW** Threads, mutexes, channels, parallel | ✅ Ready |
 
 ## 🔧 Built-in Functions
 

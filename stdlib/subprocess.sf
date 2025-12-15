@@ -1,0 +1,283 @@
+// SynthFlow Subprocess Library
+// Execute external commands and manage child processes
+// Python subprocess-like functionality for shell scripting
+
+// ===== Command Execution =====
+
+// Run a command and wait for completion, return output
+fn run(cmd: string) -> map {
+    return __builtin_exec(cmd)
+}
+
+// Run command with arguments array
+fn run_args(program: string, args: array) -> map {
+    let cmd = program
+    for (let i = 0; i < len(args); i = i + 1) {
+        cmd = cmd + " " + quote_arg(args[i])
+    }
+    return run(cmd)
+}
+
+// Run command and return only stdout
+fn output(cmd: string) -> string {
+    let result = run(cmd)
+    return result.stdout
+}
+
+// Run command and return exit code
+fn call(cmd: string) -> int {
+    let result = run(cmd)
+    return result.returncode
+}
+
+// Check if command succeeded (exit code 0)
+fn check_call(cmd: string) -> bool {
+    return call(cmd) == 0
+}
+
+// Run command, throw error if non-zero exit
+fn check_output(cmd: string) -> string {
+    let result = run(cmd)
+    if (result.returncode != 0) {
+        throw("Command failed with exit code " + str(result.returncode) + ": " + result.stderr)
+    }
+    return result.stdout
+}
+
+// ===== Shell Commands =====
+
+// Run command through shell (sh -c on Unix, cmd /c on Windows)
+fn shell(cmd: string) -> map {
+    return __builtin_shell(cmd)
+}
+
+// Run command and stream output in real-time
+fn stream(cmd: string, callback: fn) -> int {
+    return __builtin_stream(cmd, callback)
+}
+
+// ===== Background Processes =====
+
+// Spawn a background process, returns process handle
+fn spawn(cmd: string) -> map {
+    return __builtin_spawn(cmd)
+}
+
+// Spawn with arguments
+fn spawn_args(program: string, args: array) -> map {
+    let cmd = program
+    for (let i = 0; i < len(args); i = i + 1) {
+        cmd = cmd + " " + quote_arg(args[i])
+    }
+    return spawn(cmd)
+}
+
+// Wait for spawned process to complete
+fn wait(process: map) -> int {
+    return __builtin_process_wait(process.pid)
+}
+
+// Check if process is still running
+fn is_running(process: map) -> bool {
+    return __builtin_process_running(process.pid)
+}
+
+// Kill a running process
+fn kill(process: map) -> bool {
+    return __builtin_process_kill(process.pid)
+}
+
+// Send signal to process (Unix)
+fn signal(process: map, sig: int) -> bool {
+    return __builtin_process_signal(process.pid, sig)
+}
+
+// ===== Pipes =====
+
+// Pipe output of cmd1 to input of cmd2
+fn pipe(cmd1: string, cmd2: string) -> map {
+    let result1 = run(cmd1)
+    return __builtin_exec_stdin(cmd2, result1.stdout)
+}
+
+// Create a pipeline of multiple commands
+fn pipeline(cmds: array) -> map {
+    if (len(cmds) == 0) {
+        return { "stdout": "", "stderr": "", "returncode": 0 }
+    }
+    
+    let result = run(cmds[0])
+    for (let i = 1; i < len(cmds); i = i + 1) {
+        result = __builtin_exec_stdin(cmds[i], result.stdout)
+    }
+    return result
+}
+
+// ===== Input/Output Control =====
+
+// Run with custom stdin
+fn run_with_input(cmd: string, stdin_data: string) -> map {
+    return __builtin_exec_stdin(cmd, stdin_data)
+}
+
+// Run with custom environment
+fn run_with_env(cmd: string, env: map) -> map {
+    return __builtin_exec_env(cmd, env)
+}
+
+// Run with custom working directory
+fn run_in_dir(cmd: string, cwd: string) -> map {
+    return __builtin_exec_cwd(cmd, cwd)
+}
+
+// Run with timeout (milliseconds)
+fn run_with_timeout(cmd: string, timeout_ms: int) -> map {
+    return __builtin_exec_timeout(cmd, timeout_ms)
+}
+
+// ===== Common Shell Commands =====
+
+// Execute echo
+fn echo(text: string) -> void {
+    print(text)
+}
+
+// Execute cat (read file contents)
+fn cat(path: string) -> string {
+    return read_file(path)
+}
+
+// Execute ls/dir (list directory)
+fn ls(path: string) -> array {
+    return __builtin_listdir(path)
+}
+
+// Execute pwd (print working directory)
+fn pwd() -> string {
+    return __builtin_getcwd()
+}
+
+// Execute cd (change directory)
+fn cd(path: string) -> bool {
+    return __builtin_chdir(path)
+}
+
+// Execute mkdir
+fn mkdir(path: string) -> bool {
+    return __builtin_mkdir(path)
+}
+
+// Execute rm (remove file)
+fn rm(path: string) -> bool {
+    return __builtin_remove(path)
+}
+
+// Execute cp (copy file)
+fn cp(src: string, dest: string) -> bool {
+    let content = read_file(src)
+    write_file(dest, content)
+    return true
+}
+
+// Execute mv (move/rename file)
+fn mv(src: string, dest: string) -> bool {
+    return __builtin_rename(src, dest)
+}
+
+// ===== Utilities =====
+
+// Quote argument for shell (escape special characters)
+fn quote_arg(arg: string) -> string {
+    // Simple quoting - wrap in double quotes if contains spaces
+    if (contains(arg, " ") || contains(arg, "\t")) {
+        return "\"" + arg + "\""
+    }
+    return arg
+}
+
+// Split command line into arguments
+fn split_args(cmdline: string) -> array {
+    let args = []
+    let current = ""
+    let in_quotes = false
+    let quote_char = ""
+    
+    for (let i = 0; i < len(cmdline); i = i + 1) {
+        let c = cmdline[i]
+        
+        if (in_quotes) {
+            if (c == quote_char) {
+                in_quotes = false
+            } else {
+                current = current + c
+            }
+        } else {
+            if (c == "\"" || c == "'") {
+                in_quotes = true
+                quote_char = c
+            } else if (c == " " || c == "\t") {
+                if (len(current) > 0) {
+                    args = append(args, current)
+                    current = ""
+                }
+            } else {
+                current = current + c
+            }
+        }
+    }
+    
+    if (len(current) > 0) {
+        args = append(args, current)
+    }
+    
+    return args
+}
+
+// Get which/where for a command (find executable)
+fn which(program: string) -> string {
+    return __builtin_which(program)
+}
+
+// Check if a command exists
+fn command_exists(program: string) -> bool {
+    return which(program) != ""
+}
+
+// ===== Result Helpers =====
+
+// Check if result was successful
+fn succeeded(result: map) -> bool {
+    return result.returncode == 0
+}
+
+// Check if result failed
+fn failed(result: map) -> bool {
+    return result.returncode != 0
+}
+
+// Get combined output (stdout + stderr)
+fn combined_output(result: map) -> string {
+    return result.stdout + result.stderr
+}
+
+// ===== Helper Functions =====
+
+fn contains(str: string, substr: string) -> bool {
+    for (let i = 0; i <= len(str) - len(substr); i = i + 1) {
+        let match = true
+        for (let j = 0; j < len(substr); j = j + 1) {
+            if (str[i + j] != substr[j]) {
+                match = false
+                break
+            }
+        }
+        if (match) {
+            return true
+        }
+    }
+    return false
+}
+
+fn throw(message: string) -> void {
+    print("[ERROR] " + message)
+}

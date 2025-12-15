@@ -1,0 +1,177 @@
+// SynthFlow Cryptography Library
+// Hashing, encryption, and secure random generation
+
+// ===== Hashing Functions =====
+
+// SHA-256 hash
+fn sha256(data: string) -> string {
+    return __builtin_sha256(data)
+}
+
+// SHA-512 hash
+fn sha512(data: string) -> string {
+    return __builtin_sha512(data)
+}
+
+// MD5 hash (not recommended for security, use for checksums)
+fn md5(data: string) -> string {
+    return __builtin_md5(data)
+}
+
+// SHA-1 hash (deprecated for security)
+fn sha1(data: string) -> string {
+    return __builtin_sha1(data)
+}
+
+// HMAC-SHA256
+fn hmac_sha256(data: string, key: string) -> string {
+    return __builtin_hmac_sha256(data, key)
+}
+
+// ===== Password Hashing =====
+
+// Hash password with bcrypt (secure for password storage)
+fn hash_password(password: string) -> string {
+    return __builtin_bcrypt_hash(password)
+}
+
+// Verify password against bcrypt hash
+fn verify_password(password: string, hash: string) -> bool {
+    return __builtin_bcrypt_verify(password, hash)
+}
+
+// ===== Symmetric Encryption =====
+
+// AES-256 encrypt
+fn encrypt_aes(plaintext: string, key: string) -> string {
+    return __builtin_aes_encrypt(plaintext, key)
+}
+
+// AES-256 decrypt
+fn decrypt_aes(ciphertext: string, key: string) -> string {
+    return __builtin_aes_decrypt(ciphertext, key)
+}
+
+// ===== Key Generation =====
+
+// Generate random bytes (hex encoded)
+fn random_bytes(length: int) -> string {
+    return __builtin_random_bytes(length)
+}
+
+// Generate secure random key for AES
+fn generate_key() -> string {
+    return random_bytes(32)  // 256 bits
+}
+
+// Generate random UUID v4
+fn uuid() -> string {
+    return __builtin_uuid()
+}
+
+// ===== Encoding =====
+
+// Base64 encode
+fn base64_encode(data: string) -> string {
+    return __builtin_base64_encode(data)
+}
+
+// Base64 decode
+fn base64_decode(data: string) -> string {
+    return __builtin_base64_decode(data)
+}
+
+// Hex encode
+fn hex_encode(data: string) -> string {
+    return __builtin_hex_encode(data)
+}
+
+// Hex decode  
+fn hex_decode(data: string) -> string {
+    return __builtin_hex_decode(data)
+}
+
+// URL encode
+fn url_encode(data: string) -> string {
+    return __builtin_url_encode(data)
+}
+
+// URL decode
+fn url_decode(data: string) -> string {
+    return __builtin_url_decode(data)
+}
+
+// ===== Token Generation =====
+
+// Generate secure token for sessions/APIs
+fn generate_token(length: int) -> string {
+    return random_bytes(length)
+}
+
+// Generate API key with prefix
+fn generate_api_key(prefix: string) -> string {
+    return prefix + "_" + random_bytes(24)
+}
+
+// ===== Utility Functions =====
+
+// Constant-time string comparison (prevents timing attacks)
+fn secure_compare(a: string, b: string) -> bool {
+    return __builtin_secure_compare(a, b)
+}
+
+// Hash file contents
+fn hash_file(path: string) -> string {
+    let content = read_file(path)
+    return sha256(content)
+}
+
+// ===== Simple Ciphers (Educational) =====
+
+// Caesar cipher encrypt
+fn caesar_encrypt(text: string, shift: int) -> string {
+    let result = ""
+    for (let i = 0; i < len(text); i = i + 1) {
+        let c = text[i]
+        let code = charcode(c)
+        
+        if (code >= 65 && code <= 90) {  // A-Z
+            result = result + fromCharCode(((code - 65 + shift) % 26) + 65)
+        } else if (code >= 97 && code <= 122) {  // a-z
+            result = result + fromCharCode(((code - 97 + shift) % 26) + 97)
+        } else {
+            result = result + c
+        }
+    }
+    return result
+}
+
+// Caesar cipher decrypt
+fn caesar_decrypt(text: string, shift: int) -> string {
+    return caesar_encrypt(text, 26 - (shift % 26))
+}
+
+// XOR cipher (symmetric)
+fn xor_cipher(text: string, key: string) -> string {
+    let result = ""
+    for (let i = 0; i < len(text); i = i + 1) {
+        let textCode = charcode(text[i])
+        let keyCode = charcode(key[i % len(key)])
+        result = result + fromCharCode(xor(textCode, keyCode))
+    }
+    return result
+}
+
+// ===== Helper Functions =====
+
+fn charcode(c: string) -> int {
+    return __builtin_charcode(c)
+}
+
+fn fromCharCode(code: int) -> string {
+    return __builtin_from_charcode(code)
+}
+
+fn xor(a: int, b: int) -> int {
+    return __builtin_xor(a, b)
+}

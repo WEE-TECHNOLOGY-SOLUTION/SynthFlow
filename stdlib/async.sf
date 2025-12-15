@@ -1,0 +1,282 @@
+// SynthFlow Async Library
+// Asynchronous programming with promises and utilities
+
+// ===== Promise Creation =====
+
+// Create a new promise
+fn promise(executor: fn) -> map {
+    return {
+        "status": "pending",
+        "value": null,
+        "error": null,
+        "callbacks": [],
+        "executor": executor
+    }
+}
+
+// Create a resolved promise
+fn resolve(value: any) -> map {
+    return {
+        "status": "resolved",
+        "value": value,
+        "error": null,
+        "callbacks": []
+    }
+}
+
+// Create a rejected promise
+fn reject(error: any) -> map {
+    return {
+        "status": "rejected",
+        "value": null,
+        "error": error,
+        "callbacks": []
+    }
+}
+
+// ===== Promise Methods =====
+
+// Chain a callback to run when promise resolves
+fn then(promise: map, callback: fn) -> map {
+    if (promise.status == "resolved") {
+        return resolve(callback(promise.value))
+    } else if (promise.status == "rejected") {
+        return promise
+    }
+    
+    // Still pending - queue callback
+    promise.callbacks = append(promise.callbacks, {
+        "type": "then",
+        "fn": callback
+    })
+    return promise
+}
+
+// Chain error handler
+fn catch_error(promise: map, handler: fn) -> map {
+    if (promise.status == "rejected") {
+        return resolve(handler(promise.error))
+    } else if (promise.status == "resolved") {
+        return promise
+    }
+    
+    promise.callbacks = append(promise.callbacks, {
+        "type": "catch",
+        "fn": handler
+    })
+    return promise
+}
+
+// Run callback regardless of outcome
+fn finally_do(promise: map, callback: fn) -> map {
+    if (promise.status != "pending") {
+        callback()
+    }
+    promise.callbacks = append(promise.callbacks, {
+        "type": "finally",
+        "fn": callback
+    })
+    return promise
+}
+
+// ===== Async Utilities =====
+
+// Wait for all promises to resolve
+fn all(promises: array) -> map {
+    let results = []
+    for (let i = 0; i < len(promises); i = i + 1) {
+        let p = promises[i]
+        if (p.status == "rejected") {
+            return reject(p.error)
+        }
+        results = append(results, p.value)
+    }
+    return resolve(results)
+}
+
+// Wait for first promise to resolve
+fn race(promises: array) -> map {
+    for (let i = 0; i < len(promises); i = i + 1) {
+        let p = promises[i]
+        if (p.status == "resolved") {
+            return p
+        }
+        if (p.status == "rejected") {
+            return p
+        }
+    }
+    return promises[0]
+}
+
+// Wait for all promises to settle (resolve or reject)
+fn all_settled(promises: array) -> map {
+    let results = []
+    for (let i = 0; i < len(promises); i = i + 1) {
+        let p = promises[i]
+        if (p.status == "resolved") {
+            results = append(results, {
+                "status": "fulfilled",
+                "value": p.value
+            })
+        } else if (p.status == "rejected") {
+            results = append(results, {
+                "status": "rejected",
+                "reason": p.error
+            })
+        }
+    }
+    return resolve(results)
+}
+
+// Return first promise that resolves (ignoring rejections)
+fn any(promises: array) -> map {
+    let errors = []
+    for (let i = 0; i < len(promises); i = i + 1) {
+        let p = promises[i]
+        if (p.status == "resolved") {
+            return p
+        }
+        if (p.status == "rejected") {
+            errors = append(errors, p.error)
+        }
+    }
+    if (len(errors) == len(promises)) {
+        return reject(errors)
+    }
+    return promises[0]
+}
+
+// ===== Timing Utilities =====
+
+// Sleep for specified milliseconds, return promise
+fn sleep(ms: int) -> map {
+    __builtin_sleep(ms)
+    return resolve(null)
+}
+
+// Delay execution of function
+fn delay(ms: int, func: fn) -> map {
+    __builtin_sleep(ms)
+    return resolve(func())
+}
+
+// Execute with timeout
+fn timeout(ms: int, promise: map) -> map {
+    let start = __builtin_time_ms()
+    while (promise.status == "pending") {
+        if (__builtin_time_ms() - start > ms) {
+            return reject("Timeout after " + str(ms) + "ms")
+        }
+        __builtin_sleep(10)
+    }
+    return promise
+}
+
+// Retry function with exponential backoff
+fn retry(func: fn, maxAttempts: int, delayMs: int) -> map {
+    let attempts = 0
+    let lastError = null
+    
+    while (attempts < maxAttempts) {
+        try {
+            let result = func()
+            return resolve(result)
+        } catch (e) {
+            lastError = e
+            attempts = attempts + 1
+            if (attempts < maxAttempts) {
+                let waitTime = delayMs * pow(2, attempts - 1)
+                __builtin_sleep(waitTime)
+            }
+        }
+    }
+    
+    return reject("Failed after " + str(maxAttempts) + " attempts: " + str(lastError))
+}
+
+// ===== Debounce & Throttle =====
+
+// Debounce: only execute after delay with no calls
+fn debounce(func: fn, delayMs: int) -> map {
+    return {
+        "func": func,
+        "delay": delayMs,
+        "lastCall": 0,
+        "call": fn(...args) {
+            let now = __builtin_time_ms()
+            if (now - this.lastCall > this.delay) {
+                this.lastCall = now
+                return this.func(...args)
+            }
+            return null
+        }
+    }
+}
+
+// Throttle: execute at most once per interval
+fn throttle(func: fn, intervalMs: int) -> map {
+    return {
+        "func": func,
+        "interval": intervalMs,
+        "lastCall": 0,
+        "call": fn(...args) {
+            let now = __builtin_time_ms()
+            if (now - this.lastCall >= this.interval) {
+                this.lastCall = now
+                return this.func(...args)
+            }
+            return null
+        }
+    }
+}
+
+// ===== Event Loop Simulation =====
+
+// Create an event queue
+fn create_event_loop() -> map {
+    return {
+        "queue": [],
+        "running": false
+    }
+}
+
+// Queue a task
+fn queue_task(loop: map, task: fn) -> void {
+    loop.queue = append(loop.queue, task)
+}
+
+// Run event loop until empty
+fn run_loop(loop: map) -> void {
+    loop.running = true
+    while (len(loop.queue) > 0 && loop.running) {
+        let task = loop.queue[0]
+        // Remove first element (shift)
+        let newQueue = []
+        for (let i = 1; i < len(loop.queue); i = i + 1) {
+            newQueue = append(newQueue, loop.queue[i])
+        }
+        loop.queue = newQueue
+        
+        try {
+            task()
+        } catch (e) {
+            print("[EventLoop Error] " + str(e))
+        }
+    }
+    loop.running = false
+}
+
+// Stop event loop
+fn stop_loop(loop: map) -> void {
+    loop.running = false
+}
+
+// ===== Helpers =====
+
+fn pow(base: float, exp: int) -> float {
+    let result = 1.0
+    for (let i = 0; i < exp; i = i + 1) {
+        result = result * base
+    }
+    return result
+}

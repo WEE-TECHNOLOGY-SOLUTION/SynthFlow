@@ -1,0 +1,267 @@
+// SynthFlow Threading Library
+// Concurrent programming with threads, mutexes, and channels
+
+// ===== Thread Creation =====
+
+// Spawn a new thread to run a function
+fn spawn(func: fn) -> map {
+    return __builtin_thread_spawn(func)
+}
+
+// Spawn with arguments
+fn spawn_with_args(func: fn, args: array) -> map {
+    return __builtin_thread_spawn_args(func, args)
+}
+
+// Wait for thread to complete
+fn join(thread: map) -> any {
+    return __builtin_thread_join(thread.id)
+}
+
+// Wait for all threads to complete
+fn join_all(threads: array) -> array {
+    let results = []
+    for (let i = 0; i < len(threads); i = i + 1) {
+        results = append(results, join(threads[i]))
+    }
+    return results
+}
+
+// Check if thread is still running
+fn is_alive(thread: map) -> bool {
+    return __builtin_thread_is_alive(thread.id)
+}
+
+// ===== Mutex (Mutual Exclusion) =====
+
+// Create a new mutex
+fn create_mutex() -> map {
+    return __builtin_mutex_create()
+}
+
+// Lock a mutex (blocking)
+fn lock(mutex: map) -> void {
+    __builtin_mutex_lock(mutex.id)
+}
+
+// Try to lock mutex (non-blocking), returns true if acquired
+fn try_lock(mutex: map) -> bool {
+    return __builtin_mutex_try_lock(mutex.id)
+}
+
+// Unlock a mutex
+fn unlock(mutex: map) -> void {
+    __builtin_mutex_unlock(mutex.id)
+}
+
+// Execute function while holding lock
+fn with_lock(mutex: map, func: fn) -> any {
+    lock(mutex)
+    try {
+        let result = func()
+        unlock(mutex)
+        return result
+    } catch (e) {
+        unlock(mutex)
+        throw(e)
+    }
+}
+
+// ===== Channels (Thread-safe communication) =====
+
+// Create a channel for thread communication
+fn create_channel() -> map {
+    return __builtin_channel_create()
+}
+
+// Create a buffered channel
+fn create_buffered_channel(size: int) -> map {
+    return __builtin_channel_create_buffered(size)
+}
+
+// Send value to channel (blocks if buffer full)
+fn send(channel: map, value: any) -> void {
+    __builtin_channel_send(channel.id, value)
+}
+
+// Receive value from channel (blocks if empty)
+fn receive(channel: map) -> any {
+    return __builtin_channel_receive(channel.id)
+}
+
+// Try to receive (non-blocking)
+fn try_receive(channel: map) -> map {
+    return __builtin_channel_try_receive(channel.id)
+}
+
+// Close a channel
+fn close_channel(channel: map) -> void {
+    __builtin_channel_close(channel.id)
+}
+
+// ===== Thread Pool =====
+
+// Create a thread pool
+fn create_pool(size: int) -> map {
+    return {
+        "size": size,
+        "tasks": [],
+        "workers": [],
+        "running": true
+    }
+}
+
+// Submit task to pool
+fn submit(pool: map, func: fn) -> map {
+    let task = {
+        "id": __builtin_uuid(),
+        "func": func,
+        "status": "pending",
+        "result": null
+    }
+    pool.tasks = append(pool.tasks, task)
+    return task
+}
+
+// Wait for task result
+fn get_result(task: map, timeout_ms: int) -> any {
+    let start = __builtin_time_ms()
+    while (task.status == "pending" || task.status == "running") {
+        if (__builtin_time_ms() - start > timeout_ms) {
+            throw("Task timeout")
+        }
+        __builtin_sleep(10)
+    }
+    if (task.status == "error") {
+        throw(task.error)
+    }
+    return task.result
+}
+
+// Shutdown pool
+fn shutdown_pool(pool: map) -> void {
+    pool.running = false
+    for (let i = 0; i < len(pool.workers); i = i + 1) {
+        join(pool.workers[i])
+    }
+}
+
+// ===== Parallel Utilities =====
+
+// Execute functions in parallel, return all results
+fn parallel(funcs: array) -> array {
+    let threads = []
+    for (let i = 0; i < len(funcs); i = i + 1) {
+        threads = append(threads, spawn(funcs[i]))
+    }
+    return join_all(threads)
+}
+
+// Map function over array in parallel
+fn parallel_map(arr: array, func: fn) -> array {
+    let threads = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let item = arr[i]
+        threads = append(threads, spawn(fn() { return func(item) }))
+    }
+    return join_all(threads)
+}
+
+// Filter array in parallel
+fn parallel_filter(arr: array, predicate: fn) -> array {
+    let threads = []
+    for (let i = 0; i < len(arr); i = i + 1) {
+        let item = arr[i]
+        threads = append(threads, spawn(fn() { 
+            return { "item": item, "keep": predicate(item) }
+        }))
+    }
+    
+    let results = join_all(threads)
+    let filtered = []
+    for (let i = 0; i < len(results); i = i + 1) {
+        if (results[i].keep) {
+            filtered = append(filtered, results[i].item)
+        }
+    }
+    return filtered
+}
+
+// ===== Synchronization Primitives =====
+
+// Create a countdown latch
+fn create_latch(count: int) -> map {
+    return {
+        "count": count,
+        "mutex": create_mutex()
+    }
+}
+
+// Count down latch
+fn count_down(latch: map) -> void {
+    with_lock(latch.mutex, fn() {
+        latch.count = latch.count - 1
+    })
+}
+
+// Wait for latch to reach zero
+fn await_latch(latch: map) -> void {
+    while (true) {
+        let count = with_lock(latch.mutex, fn() { return latch.count })
+        if (count <= 0) { break }
+        __builtin_sleep(10)
+    }
+}
+
+// ===== Atomic Operations =====
+
+// Create atomic integer
+fn atomic_int(initial: int) -> map {
+    return {
+        "value": initial,
+        "mutex": create_mutex()
+    }
+}
+
+// Atomic get
+fn atomic_get(atom: map) -> int {
+    return with_lock(atom.mutex, fn() { return atom.value })
+}
+
+// Atomic set
+fn atomic_set(atom: map, value: int) -> void {
+    with_lock(atom.mutex, fn() { atom.value = value })
+}
+
+// Atomic increment
+fn atomic_inc(atom: map) -> int {
+    return with_lock(atom.mutex, fn() { 
+        atom.value = atom.value + 1
+        return atom.value
+    })
+}
+
+// Atomic decrement
+fn atomic_dec(atom: map) -> int {
+    return with_lock(atom.mutex, fn() {
+        atom.value = atom.value - 1
+        return atom.value
+    })
+}
+
+// Compare and swap
+fn atomic_cas(atom: map, expected: int, newValue: int) -> bool {
+    return with_lock(atom.mutex, fn() {
+        if (atom.value == expected) {
+            atom.value = newValue
+            return true
+        }
+        return false
+    })
+}
+
+// ===== Helper =====
+
+fn throw(message: string) -> void {
+    print("[ERROR] " + message)
+}

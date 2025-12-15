@@ -1,0 +1,289 @@
+// SynthFlow OS Library
+// Operating system utilities for Python-like scripting capability
+// Provides environment, path, and system information access
+
+// ===== Environment Variables =====
+
+// Get environment variable value
+fn env_get(key: string) -> string {
+    return __builtin_env_get(key)
+}
+
+// Set environment variable
+fn env_set(key: string, value: string) -> void {
+    __builtin_env_set(key, value)
+}
+
+// Check if environment variable exists
+fn env_has(key: string) -> bool {
+    let val = env_get(key)
+    return val != "" && val != null
+}
+
+// Get all environment variables as map
+fn env_all() -> map {
+    return __builtin_env_all()
+}
+
+// ===== Working Directory =====
+
+// Get current working directory
+fn getcwd() -> string {
+    return __builtin_getcwd()
+}
+
+// Change current working directory
+fn chdir(path: string) -> bool {
+    return __builtin_chdir(path)
+}
+
+// ===== Platform Information =====
+
+// Get operating system name (windows, linux, darwin)
+fn platform() -> string {
+    return __builtin_platform()
+}
+
+// Check if running on Windows
+fn is_windows() -> bool {
+    return platform() == "windows"
+}
+
+// Check if running on Linux
+fn is_linux() -> bool {
+    return platform() == "linux"
+}
+
+// Check if running on macOS
+fn is_macos() -> bool {
+    return platform() == "darwin"
+}
+
+// Get architecture (x86_64, arm64, etc.)
+fn arch() -> string {
+    return __builtin_arch()
+}
+
+// Get hostname
+fn hostname() -> string {
+    return __builtin_hostname()
+}
+
+// Get username of current user
+fn username() -> string {
+    return __builtin_username()
+}
+
+// Get home directory
+fn homedir() -> string {
+    return __builtin_homedir()
+}
+
+// Get temporary directory
+fn tempdir() -> string {
+    return __builtin_tempdir()
+}
+
+// ===== Path Utilities =====
+
+// Join path components with correct separator
+fn path_join(...parts) -> string {
+    let sep = "/"
+    if (is_windows()) {
+        sep = "\\"
+    }
+    
+    let result = ""
+    for (let i = 0; i < len(parts); i = i + 1) {
+        if (i > 0 && len(result) > 0) {
+            result = result + sep
+        }
+        result = result + parts[i]
+    }
+    return result
+}
+
+// Get directory name from path
+fn path_dirname(path: string) -> string {
+    let sep = "/"
+    if (is_windows() && contains(path, "\\")) {
+        sep = "\\"
+    }
+    
+    let lastSep = -1
+    for (let i = len(path) - 1; i >= 0; i = i - 1) {
+        if (path[i] == sep) {
+            lastSep = i
+            break
+        }
+    }
+    
+    if (lastSep == -1) {
+        return "."
+    }
+    return substring(path, 0, lastSep)
+}
+
+// Get base name from path
+fn path_basename(path: string) -> string {
+    let sep = "/"
+    if (is_windows() && contains(path, "\\")) {
+        sep = "\\"
+    }
+    
+    let lastSep = -1
+    for (let i = len(path) - 1; i >= 0; i = i - 1) {
+        if (path[i] == sep) {
+            lastSep = i
+            break
+        }
+    }
+    
+    if (lastSep == -1) {
+        return path
+    }
+    return substring(path, lastSep + 1, len(path))
+}
+
+// Get file extension
+fn path_ext(path: string) -> string {
+    let basename = path_basename(path)
+    let lastDot = -1
+    for (let i = len(basename) - 1; i >= 0; i = i - 1) {
+        if (basename[i] == ".") {
+            lastDot = i
+            break
+        }
+    }
+    
+    if (lastDot == -1 || lastDot == 0) {
+        return ""
+    }
+    return substring(basename, lastDot, len(basename))
+}
+
+// Check if path is absolute
+fn path_is_absolute(path: string) -> bool {
+    if (len(path) == 0) {
+        return false
+    }
+    
+    if (is_windows()) {
+        // Windows: C:\ or \\
+        return (len(path) >= 3 && path[1] == ":" && path[2] == "\\") ||
+               (len(path) >= 2 && path[0] == "\\" && path[1] == "\\")
+    }
+    
+    // Unix: starts with /
+    return path[0] == "/"
+}
+
+// Normalize path (remove . and ..)
+fn path_normalize(path: string) -> string {
+    // Simplified normalization
+    return path
+}
+
+// ===== File System Queries =====
+
+// Check if path exists
+fn exists(path: string) -> bool {
+    return __builtin_path_exists(path)
+}
+
+// Check if path is a file
+fn is_file(path: string) -> bool {
+    return __builtin_is_file(path)
+}
+
+// Check if path is a directory
+fn is_dir(path: string) -> bool {
+    return __builtin_is_dir(path)
+}
+
+// Get file size in bytes
+fn file_size(path: string) -> int {
+    return __builtin_file_size(path)
+}
+
+// List directory contents
+fn listdir(path: string) -> array {
+    return __builtin_listdir(path)
+}
+
+// Create directory
+fn mkdir(path: string) -> bool {
+    return __builtin_mkdir(path)
+}
+
+// Create directory and all parents
+fn makedirs(path: string) -> bool {
+    return __builtin_makedirs(path)
+}
+
+// Remove file
+fn remove(path: string) -> bool {
+    return __builtin_remove(path)
+}
+
+// Remove directory (must be empty)
+fn rmdir(path: string) -> bool {
+    return __builtin_rmdir(path)
+}
+
+// Rename/move file or directory
+fn rename(src: string, dest: string) -> bool {
+    return __builtin_rename(src, dest)
+}
+
+// ===== Process Information =====
+
+// Get current process ID
+fn getpid() -> int {
+    return __builtin_getpid()
+}
+
+// Exit the program with status code
+fn exit(code: int) -> void {
+    __builtin_exit(code)
+}
+
+// ===== Date/Time (System Time) =====
+
+// Get current Unix timestamp in seconds
+fn time() -> int {
+    return __builtin_time()
+}
+
+// Get current Unix timestamp in milliseconds
+fn time_ms() -> int {
+    return __builtin_time_ms()
+}
+
+// Sleep for specified milliseconds
+fn sleep(ms: int) -> void {
+    __builtin_sleep(ms)
+}
+
+// ===== Helper Functions =====
+
+fn contains(str: string, substr: string) -> bool {
+    // Check if string contains substring
+    for (let i = 0; i <= len(str) - len(substr); i = i + 1) {
+        let match = true
+        for (let j = 0; j < len(substr); j = j + 1) {
+            if (str[i + j] != substr[j]) {
+                match = false
+                break
+            }
+        }
+        if (match) {
+            return true
+        }
+    }
+    return false
+}
+
+fn substring(str: string, start: int, end: int) -> string {
+    return __builtin_substring(str, start, end)
+}

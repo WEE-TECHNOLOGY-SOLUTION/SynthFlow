@@ -266,6 +266,46 @@ int executeModule(const std::string& moduleName) {
 // REPL Mode
 // =============================================================================
 
+// Get history file path
+std::string getHistoryFilePath() {
+    #ifdef _WIN32
+    const char* home = std::getenv("USERPROFILE");
+    #else
+    const char* home = std::getenv("HOME");
+    #endif
+    if (home) {
+        return std::string(home) + "/.synthflow_history";
+    }
+    return ".synthflow_history";
+}
+
+// Load history from file
+std::vector<std::string> loadHistory() {
+    std::vector<std::string> history;
+    std::ifstream file(getHistoryFilePath());
+    if (file.is_open()) {
+        std::string line;
+        while (std::getline(file, line)) {
+            if (!line.empty()) {
+                history.push_back(line);
+            }
+        }
+    }
+    return history;
+}
+
+// Save history to file
+void saveHistory(const std::vector<std::string>& history) {
+    std::ofstream file(getHistoryFilePath());
+    if (file.is_open()) {
+        // Save last 1000 entries
+        size_t start = history.size() > 1000 ? history.size() - 1000 : 0;
+        for (size_t i = start; i < history.size(); ++i) {
+            file << history[i] << "\n";
+        }
+    }
+}
+
 int startRepl() {
     std::cout << "SynthFlow REPL v" << SYNTHFLOW_VERSION << std::endl;
     std::cout << "Type :help for commands, :exit to quit" << std::endl;
@@ -275,6 +315,10 @@ int startRepl() {
     std::string line;
     std::string multiLine;
     bool inMultiLine = false;
+    
+    // Load command history
+    std::vector<std::string> history = loadHistory();
+    int historyIndex = static_cast<int>(history.size());
     
     while (true) {
         if (inMultiLine) {
@@ -291,6 +335,7 @@ int startRepl() {
         // Handle meta commands
         if (!inMultiLine) {
             if (line == ":exit" || line == ":quit" || line == ":q") {
+                saveHistory(history);
                 std::cout << "Goodbye!" << std::endl;
                 break;
             }
@@ -301,6 +346,11 @@ int startRepl() {
                 std::cout << "  :clear, :c          Clear screen" << std::endl;
                 std::cout << "  :load <file>        Load and execute a file" << std::endl;
                 std::cout << "  :verbose            Toggle verbose mode" << std::endl;
+                std::cout << "  :history, :hist     Show command history" << std::endl;
+                std::cout << "  :time <expr>        Measure execution time" << std::endl;
+                std::cout << "  :vars               List defined variables" << std::endl;
+                std::cout << "  :reset              Reset interpreter state" << std::endl;
+                std::cout << "  :version            Show version info" << std::endl;
                 std::cout << std::endl;
                 continue;
             }
@@ -311,6 +361,51 @@ int startRepl() {
             if (line == ":verbose") {
                 g_config.verbose = !g_config.verbose;
                 std::cout << "Verbose mode: " << (g_config.verbose ? "ON" : "OFF") << std::endl;
+                continue;
+            }
+            if (line == ":version") {
+                std::cout << "SynthFlow v" << SYNTHFLOW_VERSION << std::endl;
+                std::cout << "Python-like scripting with AI-native features" << std::endl;
+                continue;
+            }
+            if (line == ":history" || line == ":hist") {
+                size_t start = history.size() > 20 ? history.size() - 20 : 0;
+                for (size_t i = start; i < history.size(); ++i) {
+                    std::cout << "  " << (i + 1) << ": " << history[i] << std::endl;
+                }
+                continue;
+            }
+            if (line == ":reset") {
+                // Create new interpreter
+                interpreter = Interpreter();
+                std::cout << "Interpreter state reset." << std::endl;
+                continue;
+            }
+            if (line.substr(0, 6) == ":time ") {
+                std::string expr = line.substr(6);
+                auto start = std::chrono::high_resolution_clock::now();
+                try {
+                    Lexer lexer(expr);
+                    auto tokens = lexer.tokenize();
+                    Parser parser(std::move(tokens));
+                    auto statements = parser.parse();
+                    interpreter.execute(statements);
+                    Value result = interpreter.getLastValue();
+                    auto end = std::chrono::high_resolution_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+                    
+                    if (!result.isNull()) {
+                        std::cout << "\033[33m" << result.toString() << "\033[0m" << std::endl;
+                    }
+                    std::cout << "\033[36mExecution time: " << duration.count() << " µs";
+                    if (duration.count() > 1000) {
+                        std::cout << " (" << (duration.count() / 1000.0) << " ms)";
+                    }
+                    std::cout << "\033[0m" << std::endl;
+                } catch (const std::exception& e) {
+                    logError(e.what());
+                }
+                history.push_back(line);
                 continue;
             }
             if (line.substr(0, 6) == ":load ") {
@@ -326,6 +421,7 @@ int startRepl() {
                 } catch (const std::exception& e) {
                     logError(e.what());
                 }
+                history.push_back(line);
                 continue;
             }
         }
@@ -344,6 +440,11 @@ int startRepl() {
         std::string codeToExecute = inMultiLine ? multiLine + line : line;
         inMultiLine = false;
         multiLine.clear();
+        
+        // Add to history
+        if (!codeToExecute.empty() && (history.empty() || history.back() != codeToExecute)) {
+            history.push_back(codeToExecute);
+        }
         
         // Execute line
         try {
@@ -364,6 +465,9 @@ int startRepl() {
             logError(e.what());
         }
     }
+    
+    // Save history on exit
+    saveHistory(history);
     
     return 0;
 }

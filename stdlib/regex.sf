@@ -1,0 +1,152 @@
+// SynthFlow Regular Expression Library
+// Pattern matching and text manipulation with regex
+
+// ===== Basic Regex Operations =====
+
+// Match pattern against text, returns match result map
+fn match(pattern: string, text: string) -> map {
+    return __builtin_regex_match(pattern, text)
+}
+
+// Check if pattern matches anywhere in text
+fn test(pattern: string, text: string) -> bool {
+    let result = match(pattern, text)
+    return result.matched
+}
+
+// Find all matches of pattern in text
+fn find_all(pattern: string, text: string) -> array {
+    return __builtin_regex_find_all(pattern, text)
+}
+
+// Replace first occurrence of pattern with replacement
+fn replace(pattern: string, replacement: string, text: string) -> string {
+    return __builtin_regex_replace(pattern, replacement, text)
+}
+
+// Replace all occurrences of pattern with replacement
+fn replace_all(pattern: string, replacement: string, text: string) -> string {
+    return __builtin_regex_replace_all(pattern, replacement, text)
+}
+
+// Split text by pattern
+fn split(pattern: string, text: string) -> array {
+    return __builtin_regex_split(pattern, text)
+}
+
+// ===== Common Pattern Helpers =====
+
+// Email validation pattern
+fn is_email(text: string) -> bool {
+    return test("^[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}$", text)
+}
+
+// URL validation pattern
+fn is_url(text: string) -> bool {
+    return test("^https?://[\\w.-]+(?:/[\\w.-]*)*$", text)
+}
+
+// Phone number validation (basic)
+fn is_phone(text: string) -> bool {
+    return test("^[+]?[\\d\\s()-]{7,20}$", text)
+}
+
+// IPv4 address validation
+fn is_ipv4(text: string) -> bool {
+    return test("^(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$", text)
+}
+
+// Integer validation
+fn is_integer(text: string) -> bool {
+    return test("^-?\\d+$", text)
+}
+
+// Float/decimal validation
+fn is_decimal(text: string) -> bool {
+    return test("^-?\\d+\\.\\d+$", text)
+}
+
+// Alphanumeric validation
+fn is_alphanumeric(text: string) -> bool {
+    return test("^[a-zA-Z0-9]+$", text)
+}
+
+// ===== Text Extraction =====
+
+// Extract all numbers from text
+fn extract_numbers(text: string) -> array {
+    return find_all("-?\\d+\\.?\\d*", text)
+}
+
+// Extract all words from text
+fn extract_words(text: string) -> array {
+    return find_all("[a-zA-Z]+", text)
+}
+
+// Extract all emails from text
+fn extract_emails(text: string) -> array {
+    return find_all("[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}", text)
+}
+
+// Extract all URLs from text
+fn extract_urls(text: string) -> array {
+    return find_all("https?://[\\w.-]+(?:/[\\w.-]*)*", text)
+}
+
+// ===== String Manipulation =====
+
+// Remove all whitespace
+fn remove_whitespace(text: string) -> string {
+    return replace_all("\\s+", "", text)
+}
+
+// Collapse multiple spaces to single space
+fn collapse_spaces(text: string) -> string {
+    return replace_all("\\s+", " ", text)
+}
+
+// Remove all non-alphanumeric characters
+fn remove_special_chars(text: string) -> string {
+    return replace_all("[^a-zA-Z0-9\\s]", "", text)
+}
+
+// Convert to snake_case
+fn to_snake_case(text: string) -> string {
+    let result = replace_all("([A-Z])", "_\\1", text)
+    result = replace_all("\\s+", "_", result)
+    result = replace_all("^_", "", result)  // Remove leading underscore
+    return lowercase(result)
+}
+
+// Convert to camelCase
+fn to_camel_case(text: string) -> string {
+    let words = split("[\\s_-]+", text)
+    let result = ""
+    for (let i = 0; i < len(words); i = i + 1) {
+        if (i == 0) {
+            result = lowercase(words[i])
+        } else {
+            result = result + capitalize(words[i])
+        }
+    }
+    return result
+}
+
+// ===== Helper Functions =====
+
+fn lowercase(text: string) -> string {
+    return __builtin_lowercase(text)
+}
+
+fn capitalize(text: string) -> string {
+    if (len(text) == 0) { return "" }
+    return uppercase(text[0]) + lowercase(substring(text, 1, len(text)))
+}
+
+fn uppercase(text: string) -> string {
+    return __builtin_uppercase(text)
+}
+
+fn substring(text: string, start: int, end: int) -> string {
+    return __builtin_substring(text, start, end)
+}

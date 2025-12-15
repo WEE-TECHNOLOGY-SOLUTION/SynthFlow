@@ -5,6 +5,27 @@
 #include <sstream>
 #include <cmath>
 #include <fstream>
+#include <cstdlib>
+#include <array>
+#include <chrono>
+#include <thread>
+
+// Platform-specific includes for OS/subprocess functionality
+#ifdef _WIN32
+#include <windows.h>
+#include <direct.h>
+#include <process.h>
+#define getcwd _getcwd
+#define chdir _chdir
+#define popen _popen
+#define pclose _pclose
+#else
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <pwd.h>
+#endif
 
 // Value methods
 std::string Value::toString() const {
@@ -655,6 +676,442 @@ void Interpreter::registerBuiltins() {
                 }
             }
             return Value();
+        }
+    )));
+    
+    // ===== OS & Subprocess Built-in Functions =====
+    
+    // __builtin_exec(cmd) - Execute command and return result map
+    globalEnv->define("__builtin_exec", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_exec() requires a command string");
+            }
+            
+            std::string cmd = args[0].asString();
+            std::string output;
+            std::string error;
+            int returnCode = 0;
+            
+            #ifdef _WIN32
+            // Windows: Use _popen
+            FILE* pipe = _popen(cmd.c_str(), "r");
+            #else
+            // Unix: Redirect stderr to stdout
+            FILE* pipe = popen((cmd + " 2>&1").c_str(), "r");
+            #endif
+            
+            if (!pipe) {
+                error = "Failed to execute command";
+                returnCode = -1;
+            } else {
+                char buffer[256];
+                while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                    output += buffer;
+                }
+                #ifdef _WIN32
+                returnCode = _pclose(pipe);
+                #else
+                returnCode = pclose(pipe);
+                returnCode = WEXITSTATUS(returnCode);
+                #endif
+            }
+            
+            auto resultMap = std::make_shared<Value::MapType>();
+            (*resultMap)["stdout"] = Value(output);
+            (*resultMap)["stderr"] = Value(error);
+            (*resultMap)["returncode"] = Value(static_cast<int64_t>(returnCode));
+            return Value(resultMap);
+        }
+    )));
+    
+    // __builtin_shell(cmd) - Execute through shell
+    globalEnv->define("__builtin_shell", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter& interp) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_shell() requires a command string");
+            }
+            
+            std::string cmd = args[0].asString();
+            #ifdef _WIN32
+            cmd = "cmd /c " + cmd;
+            #else
+            cmd = "sh -c \"" + cmd + "\"";
+            #endif
+            
+            std::vector<Value> execArgs;
+            execArgs.push_back(Value(cmd));
+            return interp.getGlobalEnv()->get("__builtin_exec").asFunction()->operator()(execArgs, interp);
+        }
+    )));
+    
+    // __builtin_env_get(key) - Get environment variable
+    globalEnv->define("__builtin_env_get", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_env_get() requires a key string");
+            }
+            
+            const char* val = std::getenv(args[0].asString().c_str());
+            return val ? Value(std::string(val)) : Value("");
+        }
+    )));
+    
+    // __builtin_env_set(key, value) - Set environment variable
+    globalEnv->define("__builtin_env_set", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                throw std::runtime_error("__builtin_env_set() requires key and value strings");
+            }
+            
+            #ifdef _WIN32
+            _putenv_s(args[0].asString().c_str(), args[1].asString().c_str());
+            #else
+            setenv(args[0].asString().c_str(), args[1].asString().c_str(), 1);
+            #endif
+            return Value(true);
+        }
+    )));
+    
+    // __builtin_getcwd() - Get current working directory
+    globalEnv->define("__builtin_getcwd", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            char buffer[4096];
+            if (getcwd(buffer, sizeof(buffer)) != nullptr) {
+                return Value(std::string(buffer));
+            }
+            return Value("");
+        }
+    )));
+    
+    // __builtin_chdir(path) - Change working directory
+    globalEnv->define("__builtin_chdir", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_chdir() requires a path string");
+            }
+            return Value(chdir(args[0].asString().c_str()) == 0);
+        }
+    )));
+    
+    // __builtin_platform() - Get OS name
+    globalEnv->define("__builtin_platform", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            #ifdef _WIN32
+            return Value("windows");
+            #elif __APPLE__
+            return Value("darwin");
+            #else
+            return Value("linux");
+            #endif
+        }
+    )));
+    
+    // __builtin_arch() - Get architecture
+    globalEnv->define("__builtin_arch", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            #if defined(__x86_64__) || defined(_M_X64)
+            return Value("x86_64");
+            #elif defined(__aarch64__) || defined(_M_ARM64)
+            return Value("arm64");
+            #elif defined(__i386__) || defined(_M_IX86)
+            return Value("x86");
+            #else
+            return Value("unknown");
+            #endif
+        }
+    )));
+    
+    // __builtin_hostname() - Get hostname
+    globalEnv->define("__builtin_hostname", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            char hostname[256];
+            #ifdef _WIN32
+            DWORD size = sizeof(hostname);
+            GetComputerNameA(hostname, &size);
+            #else
+            gethostname(hostname, sizeof(hostname));
+            #endif
+            return Value(std::string(hostname));
+        }
+    )));
+    
+    // __builtin_username() - Get current username
+    globalEnv->define("__builtin_username", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            #ifdef _WIN32
+            char username[256];
+            DWORD size = sizeof(username);
+            GetUserNameA(username, &size);
+            return Value(std::string(username));
+            #else
+            struct passwd* pw = getpwuid(getuid());
+            return pw ? Value(std::string(pw->pw_name)) : Value("");
+            #endif
+        }
+    )));
+    
+    // __builtin_homedir() - Get home directory
+    globalEnv->define("__builtin_homedir", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            #ifdef _WIN32
+            const char* home = std::getenv("USERPROFILE");
+            #else
+            const char* home = std::getenv("HOME");
+            #endif
+            return home ? Value(std::string(home)) : Value("");
+        }
+    )));
+    
+    // __builtin_tempdir() - Get temp directory
+    globalEnv->define("__builtin_tempdir", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            #ifdef _WIN32
+            char temp[MAX_PATH];
+            GetTempPathA(MAX_PATH, temp);
+            return Value(std::string(temp));
+            #else
+            const char* tmp = std::getenv("TMPDIR");
+            return tmp ? Value(std::string(tmp)) : Value("/tmp");
+            #endif
+        }
+    )));
+    
+    // __builtin_path_exists(path) - Check if path exists
+    globalEnv->define("__builtin_path_exists", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_path_exists() requires a path string");
+            }
+            std::ifstream f(args[0].asString());
+            return Value(f.good());
+        }
+    )));
+    
+    // __builtin_is_file(path) - Check if path is a file
+    globalEnv->define("__builtin_is_file", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_is_file() requires a path string");
+            }
+            #ifdef _WIN32
+            DWORD attr = GetFileAttributesA(args[0].asString().c_str());
+            return Value(attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY));
+            #else
+            struct stat st;
+            if (stat(args[0].asString().c_str(), &st) != 0) return Value(false);
+            return Value(S_ISREG(st.st_mode));
+            #endif
+        }
+    )));
+    
+    // __builtin_is_dir(path) - Check if path is a directory
+    globalEnv->define("__builtin_is_dir", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_is_dir() requires a path string");
+            }
+            #ifdef _WIN32
+            DWORD attr = GetFileAttributesA(args[0].asString().c_str());
+            return Value(attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY));
+            #else
+            struct stat st;
+            if (stat(args[0].asString().c_str(), &st) != 0) return Value(false);
+            return Value(S_ISDIR(st.st_mode));
+            #endif
+        }
+    )));
+    
+    // __builtin_listdir(path) - List directory contents
+    globalEnv->define("__builtin_listdir", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_listdir() requires a path string");
+            }
+            
+            auto entries = std::make_shared<Value::ArrayType>();
+            std::string path = args[0].asString();
+            
+            #ifdef _WIN32
+            WIN32_FIND_DATAA findData;
+            std::string searchPath = path + "\\*";
+            HANDLE hFind = FindFirstFileA(searchPath.c_str(), &findData);
+            
+            if (hFind != INVALID_HANDLE_VALUE) {
+                do {
+                    std::string name = findData.cFileName;
+                    if (name != "." && name != "..") {
+                        entries->push_back(Value(name));
+                    }
+                } while (FindNextFileA(hFind, &findData));
+                FindClose(hFind);
+            }
+            #else
+            DIR* dir = opendir(path.c_str());
+            if (dir) {
+                struct dirent* entry;
+                while ((entry = readdir(dir)) != nullptr) {
+                    std::string name = entry->d_name;
+                    if (name != "." && name != "..") {
+                        entries->push_back(Value(name));
+                    }
+                }
+                closedir(dir);
+            }
+            #endif
+            
+            return Value(entries);
+        }
+    )));
+    
+    // __builtin_mkdir(path) - Create directory
+    globalEnv->define("__builtin_mkdir", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_mkdir() requires a path string");
+            }
+            #ifdef _WIN32
+            return Value(CreateDirectoryA(args[0].asString().c_str(), nullptr) != 0);
+            #else
+            return Value(mkdir(args[0].asString().c_str(), 0755) == 0);
+            #endif
+        }
+    )));
+    
+    // __builtin_remove(path) - Remove file
+    globalEnv->define("__builtin_remove", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_remove() requires a path string");
+            }
+            return Value(std::remove(args[0].asString().c_str()) == 0);
+        }
+    )));
+    
+    // __builtin_rmdir(path) - Remove directory
+    globalEnv->define("__builtin_rmdir", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_rmdir() requires a path string");
+            }
+            #ifdef _WIN32
+            return Value(RemoveDirectoryA(args[0].asString().c_str()) != 0);
+            #else
+            return Value(rmdir(args[0].asString().c_str()) == 0);
+            #endif
+        }
+    )));
+    
+    // __builtin_rename(src, dest) - Rename/move file
+    globalEnv->define("__builtin_rename", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                throw std::runtime_error("__builtin_rename() requires source and dest strings");
+            }
+            return Value(std::rename(args[0].asString().c_str(), args[1].asString().c_str()) == 0);
+        }
+    )));
+    
+    // __builtin_getpid() - Get process ID
+    globalEnv->define("__builtin_getpid", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            #ifdef _WIN32
+            return Value(static_cast<int64_t>(GetCurrentProcessId()));
+            #else
+            return Value(static_cast<int64_t>(getpid()));
+            #endif
+        }
+    )));
+    
+    // __builtin_exit(code) - Exit program
+    globalEnv->define("__builtin_exit", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            int code = 0;
+            if (!args.empty() && args[0].isInt()) {
+                code = static_cast<int>(args[0].asInt());
+            }
+            std::exit(code);
+            return Value();
+        }
+    )));
+    
+    // __builtin_time() - Get Unix timestamp in seconds
+    globalEnv->define("__builtin_time", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            auto now = std::chrono::system_clock::now();
+            auto epoch = now.time_since_epoch();
+            auto seconds = std::chrono::duration_cast<std::chrono::seconds>(epoch);
+            return Value(static_cast<int64_t>(seconds.count()));
+        }
+    )));
+    
+    // __builtin_time_ms() - Get Unix timestamp in milliseconds
+    globalEnv->define("__builtin_time_ms", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            auto now = std::chrono::system_clock::now();
+            auto epoch = now.time_since_epoch();
+            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(epoch);
+            return Value(static_cast<int64_t>(ms.count()));
+        }
+    )));
+    
+    // __builtin_sleep(ms) - Sleep for milliseconds
+    globalEnv->define("__builtin_sleep", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) return Value();
+            int64_t ms = args[0].isInt() ? args[0].asInt() : static_cast<int64_t>(args[0].asFloat());
+            std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+            return Value();
+        }
+    )));
+    
+    // __builtin_substring(str, start, end) - Get substring
+    globalEnv->define("__builtin_substring", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 3 || !args[0].isString()) {
+                throw std::runtime_error("__builtin_substring() requires string, start, end");
+            }
+            std::string str = args[0].asString();
+            int64_t start = args[1].asInt();
+            int64_t end = args[2].asInt();
+            if (start < 0) start = 0;
+            if (end > static_cast<int64_t>(str.length())) end = str.length();
+            if (start >= end) return Value("");
+            return Value(str.substr(start, end - start));
+        }
+    )));
+    
+    // __builtin_which(program) - Find executable
+    globalEnv->define("__builtin_which", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter& interp) -> Value {
+            if (args.empty() || !args[0].isString()) {
+                throw std::runtime_error("__builtin_which() requires a program name");
+            }
+            
+            std::string cmd;
+            #ifdef _WIN32
+            cmd = "where " + args[0].asString() + " 2>nul";
+            #else
+            cmd = "which " + args[0].asString() + " 2>/dev/null";
+            #endif
+            
+            std::vector<Value> execArgs;
+            execArgs.push_back(Value(cmd));
+            Value result = interp.getGlobalEnv()->get("__builtin_exec").asFunction()->operator()(execArgs, interp);
+            
+            if (result.isMap()) {
+                auto map = result.asMap();
+                auto it = map->find("stdout");
+                if (it != map->end()) {
+                    std::string path = it->second.asString();
+                    // Trim newline
+                    while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) {
+                        path.pop_back();
+                    }
+                    return Value(path);
+                }
+            }
+            return Value("");
         }
     )));
 }

@@ -1,0 +1,77 @@
+// SynthFlow Subprocess & OS Test
+// Tests the new Python-like OS and subprocess functionality
+
+import os
+import subprocess
+
+// Test 1: Platform information
+print("===== Platform Information =====")
+print("Platform: " + os.platform())
+print("Architecture: " + os.arch())
+print("Hostname: " + os.hostname())
+print("Username: " + os.username())
+print("Home Directory: " + os.homedir())
+print("Temp Directory: " + os.tempdir())
+
+// Test 2: Environment variables
+print("\n===== Environment Variables =====")
+let path = os.env_get("PATH")
+print("PATH length: " + str(len(path)) + " characters")
+
+os.env_set("SYNTHFLOW_TEST", "Hello from SynthFlow!")
+print("Set SYNTHFLOW_TEST: " + os.env_get("SYNTHFLOW_TEST"))
+
+// Test 3: Working directory
+print("\n===== Working Directory =====")
+let cwd = os.getcwd()
+print("Current directory: " + cwd)
+
+// Test 4: Directory listing
+print("\n===== Directory Listing =====")
+let files = os.listdir(".")
+print("Files in current directory: " + str(len(files)))
+for (let i = 0; i < 5 && i < len(files); i = i + 1) {
+    print("  - " + files[i])
+}
+if (len(files) > 5) {
+    print("  ... and " + str(len(files) - 5) + " more")
+}
+
+// Test 5: Path utilities
+print("\n===== Path Utilities =====")
+let testPath = os.path_join("folder", "subfolder", "file.txt")
+print("Joined path: " + testPath)
+print("Is Windows: " + str(os.is_windows()))
+print("Is Linux: " + str(os.is_linux()))
+
+// Test 6: File system queries
+print("\n===== File System Queries =====")
+print("Current dir exists: " + str(os.exists(".")))
+print("Current dir is_dir: " + str(os.is_dir(".")))
+print("README.md is_file: " + str(os.is_file("README.md")))
+
+// Test 7: Command execution
+print("\n===== Command Execution =====")
+let result = subprocess.run("echo Hello SynthFlow")
+print("Command output: " + result.stdout)
+print("Return code: " + str(result.returncode))
+
+// Test 8: Shell commands
+print("\n===== Shell Commands =====")
+if (os.is_windows()) {
+    let dirResult = subprocess.run("dir /b")
+    print("Dir output (first 100 chars): " + str(len(dirResult.stdout)) + " total chars")
+} else {
+    let lsResult = subprocess.run("ls -la")
+    print("ls output (first 100 chars): " + str(len(lsResult.stdout)) + " total chars")
+}
+
+// Test 9: Time functions
+print("\n===== Time Functions =====")
+let timestamp = os.time()
+let timestampMs = os.time_ms()
+print("Unix timestamp (seconds): " + str(timestamp))
+print("Unix timestamp (ms): " + str(timestampMs))
+
+print("\n===== Tests Complete! =====")
+print("SynthFlow now has Python-like OS and subprocess capabilities!")

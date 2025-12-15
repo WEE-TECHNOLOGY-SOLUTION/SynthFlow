@@ -1,0 +1,79 @@
+// SynthFlow Built-in Test
+// Tests the new OS and subprocess native builtins directly
+
+print("===== SynthFlow Python-like Features Test =====")
+print("")
+
+// Test 1: Platform Info
+print("1. Platform Information:")
+print("   Platform: " + __builtin_platform())
+print("   Arch: " + __builtin_arch())
+print("   Hostname: " + __builtin_hostname())
+print("   Username: " + __builtin_username())
+print("")
+
+// Test 2: Directories
+print("2. Directory Operations:")
+print("   CWD: " + __builtin_getcwd())
+print("   Home: " + __builtin_homedir())
+print("   Temp: " + __builtin_tempdir())
+print("")
+
+// Test 3: Environment Variables
+print("3. Environment Variables:")
+let path = __builtin_env_get("PATH")
+print("   PATH length: " + str(len(path)) + " chars")
+print("")
+
+// Test 4: Time Functions
+print("4. Time Functions:")
+print("   Unix timestamp: " + str(__builtin_time()))
+print("   Timestamp (ms): " + str(__builtin_time_ms()))
+print("")
+
+// Test 5: Command Execution
+print("5. Command Execution:")
+let result = __builtin_exec("echo Hello SynthFlow")
+print("   Command: echo Hello SynthFlow")
+print("   Output: " + result.stdout)
+print("   Return code: " + str(result.returncode))
+print("")
+
+// Test 6: Directory Listing
+print("6. Directory Listing:")
+let files = __builtin_listdir(".")
+print("   Files in current dir: " + str(len(files)))
+print("   First 3: " + files[0] + ", " + files[1] + ", " + files[2])
+print("")
+
+// Test 7: Path Queries
+print("7. Path Queries:")
+print("   README.md exists: " + str(__builtin_path_exists("README.md")))
+print("   README.md is file: " + str(__builtin_is_file("README.md")))
+print("   stdlib is dir: " + str(__builtin_is_dir("stdlib")))
+print("")
+
+// Test 8: Substring
+print("8. String Operations:")
+let testStr = "Hello SynthFlow World"
+print("   Original: " + testStr)
+print("   Substring(0,5): " + __builtin_substring(testStr, 0, 5))
+print("   Substring(6,15): " + __builtin_substring(testStr, 6, 15))
+print("")
+
+// Test 9: Sleep
+print("9. Sleep Test:")
+print("   Sleeping 100ms...")
+let start = __builtin_time_ms()
+__builtin_sleep(100)
+let elapsed = __builtin_time_ms() - start
+print("   Elapsed: " + str(elapsed) + " ms")
+print("")
+
+// Test 10: Process ID
+print("10. Process Info:")
+print("    PID: " + str(__builtin_getpid()))
+print("")
+
+print("===== All Tests Complete! =====")
+print("SynthFlow has Python-like OS and subprocess capabilities!")
