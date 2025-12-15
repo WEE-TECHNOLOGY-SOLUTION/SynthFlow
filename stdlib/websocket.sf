@@ -1,0 +1,298 @@
+// SynthFlow WebSocket Library
+// Real-time bidirectional communication
+
+// ===== WebSocket Server =====
+
+// Create WebSocket server
+fn createWebSocketServer(port: int) -> map {
+    let server = {
+        "port": port,
+        "clients": [],
+        "handlers": {
+            "connect": null,
+            "disconnect": null,
+            "message": null,
+            "error": null
+        },
+        "running": false,
+        "nextClientId": 1
+    }
+    return server
+}
+
+// Register event handlers
+fn onConnect(server: map, handler: fn) -> map {
+    server.handlers.connect = handler
+    return server
+}
+
+fn onDisconnect(server: map, handler: fn) -> map {
+    server.handlers.disconnect = handler
+    return server
+}
+
+fn onMessage(server: map, handler: fn) -> map {
+    server.handlers.message = handler
+    return server
+}
+
+fn onError(server: map, handler: fn) -> map {
+    server.handlers.error = handler
+    return server
+}
+
+// Start WebSocket server
+fn startWebSocket(server: map) -> bool {
+    server.running = true
+    let result = __builtin_ws_server_start(server.port)
+    print("[WebSocket] Server started on port " + str(server.port))
+    return result
+}
+
+// Stop WebSocket server
+fn stopWebSocket(server: map) -> bool {
+    server.running = false
+    return __builtin_ws_server_stop(server.port)
+}
+
+// ===== Client Management =====
+
+// Create client representation
+fn createClient(id: int, socket: any) -> map {
+    return {
+        "id": id,
+        "socket": socket,
+        "connected": true,
+        "metadata": {},
+        "rooms": []
+    }
+}
+
+// Send message to specific client
+fn sendToClient(client: map, message: string) -> bool {
+    if (!client.connected) {
+        return false
+    }
+    return __builtin_ws_send(client.socket, message)
+}
+
+// Send JSON to client
+fn sendJsonToClient(client: map, data: map) -> bool {
+    let json = jsonEncode(data)
+    return sendToClient(client, json)
+}
+
+// Broadcast to all clients
+fn broadcast(server: map, message: string) -> int {
+    let sent = 0
+    for (let i = 0; i < len(server.clients); i = i + 1) {
+        if (server.clients[i].connected) {
+            sendToClient(server.clients[i], message)
+            sent = sent + 1
+        }
+    }
+    return sent
+}
+
+// Broadcast JSON to all clients
+fn broadcastJson(server: map, data: map) -> int {
+    let json = jsonEncode(data)
+    return broadcast(server, json)
+}
+
+// Broadcast to all except one client
+fn broadcastExcept(server: map, excludeClient: map, message: string) -> int {
+    let sent = 0
+    for (let i = 0; i < len(server.clients); i = i + 1) {
+        if (server.clients[i].connected && server.clients[i].id != excludeClient.id) {
+            sendToClient(server.clients[i], message)
+            sent = sent + 1
+        }
+    }
+    return sent
+}
+
+// ===== Room Management =====
+
+// Create a room
+fn createRoom(name: string) -> map {
+    return {
+        "name": name,
+        "clients": [],
+        "metadata": {}
+    }
+}
+
+// Join room
+fn joinRoom(client: map, room: map) -> bool {
+    // Add client to room
+    let found = false
+    for (let i = 0; i < len(room.clients); i = i + 1) {
+        if (room.clients[i].id == client.id) {
+            found = true
+            break
+        }
+    }
+    
+    if (!found) {
+        room.clients = append(room.clients, client)
+        client.rooms = append(client.rooms, room.name)
+    }
+    return true
+}
+
+// Leave room
+fn leaveRoom(client: map, room: map) -> bool {
+    let newClients = []
+    for (let i = 0; i < len(room.clients); i = i + 1) {
+        if (room.clients[i].id != client.id) {
+            newClients = append(newClients, room.clients[i])
+        }
+    }
+    room.clients = newClients
+    
+    let newRooms = []
+    for (let i = 0; i < len(client.rooms); i = i + 1) {
+        if (client.rooms[i] != room.name) {
+            newRooms = append(newRooms, client.rooms[i])
+        }
+    }
+    client.rooms = newRooms
+    return true
+}
+
+// Broadcast to room
+fn broadcastToRoom(room: map, message: string) -> int {
+    let sent = 0
+    for (let i = 0; i < len(room.clients); i = i + 1) {
+        if (room.clients[i].connected) {
+            sendToClient(room.clients[i], message)
+            sent = sent + 1
+        }
+    }
+    return sent
+}
+
+// ===== Message Parsing =====
+
+// Parse WebSocket message as JSON
+fn parseMessage(message: string) -> map {
+    return jsonDecode(message)
+}
+
+// Create message with type
+fn createMessage(msgType: string, data: map) -> map {
+    return {
+        "type": msgType,
+        "data": data,
+        "timestamp": __builtin_time_ms()
+    }
+}
+
+// ===== WebSocket Client (for connecting to other servers) =====
+
+// Connect to WebSocket server
+fn connectWebSocket(url: string) -> map {
+    let socket = __builtin_ws_connect(url)
+    return {
+        "url": url,
+        "socket": socket,
+        "connected": socket != null,
+        "handlers": {
+            "message": null,
+            "close": null,
+            "error": null
+        }
+    }
+}
+
+// Send message via client connection
+fn wsSend(client: map, message: string) -> bool {
+    if (!client.connected) {
+        return false
+    }
+    return __builtin_ws_send(client.socket, message)
+}
+
+// Close client connection
+fn wsClose(client: map) -> bool {
+    client.connected = false
+    return __builtin_ws_close(client.socket)
+}
+
+// ===== Event Emitter Pattern =====
+
+// Create event emitter
+fn createEventEmitter() -> map {
+    return {
+        "listeners": {}
+    }
+}
+
+// Add event listener
+fn on(emitter: map, event: string, handler: fn) -> map {
+    if (emitter.listeners[event] == null) {
+        emitter.listeners[event] = []
+    }
+    emitter.listeners[event] = append(emitter.listeners[event], handler)
+    return emitter
+}
+
+// Remove event listener
+fn off(emitter: map, event: string, handler: fn) -> map {
+    if (emitter.listeners[event] == null) {
+        return emitter
+    }
+    let newHandlers = []
+    for (let i = 0; i < len(emitter.listeners[event]); i = i + 1) {
+        if (emitter.listeners[event][i] != handler) {
+            newHandlers = append(newHandlers, emitter.listeners[event][i])
+        }
+    }
+    emitter.listeners[event] = newHandlers
+    return emitter
+}
+
+// Emit event
+fn emit(emitter: map, event: string, data: any) -> void {
+    if (emitter.listeners[event] == null) {
+        return
+    }
+    for (let i = 0; i < len(emitter.listeners[event]); i = i + 1) {
+        emitter.listeners[event][i](data)
+    }
+}
+
+// ===== Heartbeat / Ping-Pong =====
+
+// Send ping
+fn sendPing(client: map) -> bool {
+    return sendToClient(client, "{\"type\":\"ping\"}")
+}
+
+// Check if message is pong
+fn isPong(message: string) -> bool {
+    let msg = parseMessage(message)
+    return msg.type == "pong"
+}
+
+// ===== Protocol Helpers =====
+
+// Create WebSocket handshake response
+fn createHandshakeResponse(key: string) -> string {
+    let accept = __builtin_ws_accept_key(key)
+    return "HTTP/1.1 101 Switching Protocols\r\n" +
+           "Upgrade: websocket\r\n" +
+           "Connection: Upgrade\r\n" +
+           "Sec-WebSocket-Accept: " + accept + "\r\n\r\n"
+}
+
+// ===== Utility Functions =====
+
+fn jsonEncode(data: map) -> string {
+    return str(data)  // Simplified - would use proper JSON encoder
+}
+
+fn jsonDecode(json: string) -> map {
+    return {}  // Simplified - would use proper JSON decoder
+}

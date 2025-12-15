@@ -1,0 +1,486 @@
+// SynthFlow Template Engine
+// Server-side HTML templating (like Jinja2/EJS)
+
+// ===== Template Creation =====
+
+// Create a template from string
+fn createTemplate(source: string) -> map {
+    return {
+        "source": source,
+        "compiled": false,
+        "parts": [],
+        "helpers": {}
+    }
+}
+
+// Load template from file
+fn loadTemplate(filepath: string) -> map {
+    let content = read_file(filepath)
+    return createTemplate(content)
+}
+
+// ===== Template Rendering =====
+
+// Render template with data
+fn render(template: map, data: map) -> string {
+    let result = template.source
+    
+    // Process variables: {{ variable }}
+    result = processVariables(result, data)
+    
+    // Process conditionals: {% if condition %} ... {% endif %}
+    result = processConditionals(result, data)
+    
+    // Process loops: {% for item in items %} ... {% endfor %}
+    result = processLoops(result, data)
+    
+    // Process includes: {% include "file.html" %}
+    result = processIncludes(result)
+    
+    // Process filters: {{ variable | filter }}
+    result = processFilters(result, data)
+    
+    return result
+}
+
+// Render template string directly
+fn renderString(templateStr: string, data: map) -> string {
+    let template = createTemplate(templateStr)
+    return render(template, data)
+}
+
+// ===== Variable Processing =====
+
+fn processVariables(source: string, data: map) -> string {
+    let result = source
+    let dataKeys = keys(data)
+    
+    for (let i = 0; i < len(dataKeys); i = i + 1) {
+        let key = dataKeys[i]
+        let value = data[key]
+        let placeholder = "{{ " + key + " }}"
+        let placeholderTrim = "{{" + key + "}}"
+        
+        result = replaceAll(result, placeholder, str(value))
+        result = replaceAll(result, placeholderTrim, str(value))
+    }
+    
+    return result
+}
+
+// ===== Conditional Processing =====
+
+fn processConditionals(source: string, data: map) -> string {
+    let result = source
+    
+    // Simple if processing
+    let ifStart = indexOf(result, "{% if ")
+    while (ifStart >= 0) {
+        let ifEnd = indexOf(result, " %}")
+        if (ifEnd < ifStart) { break }
+        
+        let condition = substring(result, ifStart + 6, ifEnd)
+        let endifPos = indexOf(result, "{% endif %}")
+        if (endifPos < 0) { break }
+        
+        // Find else if present
+        let elsePos = indexOf(result, "{% else %}")
+        let ifContent = ""
+        let elseContent = ""
+        
+        if (elsePos >= 0 && elsePos < endifPos) {
+            ifContent = substring(result, ifEnd + 3, elsePos)
+            elseContent = substring(result, elsePos + 10, endifPos)
+        } else {
+            ifContent = substring(result, ifEnd + 3, endifPos)
+        }
+        
+        // Evaluate condition
+        let conditionResult = evaluateCondition(condition, data)
+        let replacement = ""
+        if (conditionResult) {
+            replacement = ifContent
+        } else {
+            replacement = elseContent
+        }
+        
+        let fullBlock = substring(result, ifStart, endifPos + 12)
+        result = replaceAll(result, fullBlock, replacement)
+        
+        ifStart = indexOf(result, "{% if ")
+    }
+    
+    return result
+}
+
+fn evaluateCondition(condition: string, data: map) -> bool {
+    let trimmed = trim(condition)
+    
+    // Check for negation
+    if (startsWith(trimmed, "not ")) {
+        let inner = substring(trimmed, 4, len(trimmed))
+        return !evaluateCondition(inner, data)
+    }
+    
+    // Check for comparison operators
+    if (contains(trimmed, " == ")) {
+        let parts = split(trimmed, " == ")
+        let left = evaluateValue(trim(parts[0]), data)
+        let right = evaluateValue(trim(parts[1]), data)
+        return left == right
+    }
+    
+    if (contains(trimmed, " != ")) {
+        let parts = split(trimmed, " != ")
+        let left = evaluateValue(trim(parts[0]), data)
+        let right = evaluateValue(trim(parts[1]), data)
+        return left != right
+    }
+    
+    if (contains(trimmed, " > ")) {
+        let parts = split(trimmed, " > ")
+        let left = evaluateValue(trim(parts[0]), data)
+        let right = evaluateValue(trim(parts[1]), data)
+        return float(left) > float(right)
+    }
+    
+    if (contains(trimmed, " < ")) {
+        let parts = split(trimmed, " < ")
+        let left = evaluateValue(trim(parts[0]), data)
+        let right = evaluateValue(trim(parts[1]), data)
+        return float(left) < float(right)
+    }
+    
+    // Simple truthy check
+    let value = evaluateValue(trimmed, data)
+    return isTruthy(value)
+}
+
+fn evaluateValue(expr: string, data: map) -> any {
+    let trimmed = trim(expr)
+    
+    // String literal
+    if (startsWith(trimmed, "\"") || startsWith(trimmed, "'")) {
+        return substring(trimmed, 1, len(trimmed) - 1)
+    }
+    
+    // Number literal
+    if (isNumeric(trimmed)) {
+        return parseFloat(trimmed)
+    }
+    
+    // Boolean literals
+    if (trimmed == "true") { return true }
+    if (trimmed == "false") { return false }
+    
+    // Variable lookup
+    if (data[trimmed] != null) {
+        return data[trimmed]
+    }
+    
+    // Nested property access (a.b.c)
+    if (contains(trimmed, ".")) {
+        let parts = split(trimmed, ".")
+        let current = data
+        for (let i = 0; i < len(parts); i = i + 1) {
+            if (current[parts[i]] != null) {
+                current = current[parts[i]]
+            } else {
+                return null
+            }
+        }
+        return current
+    }
+    
+    return null
+}
+
+fn isTruthy(value: any) -> bool {
+    if (value == null) { return false }
+    if (value == false) { return false }
+    if (value == 0) { return false }
+    if (value == "") { return false }
+    return true
+}
+
+// ===== Loop Processing =====
+
+fn processLoops(source: string, data: map) -> string {
+    let result = source
+    
+    let forStart = indexOf(result, "{% for ")
+    while (forStart >= 0) {
+        let forEnd = indexOf(result, " %}")
+        if (forEnd < forStart) { break }
+        
+        let loopDef = substring(result, forStart + 7, forEnd)
+        let endforPos = indexOf(result, "{% endfor %}")
+        if (endforPos < 0) { break }
+        
+        let loopContent = substring(result, forEnd + 3, endforPos)
+        
+        // Parse "item in items"
+        let inPos = indexOf(loopDef, " in ")
+        if (inPos < 0) { break }
+        
+        let itemVar = trim(substring(loopDef, 0, inPos))
+        let listVar = trim(substring(loopDef, inPos + 4, len(loopDef)))
+        
+        // Get the list
+        let list = evaluateValue(listVar, data)
+        if (list == null) { list = [] }
+        
+        // Render loop content for each item
+        let loopResult = ""
+        for (let i = 0; i < len(list); i = i + 1) {
+            let itemData = cloneMap(data)
+            itemData[itemVar] = list[i]
+            itemData["loop"] = {
+                "index": i,
+                "index1": i + 1,
+                "first": i == 0,
+                "last": i == len(list) - 1,
+                "length": len(list)
+            }
+            
+            let itemContent = processVariables(loopContent, itemData)
+            loopResult = loopResult + itemContent
+        }
+        
+        let fullBlock = substring(result, forStart, endforPos + 12)
+        result = replaceAll(result, fullBlock, loopResult)
+        
+        forStart = indexOf(result, "{% for ")
+    }
+    
+    return result
+}
+
+// ===== Include Processing =====
+
+fn processIncludes(source: string) -> string {
+    let result = source
+    
+    let includeStart = indexOf(result, "{% include ")
+    while (includeStart >= 0) {
+        let includeEnd = indexOf(result, " %}")
+        if (includeEnd < includeStart) { break }
+        
+        let includeDef = substring(result, includeStart + 11, includeEnd)
+        let filepath = trim(includeDef)
+        
+        // Remove quotes
+        if (startsWith(filepath, "\"") || startsWith(filepath, "'")) {
+            filepath = substring(filepath, 1, len(filepath) - 1)
+        }
+        
+        let includeContent = read_file(filepath)
+        if (includeContent == null) {
+            includeContent = "<!-- Include not found: " + filepath + " -->"
+        }
+        
+        let fullTag = substring(result, includeStart, includeEnd + 3)
+        result = replaceAll(result, fullTag, includeContent)
+        
+        includeStart = indexOf(result, "{% include ")
+    }
+    
+    return result
+}
+
+// ===== Filter Processing =====
+
+fn processFilters(source: string, data: map) -> string {
+    let result = source
+    
+    // Find {{ var | filter }} patterns
+    let pipeStart = indexOf(result, "{{ ")
+    while (pipeStart >= 0) {
+        let pipeEnd = indexOf(result, " }}")
+        if (pipeEnd < pipeStart) { break }
+        
+        let expr = substring(result, pipeStart + 3, pipeEnd)
+        
+        if (contains(expr, " | ")) {
+            let parts = split(expr, " | ")
+            let varName = trim(parts[0])
+            let filterName = trim(parts[1])
+            
+            let value = evaluateValue(varName, data)
+            let filtered = applyFilter(value, filterName)
+            
+            let fullExpr = "{{ " + expr + " }}"
+            result = replaceAll(result, fullExpr, str(filtered))
+        }
+        
+        pipeStart = indexOf(result, "{{ ", pipeStart + 1)
+    }
+    
+    return result
+}
+
+fn applyFilter(value: any, filterName: string) -> any {
+    if (filterName == "upper") {
+        return uppercase(str(value))
+    }
+    if (filterName == "lower") {
+        return lowercase(str(value))
+    }
+    if (filterName == "capitalize") {
+        let s = str(value)
+        if (len(s) == 0) { return s }
+        return uppercase(substring(s, 0, 1)) + lowercase(substring(s, 1, len(s)))
+    }
+    if (filterName == "length") {
+        return len(value)
+    }
+    if (filterName == "trim") {
+        return trim(str(value))
+    }
+    if (filterName == "escape") {
+        return escapeHtml(str(value))
+    }
+    if (filterName == "json") {
+        return str(value)
+    }
+    if (filterName == "default") {
+        if (value == null || value == "") {
+            return "N/A"
+        }
+        return value
+    }
+    return value
+}
+
+// ===== HTML Helpers =====
+
+fn escapeHtml(text: string) -> string {
+    let result = text
+    result = replaceAll(result, "&", "&amp;")
+    result = replaceAll(result, "<", "&lt;")
+    result = replaceAll(result, ">", "&gt;")
+    result = replaceAll(result, "\"", "&quot;")
+    result = replaceAll(result, "'", "&#39;")
+    return result
+}
+
+// ===== Layout System =====
+
+// Create a layout template
+fn createLayout(source: string) -> map {
+    return {
+        "source": source,
+        "blocks": {}
+    }
+}
+
+// Extend a layout
+fn extendLayout(layout: map, blocks: map) -> string {
+    let result = layout.source
+    
+    let blockNames = keys(blocks)
+    for (let i = 0; i < len(blockNames); i = i + 1) {
+        let name = blockNames[i]
+        let content = blocks[name]
+        let placeholder = "{% block " + name + " %}{% endblock %}"
+        result = replaceAll(result, placeholder, content)
+    }
+    
+    return result
+}
+
+// ===== Component System =====
+
+// Register a component
+let components = {}
+
+fn registerComponent(name: string, template: string) -> void {
+    components[name] = template
+}
+
+// Render component
+fn component(name: string, props: map) -> string {
+    if (components[name] == null) {
+        return "<!-- Component not found: " + name + " -->"
+    }
+    return renderString(components[name], props)
+}
+
+// ===== Utility Functions =====
+
+fn keys(m: map) -> array {
+    return __builtin_keys(m)
+}
+
+fn replaceAll(source: string, search: string, replace: string) -> string {
+    let result = source
+    let pos = indexOf(result, search)
+    while (pos >= 0) {
+        result = substring(result, 0, pos) + replace + substring(result, pos + len(search), len(result))
+        pos = indexOf(result, search)
+    }
+    return result
+}
+
+fn indexOf(text: string, search: string) -> int {
+    return __builtin_index_of(text, search)
+}
+
+fn substring(text: string, start: int, end: int) -> string {
+    return __builtin_substring(text, start, end)
+}
+
+fn trim(text: string) -> string {
+    return __builtin_trim(text)
+}
+
+fn uppercase(text: string) -> string {
+    return __builtin_uppercase(text)
+}
+
+fn lowercase(text: string) -> string {
+    return __builtin_lowercase(text)
+}
+
+fn split(text: string, delim: string) -> array {
+    return __builtin_split(text, delim)
+}
+
+fn startsWith(text: string, prefix: string) -> bool {
+    if (len(prefix) > len(text)) { return false }
+    return substring(text, 0, len(prefix)) == prefix
+}
+
+fn contains(text: string, search: string) -> bool {
+    return indexOf(text, search) >= 0
+}
+
+fn isNumeric(text: string) -> bool {
+    if (len(text) == 0) { return false }
+    for (let i = 0; i < len(text); i = i + 1) {
+        let c = substring(text, i, i + 1)
+        if (c != "0" && c != "1" && c != "2" && c != "3" && c != "4" &&
+            c != "5" && c != "6" && c != "7" && c != "8" && c != "9" &&
+            c != "." && c != "-") {
+            return false
+        }
+    }
+    return true
+}
+
+fn parseFloat(text: string) -> float {
+    return 0.0  // Would use builtin
+}
+
+fn cloneMap(m: map) -> map {
+    let result = {}
+    let ks = keys(m)
+    for (let i = 0; i < len(ks); i = i + 1) {
+        result[ks[i]] = m[ks[i]]
+    }
+    return result
+}
+
+fn float(val: any) -> float {
+    return 0.0  // Would convert to float
+}

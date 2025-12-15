@@ -1,0 +1,54 @@
+// SynthFlow Full-Stack Demo: Task Manager
+print("========================================")
+print("   SynthFlow Task Manager")
+print("========================================")
+
+let taskList = []
+let taskNextId = 1
+
+fn addTask(title: string, desc: string, isDone: bool) -> map {
+    let newTask = { "id": taskNextId, "title": title, "desc": desc, "done": isDone }
+    taskNextId = taskNextId + 1
+    taskList = append(taskList, newTask)
+    return newTask
+}
+
+fn countDone() -> int {
+    let doneCount = 0
+    for (let countIdx = 0; countIdx < len(taskList); countIdx = countIdx + 1) {
+        let countTask = taskList[countIdx]
+        if (countTask.done) {
+            doneCount = doneCount + 1
+        }
+    }
+    return doneCount
+}
+
+// Create sample tasks (one already done)
+addTask("Learn SynthFlow", "Complete the tutorial", true)
+addTask("Build REST API", "Create CRUD endpoints", false)
+addTask("Add WebSocket", "Real-time updates", false)
+
+print("Total tasks: " + str(len(taskList)))
+print("Completed: " + str(countDone()))
+
+// Generate sample HTML
+let htmlOutput = "<html><body><h1>Tasks</h1>"
+for (let htmlIdx = 0; htmlIdx < len(taskList); htmlIdx = htmlIdx + 1) {
+    let htmlTask = taskList[htmlIdx]
+    let status = "[Pending]"
+    if (htmlTask.done) {
+        status = "[Done]"
+    }
+    htmlOutput = htmlOutput + "<p>" + htmlTask.title + " " + status + "</p>"
+}
+htmlOutput = htmlOutput + "</body></html>"
+
+print("Generated HTML: " + str(len(htmlOutput)) + " characters")
+print("")
+print("Routes:")
+print("  GET  /           Dashboard")
+print("  GET  /api/tasks  JSON API")
+print("  POST /api/tasks  Create task")
+print("")
+print("Full-stack demo completed successfully!")

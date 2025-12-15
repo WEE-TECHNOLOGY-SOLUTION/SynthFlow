@@ -1,0 +1,20 @@
+// Test direct array-map access
+let items = []
+
+let item1 = { "id": 1, "done": false }
+items = append(items, item1)
+
+let item2 = { "id": 2, "done": true }
+items = append(items, item2)
+
+print("Count: " + str(len(items)))
+
+// Direct access
+for (let i = 0; i < len(items); i = i + 1) {
+    print("ID: " + str(items[i].id))
+    if (items[i].done) {
+        print("  Status: done")
+    }
+}
+
+print("All done")
