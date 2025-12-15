@@ -152,6 +152,23 @@ public:
         symbolTable["__builtin_udp_create"] = {"__builtin_udp_create", true, false, "", false};
         symbolTable["__builtin_udp_sendto"] = {"__builtin_udp_sendto", true, false, "", false};
         symbolTable["__builtin_udp_close"] = {"__builtin_udp_close", true, false, "", false};
+        
+        // Security built-in functions
+        symbolTable["__builtin_base64url_encode"] = {"__builtin_base64url_encode", true, false, "", false};
+        symbolTable["__builtin_base64url_decode"] = {"__builtin_base64url_decode", true, false, "", false};
+        symbolTable["__builtin_regex_test"] = {"__builtin_regex_test", true, false, "", false};
+        symbolTable["__builtin_split"] = {"__builtin_split", true, false, "", false};
+        symbolTable["__builtin_join"] = {"__builtin_join", true, false, "", false};
+        symbolTable["__builtin_trim"] = {"__builtin_trim", true, false, "", false};
+        symbolTable["__builtin_lowercase"] = {"__builtin_lowercase", true, false, "", false};
+        symbolTable["__builtin_starts_with"] = {"__builtin_starts_with", true, false, "", false};
+        symbolTable["__builtin_contains"] = {"__builtin_contains", true, false, "", false};
+        symbolTable["__builtin_replace_all"] = {"__builtin_replace_all", true, false, "", false};
+        symbolTable["__builtin_json_stringify"] = {"__builtin_json_stringify", true, false, "", false};
+        symbolTable["__builtin_json_parse"] = {"__builtin_json_parse", true, false, "", false};
+        symbolTable["__builtin_random_bytes"] = {"__builtin_random_bytes", true, false, "", false};
+        symbolTable["__builtin_uuid"] = {"__builtin_uuid", true, false, "", false};
+        symbolTable["__builtin_secure_compare"] = {"__builtin_secure_compare", true, false, "", false};
     }
     
     void analyze(const std::vector<std::unique_ptr<Statement>>& statements);

@@ -9,6 +9,9 @@
 #include <array>
 #include <chrono>
 #include <thread>
+#include <algorithm>
+#include <regex>
+#include <ctime>
 
 // Platform-specific includes for OS/subprocess functionality
 #ifdef _WIN32
@@ -1486,6 +1489,274 @@ void Interpreter::registerBuiltins() {
             close(sock);
             #endif
             return Value();
+        }
+    )));
+    
+    // ========================================
+    // SECURITY BUILT-INS
+    // ========================================
+    
+    // __builtin_base64url_encode(data) - Base64 URL-safe encode
+    globalEnv->define("__builtin_base64url_encode", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) return Value("");
+            std::string data = args[0].asString();
+            
+            static const char* base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+            std::string encoded;
+            int val = 0, bits = -6;
+            const unsigned int mask = 0x3F;
+            
+            for (unsigned char c : data) {
+                val = (val << 8) + c;
+                bits += 8;
+                while (bits >= 0) {
+                    encoded.push_back(base64_chars[(val >> bits) & mask]);
+                    bits -= 6;
+                }
+            }
+            if (bits > -6) {
+                encoded.push_back(base64_chars[((val << 8) >> (bits + 8)) & mask]);
+            }
+            // Remove padding
+            while (!encoded.empty() && encoded.back() == '=') {
+                encoded.pop_back();
+            }
+            return Value(encoded);
+        }
+    )));
+    
+    // __builtin_base64url_decode(data) - Base64 URL-safe decode
+    globalEnv->define("__builtin_base64url_decode", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) return Value("");
+            std::string data = args[0].asString();
+            
+            static const int decode_table[256] = {
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,62,-1,-1,
+                52,53,54,55,56,57,58,59,60,61,-1,-1,-1,-1,-1,-1,
+                -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,
+                15,16,17,18,19,20,21,22,23,24,25,-1,-1,-1,-1,63,
+                -1,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
+                41,42,43,44,45,46,47,48,49,50,51,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+                -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+            };
+            
+            std::string decoded;
+            int val = 0, bits = -8;
+            for (unsigned char c : data) {
+                int d = decode_table[c];
+                if (d == -1) continue;
+                val = (val << 6) + d;
+                bits += 6;
+                if (bits >= 0) {
+                    decoded.push_back((val >> bits) & 0xFF);
+                    bits -= 8;
+                }
+            }
+            return Value(decoded);
+        }
+    )));
+    
+    // __builtin_regex_test(pattern, text) - Test regex match
+    globalEnv->define("__builtin_regex_test", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                return Value(false);
+            }
+            try {
+                std::regex pattern(args[0].asString());
+                return Value(std::regex_search(args[1].asString(), pattern));
+            } catch (...) {
+                return Value(false);
+            }
+        }
+    )));
+    
+    // __builtin_split(str, delimiter) - Split string
+    globalEnv->define("__builtin_split", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                return Value(std::make_shared<std::vector<Value>>());
+            }
+            std::string str = args[0].asString();
+            std::string delim = args[1].asString();
+            auto result = std::make_shared<std::vector<Value>>();
+            
+            size_t pos = 0, prev = 0;
+            while ((pos = str.find(delim, prev)) != std::string::npos) {
+                result->push_back(Value(str.substr(prev, pos - prev)));
+                prev = pos + delim.length();
+            }
+            result->push_back(Value(str.substr(prev)));
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_join(arr, delimiter) - Join array
+    globalEnv->define("__builtin_join", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isArray() || !args[1].isString()) {
+                return Value("");
+            }
+            auto arr = args[0].asArray();
+            std::string delim = args[1].asString();
+            std::string result;
+            for (size_t i = 0; i < arr->size(); ++i) {
+                if (i > 0) result += delim;
+                result += (*arr)[i].toString();
+            }
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_trim(str) - Trim whitespace
+    globalEnv->define("__builtin_trim", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) return Value("");
+            std::string str = args[0].asString();
+            size_t start = str.find_first_not_of(" \t\n\r");
+            if (start == std::string::npos) return Value("");
+            size_t end = str.find_last_not_of(" \t\n\r");
+            return Value(str.substr(start, end - start + 1));
+        }
+    )));
+    
+    // __builtin_lowercase(str) - Convert to lowercase
+    globalEnv->define("__builtin_lowercase", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isString()) return Value("");
+            std::string str = args[0].asString();
+            std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+            return Value(str);
+        }
+    )));
+    
+    // __builtin_starts_with(str, prefix) - Check prefix
+    globalEnv->define("__builtin_starts_with", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                return Value(false);
+            }
+            std::string str = args[0].asString();
+            std::string prefix = args[1].asString();
+            return Value(str.length() >= prefix.length() && 
+                        str.compare(0, prefix.length(), prefix) == 0);
+        }
+    )));
+    
+    // __builtin_contains(str, search) - Check if contains
+    globalEnv->define("__builtin_contains", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                return Value(false);
+            }
+            return Value(args[0].asString().find(args[1].asString()) != std::string::npos);
+        }
+    )));
+    
+    // __builtin_replace_all(str, from, to) - Replace all occurrences
+    globalEnv->define("__builtin_replace_all", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 3 || !args[0].isString() || !args[1].isString() || !args[2].isString()) {
+                return Value("");
+            }
+            std::string str = args[0].asString();
+            std::string from = args[1].asString();
+            std::string to = args[2].asString();
+            if (from.empty()) return Value(str);
+            
+            size_t pos = 0;
+            while ((pos = str.find(from, pos)) != std::string::npos) {
+                str.replace(pos, from.length(), to);
+                pos += to.length();
+            }
+            return Value(str);
+        }
+    )));
+    
+    // __builtin_json_stringify(map) - Convert map to JSON string
+    globalEnv->define("__builtin_json_stringify", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) return Value("{}");
+            return Value(args[0].toString());
+        }
+    )));
+    
+    // __builtin_json_parse(str) - Parse JSON to map (simplified)
+    globalEnv->define("__builtin_json_parse", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            // Simplified - just return empty map for now
+            return Value(std::make_shared<std::map<std::string, Value>>());
+        }
+    )));
+    
+    // __builtin_random_bytes(length) - Generate random bytes (hex)
+    globalEnv->define("__builtin_random_bytes", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty() || !args[0].isInt()) return Value("");
+            int length = static_cast<int>(args[0].asInt());
+            
+            static const char hex_chars[] = "0123456789abcdef";
+            std::string result;
+            result.reserve(length * 2);
+            
+            std::srand(static_cast<unsigned int>(std::time(nullptr)));
+            for (int i = 0; i < length; ++i) {
+                unsigned char byte = static_cast<unsigned char>(std::rand() % 256);
+                result += hex_chars[byte >> 4];
+                result += hex_chars[byte & 0x0F];
+            }
+            return Value(result);
+        }
+    )));
+    
+    // __builtin_uuid() - Generate UUID v4
+    globalEnv->define("__builtin_uuid", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>&, Interpreter&) -> Value {
+            static const char hex_chars[] = "0123456789abcdef";
+            std::string uuid;
+            std::srand(static_cast<unsigned int>(std::time(nullptr)));
+            
+            for (int i = 0; i < 36; ++i) {
+                if (i == 8 || i == 13 || i == 18 || i == 23) {
+                    uuid += '-';
+                } else if (i == 14) {
+                    uuid += '4';  // Version 4
+                } else if (i == 19) {
+                    uuid += hex_chars[(std::rand() % 4) + 8];  // Variant
+                } else {
+                    uuid += hex_chars[std::rand() % 16];
+                }
+            }
+            return Value(uuid);
+        }
+    )));
+    
+    // __builtin_secure_compare(a, b) - Constant-time comparison
+    globalEnv->define("__builtin_secure_compare", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2 || !args[0].isString() || !args[1].isString()) {
+                return Value(false);
+            }
+            std::string a = args[0].asString();
+            std::string b = args[1].asString();
+            if (a.length() != b.length()) return Value(false);
+            
+            volatile int result = 0;
+            for (size_t i = 0; i < a.length(); ++i) {
+                result |= (a[i] ^ b[i]);
+            }
+            return Value(result == 0);
         }
     )));
 }

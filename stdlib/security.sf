@@ -1,0 +1,531 @@
+// SynthFlow Security Library
+// JWT, OAuth2, Input Validation, Security Scanning, and Advanced Security Tools
+
+// ===== JWT (JSON Web Tokens) =====
+
+// Create JWT token
+fn jwt_create(payload: map, secret: string, algorithm: string) -> string {
+    // Header
+    let header = {
+        "alg": algorithm,
+        "typ": "JWT"
+    }
+    
+    // Encode header and payload
+    let headerB64 = __builtin_base64url_encode(json_stringify(header))
+    let payloadB64 = __builtin_base64url_encode(json_stringify(payload))
+    
+    // Create signature
+    let signatureInput = headerB64 + "." + payloadB64
+    let signature = ""
+    
+    if (algorithm == "HS256") {
+        signature = __builtin_hmac_sha256(signatureInput, secret)
+    } else if (algorithm == "HS384") {
+        signature = __builtin_hmac_sha384(signatureInput, secret)
+    } else if (algorithm == "HS512") {
+        signature = __builtin_hmac_sha512(signatureInput, secret)
+    }
+    
+    let signatureB64 = __builtin_base64url_encode(signature)
+    
+    return headerB64 + "." + payloadB64 + "." + signatureB64
+}
+
+// Verify and decode JWT token
+fn jwt_verify(token: string, secret: string) -> map {
+    let parts = split(token, ".")
+    if (len(parts) != 3) {
+        return { "valid": false, "error": "Invalid token format" }
+    }
+    
+    let headerB64 = parts[0]
+    let payloadB64 = parts[1]
+    let signatureB64 = parts[2]
+    
+    // Decode header
+    let header = json_parse(__builtin_base64url_decode(headerB64))
+    let algorithm = header.alg
+    
+    // Verify signature
+    let signatureInput = headerB64 + "." + payloadB64
+    let expectedSignature = ""
+    
+    if (algorithm == "HS256") {
+        expectedSignature = __builtin_base64url_encode(__builtin_hmac_sha256(signatureInput, secret))
+    }
+    
+    if (signatureB64 != expectedSignature) {
+        return { "valid": false, "error": "Invalid signature" }
+    }
+    
+    // Decode payload
+    let payload = json_parse(__builtin_base64url_decode(payloadB64))
+    
+    // Check expiration
+    if (payload.exp != null) {
+        let now = __builtin_time()
+        if (now > payload.exp) {
+            return { "valid": false, "error": "Token expired", "payload": payload }
+        }
+    }
+    
+    return { "valid": true, "payload": payload, "header": header }
+}
+
+// Decode JWT without verification (for inspection)
+fn jwt_decode(token: string) -> map {
+    let parts = split(token, ".")
+    if (len(parts) != 3) {
+        return { "error": "Invalid token format" }
+    }
+    
+    let header = json_parse(__builtin_base64url_decode(parts[0]))
+    let payload = json_parse(__builtin_base64url_decode(parts[1]))
+    
+    return { "header": header, "payload": payload }
+}
+
+// Create JWT with standard claims
+fn jwt_create_token(subject: string, issuer: string, audience: string, expiresIn: int, secret: string) -> string {
+    let now = __builtin_time()
+    let payload = {
+        "sub": subject,
+        "iss": issuer,
+        "aud": audience,
+        "iat": now,
+        "exp": now + expiresIn,
+        "jti": __builtin_uuid()
+    }
+    return jwt_create(payload, secret, "HS256")
+}
+
+// ===== OAuth2 / OIDC =====
+
+// OAuth2 Authorization URL builder
+fn oauth2_auth_url(config: map) -> string {
+    let baseUrl = config.authorize_url
+    let params = "?response_type=" + config.response_type
+    params = params + "&client_id=" + __builtin_url_encode(config.client_id)
+    params = params + "&redirect_uri=" + __builtin_url_encode(config.redirect_uri)
+    params = params + "&scope=" + __builtin_url_encode(config.scope)
+    
+    if (config.state != null) {
+        params = params + "&state=" + __builtin_url_encode(config.state)
+    }
+    
+    if (config.nonce != null) {
+        params = params + "&nonce=" + __builtin_url_encode(config.nonce)
+    }
+    
+    return baseUrl + params
+}
+
+// Exchange authorization code for tokens
+fn oauth2_exchange_code(config: map, code: string) -> map {
+    let body = "grant_type=authorization_code"
+    body = body + "&code=" + __builtin_url_encode(code)
+    body = body + "&client_id=" + __builtin_url_encode(config.client_id)
+    body = body + "&client_secret=" + __builtin_url_encode(config.client_secret)
+    body = body + "&redirect_uri=" + __builtin_url_encode(config.redirect_uri)
+    
+    // Would make HTTP POST request
+    return __builtin_http_post(config.token_url, body, "application/x-www-form-urlencoded")
+}
+
+// Refresh access token
+fn oauth2_refresh(config: map, refreshToken: string) -> map {
+    let body = "grant_type=refresh_token"
+    body = body + "&refresh_token=" + __builtin_url_encode(refreshToken)
+    body = body + "&client_id=" + __builtin_url_encode(config.client_id)
+    body = body + "&client_secret=" + __builtin_url_encode(config.client_secret)
+    
+    return __builtin_http_post(config.token_url, body, "application/x-www-form-urlencoded")
+}
+
+// OIDC Provider configuration
+fn oidc_config(provider: string) -> map {
+    if (provider == "google") {
+        return {
+            "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+            "token_url": "https://oauth2.googleapis.com/token",
+            "userinfo_url": "https://openidconnect.googleapis.com/v1/userinfo",
+            "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
+        }
+    } else if (provider == "github") {
+        return {
+            "authorize_url": "https://github.com/login/oauth/authorize",
+            "token_url": "https://github.com/login/oauth/access_token",
+            "userinfo_url": "https://api.github.com/user"
+        }
+    } else if (provider == "microsoft") {
+        return {
+            "authorize_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            "token_url": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            "userinfo_url": "https://graph.microsoft.com/v1.0/me"
+        }
+    }
+    return {}
+}
+
+// ===== Input Validation & Sanitization =====
+
+// Validate and sanitize email
+fn validate_email(email: string) -> map {
+    let pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    let valid = __builtin_regex_test(pattern, email)
+    return { "valid": valid, "sanitized": trim(lowercase(email)) }
+}
+
+// Validate password strength
+fn validate_password(password: string, minLength: int) -> map {
+    let result = {
+        "valid": true,
+        "errors": [],
+        "strength": 0
+    }
+    
+    if (len(password) < minLength) {
+        result.valid = false
+        result.errors = append(result.errors, "Password must be at least " + str(minLength) + " characters")
+    }
+    
+    // Check for uppercase
+    if (__builtin_regex_test("[A-Z]", password)) {
+        result.strength = result.strength + 1
+    } else {
+        result.errors = append(result.errors, "Missing uppercase letter")
+    }
+    
+    // Check for lowercase
+    if (__builtin_regex_test("[a-z]", password)) {
+        result.strength = result.strength + 1
+    } else {
+        result.errors = append(result.errors, "Missing lowercase letter")
+    }
+    
+    // Check for number
+    if (__builtin_regex_test("[0-9]", password)) {
+        result.strength = result.strength + 1
+    } else {
+        result.errors = append(result.errors, "Missing number")
+    }
+    
+    // Check for special character
+    if (__builtin_regex_test("[!@#$%^&*(),.?\":{}|<>]", password)) {
+        result.strength = result.strength + 1
+    } else {
+        result.errors = append(result.errors, "Missing special character")
+    }
+    
+    if (len(result.errors) > 1) {
+        result.valid = false
+    }
+    
+    return result
+}
+
+// Sanitize HTML (XSS prevention)
+fn sanitize_html(input: string) -> string {
+    let result = input
+    result = replace_all(result, "&", "&amp;")
+    result = replace_all(result, "<", "&lt;")
+    result = replace_all(result, ">", "&gt;")
+    result = replace_all(result, "\"", "&quot;")
+    result = replace_all(result, "'", "&#x27;")
+    result = replace_all(result, "/", "&#x2F;")
+    return result
+}
+
+// Sanitize SQL (SQL injection prevention)
+fn sanitize_sql(input: string) -> string {
+    let result = input
+    result = replace_all(result, "'", "''")
+    result = replace_all(result, "\\", "\\\\")
+    result = replace_all(result, "\x00", "")
+    return result
+}
+
+// Validate URL
+fn validate_url(url: string) -> map {
+    let pattern = "^https?://[a-zA-Z0-9.-]+(?:/[^\\s]*)?$"
+    let valid = __builtin_regex_test(pattern, url)
+    let isHttps = startsWith(url, "https://")
+    return { "valid": valid, "secure": isHttps }
+}
+
+// Check for path traversal
+fn is_path_safe(path: string) -> bool {
+    if (contains(path, "..")) { return false }
+    if (contains(path, "~")) { return false }
+    if (startsWith(path, "/")) { return false }
+    if (contains(path, ":")) { return false }
+    return true
+}
+
+// ===== Security Scanning =====
+
+// Scan for open ports
+fn scan_ports(host: string, startPort: int, endPort: int, timeout: int) -> array {
+    let openPorts = []
+    for (let port = startPort; port <= endPort; port = port + 1) {
+        if (__builtin_port_check(host, port, timeout)) {
+            openPorts = append(openPorts, {
+                "port": port,
+                "service": get_service_name(port)
+            })
+        }
+    }
+    return openPorts
+}
+
+// Scan common ports
+fn scan_common_ports(host: string) -> array {
+    let commonPorts = [
+        { "port": 21, "name": "FTP" },
+        { "port": 22, "name": "SSH" },
+        { "port": 23, "name": "Telnet" },
+        { "port": 25, "name": "SMTP" },
+        { "port": 53, "name": "DNS" },
+        { "port": 80, "name": "HTTP" },
+        { "port": 110, "name": "POP3" },
+        { "port": 143, "name": "IMAP" },
+        { "port": 443, "name": "HTTPS" },
+        { "port": 445, "name": "SMB" },
+        { "port": 993, "name": "IMAPS" },
+        { "port": 995, "name": "POP3S" },
+        { "port": 3306, "name": "MySQL" },
+        { "port": 3389, "name": "RDP" },
+        { "port": 5432, "name": "PostgreSQL" },
+        { "port": 6379, "name": "Redis" },
+        { "port": 8080, "name": "HTTP-Alt" },
+        { "port": 27017, "name": "MongoDB" }
+    ]
+    
+    let openPorts = []
+    for (let i = 0; i < len(commonPorts); i = i + 1) {
+        let p = commonPorts[i]
+        if (__builtin_port_check(host, p.port, 500)) {
+            openPorts = append(openPorts, p)
+        }
+    }
+    return openPorts
+}
+
+// Get service name by port
+fn get_service_name(port: int) -> string {
+    let services = {
+        21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
+        53: "DNS", 80: "HTTP", 110: "POP3", 143: "IMAP",
+        443: "HTTPS", 445: "SMB", 3306: "MySQL", 3389: "RDP",
+        5432: "PostgreSQL", 6379: "Redis", 8080: "HTTP-Alt",
+        27017: "MongoDB"
+    }
+    return services[port]
+}
+
+// ===== Rate Limiting =====
+
+let rateLimitStore = {}
+
+// Check rate limit (simple in-memory)
+fn rate_limit_check(key: string, maxRequests: int, windowMs: int) -> map {
+    let now = __builtin_time_ms()
+    let windowStart = now - windowMs
+    
+    // Initialize if not exists
+    if (rateLimitStore[key] == null) {
+        rateLimitStore[key] = { "requests": [], "blocked_until": 0 }
+    }
+    
+    let entry = rateLimitStore[key]
+    
+    // Check if blocked
+    if (entry.blocked_until > now) {
+        return { "allowed": false, "retry_after_ms": entry.blocked_until - now }
+    }
+    
+    // Clean old requests
+    let validRequests = []
+    for (let i = 0; i < len(entry.requests); i = i + 1) {
+        if (entry.requests[i] > windowStart) {
+            validRequests = append(validRequests, entry.requests[i])
+        }
+    }
+    
+    // Check limit
+    if (len(validRequests) >= maxRequests) {
+        entry.blocked_until = now + windowMs
+        return { "allowed": false, "retry_after_ms": windowMs }
+    }
+    
+    // Add request
+    validRequests = append(validRequests, now)
+    entry.requests = validRequests
+    
+    return { 
+        "allowed": true, 
+        "remaining": maxRequests - len(validRequests),
+        "reset_ms": windowMs
+    }
+}
+
+// ===== Session Management =====
+
+let sessions = {}
+
+// Create session
+fn session_create(userId: string, data: map, expiresIn: int) -> string {
+    let sessionId = __builtin_uuid()
+    let now = __builtin_time()
+    
+    sessions[sessionId] = {
+        "user_id": userId,
+        "data": data,
+        "created_at": now,
+        "expires_at": now + expiresIn,
+        "last_activity": now
+    }
+    
+    return sessionId
+}
+
+// Validate session
+fn session_validate(sessionId: string) -> map {
+    if (sessions[sessionId] == null) {
+        return { "valid": false, "error": "Session not found" }
+    }
+    
+    let session = sessions[sessionId]
+    let now = __builtin_time()
+    
+    if (now > session.expires_at) {
+        session_destroy(sessionId)
+        return { "valid": false, "error": "Session expired" }
+    }
+    
+    // Update last activity
+    session.last_activity = now
+    
+    return { "valid": true, "session": session }
+}
+
+// Destroy session
+fn session_destroy(sessionId: string) -> void {
+    sessions[sessionId] = null
+}
+
+// ===== CSRF Protection =====
+
+let csrfTokens = {}
+
+// Generate CSRF token
+fn csrf_generate(sessionId: string) -> string {
+    let token = __builtin_random_bytes(32)
+    csrfTokens[sessionId] = token
+    return token
+}
+
+// Validate CSRF token
+fn csrf_validate(sessionId: string, token: string) -> bool {
+    let storedToken = csrfTokens[sessionId]
+    if (storedToken == null) { return false }
+    return __builtin_secure_compare(storedToken, token)
+}
+
+// ===== Content Security Policy =====
+
+// Build CSP header
+fn csp_build(policy: map) -> string {
+    let directives = []
+    
+    if (policy.default_src != null) {
+        directives = append(directives, "default-src " + join(policy.default_src, " "))
+    }
+    if (policy.script_src != null) {
+        directives = append(directives, "script-src " + join(policy.script_src, " "))
+    }
+    if (policy.style_src != null) {
+        directives = append(directives, "style-src " + join(policy.style_src, " "))
+    }
+    if (policy.img_src != null) {
+        directives = append(directives, "img-src " + join(policy.img_src, " "))
+    }
+    if (policy.font_src != null) {
+        directives = append(directives, "font-src " + join(policy.font_src, " "))
+    }
+    if (policy.frame_ancestors != null) {
+        directives = append(directives, "frame-ancestors " + join(policy.frame_ancestors, " "))
+    }
+    if (policy.upgrade_insecure_requests) {
+        directives = append(directives, "upgrade-insecure-requests")
+    }
+    
+    return join(directives, "; ")
+}
+
+// Default secure CSP
+fn csp_default() -> string {
+    return csp_build({
+        "default_src": ["'self'"],
+        "script_src": ["'self'"],
+        "style_src": ["'self'", "'unsafe-inline'"],
+        "img_src": ["'self'", "data:", "https:"],
+        "font_src": ["'self'"],
+        "frame_ancestors": ["'none'"],
+        "upgrade_insecure_requests": true
+    })
+}
+
+// ===== Security Headers =====
+
+// Get secure HTTP headers
+fn security_headers() -> map {
+    return {
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+        "X-XSS-Protection": "1; mode=block",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+        "Content-Security-Policy": csp_default()
+    }
+}
+
+// ===== Helper Functions =====
+
+fn split(s: string, delimiter: string) -> array {
+    return __builtin_split(s, delimiter)
+}
+
+fn join(arr: array, delimiter: string) -> array {
+    return __builtin_join(arr, delimiter)
+}
+
+fn trim(s: string) -> string {
+    return __builtin_trim(s)
+}
+
+fn lowercase(s: string) -> string {
+    return __builtin_lowercase(s)
+}
+
+fn startsWith(s: string, prefix: string) -> bool {
+    return __builtin_starts_with(s, prefix)
+}
+
+fn contains(s: string, search: string) -> bool {
+    return __builtin_contains(s, search)
+}
+
+fn replace_all(s: string, from: string, to: string) -> string {
+    return __builtin_replace_all(s, from, to)
+}
+
+fn json_stringify(obj: map) -> string {
+    return __builtin_json_stringify(obj)
+}
+
+fn json_parse(s: string) -> map {
+    return __builtin_json_parse(s)
+}

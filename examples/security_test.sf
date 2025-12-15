@@ -1,0 +1,68 @@
+// SynthFlow Security Test
+// Tests security builtins: base64url, regex, string utils, random, uuid
+
+print("===== SynthFlow Security Test =====")
+print("")
+
+// Test 1: Base64 URL-safe encoding
+print("1. Base64 URL Encoding:")
+let data = "Hello, Security!"
+let encoded = __builtin_base64url_encode(data)
+print("   Original: " + data)
+print("   Encoded: " + encoded)
+let decoded = __builtin_base64url_decode(encoded)
+print("   Decoded: " + decoded)
+print("")
+
+// Test 2: Regex Testing
+print("2. Regex Tests:")
+let emailValid = __builtin_regex_test("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+", "test@example.com")
+print("   Email valid: " + str(emailValid))
+let hasNumber = __builtin_regex_test("[0-9]", "Password123")
+print("   Has number: " + str(hasNumber))
+let hasUpper = __builtin_regex_test("[A-Z]", "Password123")
+print("   Has uppercase: " + str(hasUpper))
+print("")
+
+// Test 3: String Utils
+print("3. String Utilities:")
+let splitResult = __builtin_split("a.b.c", ".")
+print("   Split 'a.b.c' by '.': " + str(splitResult))
+let trimmed = __builtin_trim("  hello world  ")
+print("   Trimmed: '" + trimmed + "'")
+let lower = __builtin_lowercase("HELLO")
+print("   Lowercase 'HELLO': " + lower)
+let startsWith = __builtin_starts_with("https://example.com", "https://")
+print("   Starts with https: " + str(startsWith))
+let contains = __builtin_contains("hello world", "world")
+print("   Contains 'world': " + str(contains))
+print("")
+
+// Test 4: Replace All
+print("4. Replace All:")
+let replaced = __builtin_replace_all("<script>alert('xss')</script>", "<", "&lt;")
+print("   XSS sanitized: " + replaced)
+print("")
+
+// Test 5: Random Bytes
+print("5. Random Bytes:")
+let randomHex = __builtin_random_bytes(16)
+print("   Random 16 bytes (hex): " + randomHex)
+print("")
+
+// Test 6: UUID
+print("6. UUID Generation:")
+let uuid1 = __builtin_uuid()
+print("   UUID: " + uuid1)
+print("")
+
+// Test 7: Secure Compare
+print("7. Secure Compare:")
+let compare1 = __builtin_secure_compare("abc123", "abc123")
+print("   Same strings: " + str(compare1))
+let compare2 = __builtin_secure_compare("abc123", "abc124")
+print("   Different strings: " + str(compare2))
+print("")
+
+print("===== Security Tests Complete! =====")
+print("SynthFlow now has comprehensive security capabilities!")
