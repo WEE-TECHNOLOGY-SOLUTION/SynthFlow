@@ -5,13 +5,71 @@ All notable changes to the SynthFlow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.31] - 2025-12-26
+
+### 🚀 WebAssembly Transpilation Support
+
+This release introduces **WebAssembly (Wasm)** as a compilation target, enabling high-performance execution of SynthFlow programs in web browsers and serverless environments.
+
+---
+
+### 🔧 Compiler Enhancements
+
+- **WebAssembly Text (WAT) Transpiler**
+  - New `WasmTranspiler` class generating valid WAT S-expression format
+  - Full support for numeric operations using `f64` (IEEE 754 double precision)
+  - Function declarations with parameters and return types
+  - Control flow: `if/else`, `while`, `for` loops mapped to Wasm constructs
+  - Local variable management with indexed locals
+
+- **CLI Integration**
+  - New transpilation targets: `-t wasm` and `-t wat`
+  - Usage: `synthflow transpile program.sf -t wasm -o program.wat`
+
+---
+
+### 📁 New Files
+
+| File | Description |
+|------|-------------|
+| `compiler/include/wasm_transpiler.h` | WasmTranspiler class declaration |
+| `compiler/src/codegen/wasm_transpiler.cpp` | WAT code generation implementation |
+| `tests/test_wasm_standalone.cpp` | Standalone verification test harness |
+
+---
+
+### 🏗️ Build System
+
+- Updated `CMakeLists.txt` with `wasm_transpiler` library target
+- Added `wasm_transpiler` dependency to main `synthflow` executable
+
+---
+
+### 📖 Technical Details
+
+The WebAssembly transpiler generates WAT (WebAssembly Text) format which can be:
+1. Compiled to binary `.wasm` using `wat2wasm` (WebAssembly Binary Toolkit)
+2. Loaded directly in browsers using text-format loaders
+3. Integrated with JavaScript host environments via import bindings
+
+**Generated Module Structure:**
+```wat
+(module
+  (import "env" "print_f64" (func $print_f64 (param f64)))
+  (memory (export "memory") 1)
+  (func $add (export "add") (param $a f64) (param $b f64) (result f64)
+    (local.get $a) (local.get $b) (f64.add)
+    (return)
+  )
+)
+```
+
+---
+
 ## [0.0.30] - 2025-12-14
 
 ### 🎉 Major Release - Python Parity & Ecosystem Expansion
 
-This release represents a major milestone bringing SynthFlow closer to Python feature parity with comprehensive additions across CLI, web development, mobile development, and enterprise features.
-
----
 
 ### 🖥️ Python CLI Parity
 - **CLI11 Integration**: Modern command-line argument parsing

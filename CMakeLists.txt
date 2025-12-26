@@ -74,13 +74,17 @@ target_link_libraries(interpreter ast http_client http_server)
 add_library(js_transpiler compiler/src/codegen/js_transpiler.cpp)
 target_link_libraries(js_transpiler ast)
 
+# WebAssembly Transpiler
+add_library(wasm_transpiler compiler/src/codegen/wasm_transpiler.cpp)
+target_link_libraries(wasm_transpiler ast)
+
 # ------------------------------------------------------------------------------
 # Executables
 # ------------------------------------------------------------------------------
 
 # Main Compiler Executable
 add_executable(synthflow compiler/src/main.cpp)
-target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js_transpiler ast lexer http_client http_server CLI11::CLI11)
+target_link_libraries(synthflow parser semantic synthflow_codegen interpreter js_transpiler wasm_transpiler ast lexer http_client http_server CLI11::CLI11)
 
 # LSP Server
 add_executable(synthflow-lsp lsp-server/src/main.cpp)

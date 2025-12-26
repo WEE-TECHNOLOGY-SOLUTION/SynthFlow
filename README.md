@@ -3,7 +3,7 @@
 ![SynthFlow Logo](assets/logo.png)
 
 [![Build](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions)
-[![Version](https://img.shields.io/badge/version-0.0.30-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
+[![Version](https://img.shields.io/badge/version-0.0.31-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 SynthFlow is an **AI-native programming language** designed to bridge the gap between human intent and machine execution. It features a clean, readable syntax with powerful constructs for modern software development, native AI integration, and now **Quantum Computing** simulation.
@@ -33,6 +33,12 @@ SynthFlow is an **AI-native programming language** designed to bridge the gap be
 - **AI IDE Integration** – Connect SynthFlow to VS Code, Claude Desktop, and other AI tools
 - **Native C++ Server** – High-performance MCP server (`synthflow-mcp`)
 - **Tool Exposure** – Expose SynthFlow capabilities as AI-callable tools
+
+### 🌐 WebAssembly Transpilation (New!)
+- **WAT Code Generation** – Transpile SynthFlow to WebAssembly Text format
+- **Browser Execution** – Run SynthFlow programs in any modern web browser
+- **Serverless Ready** – Deploy to edge computing and serverless platforms
+- **CLI Support** – `synthflow transpile app.sf -t wasm -o app.wat`
 
 ## 🚀 Quick Start
 
@@ -142,35 +148,27 @@ print(answer)
 
 ## 🏷️ Changelog
 
+### v0.0.31 (WebAssembly Update)
+- 🌐 **WebAssembly Transpilation Support**
+  - New `WasmTranspiler` generating WAT (WebAssembly Text) format
+  - CLI integration: `-t wasm` and `-t wat` targets
+  - Full numeric operations with `f64` precision
+  - Control flow mapping to Wasm constructs
+
+### v0.0.30 (Python Parity)
+- 🖥️ **CLI11 Integration**: Modern command-line parsing
+- 🌐 **Web Framework**: Native HTTP server with route parameters
+- 📱 **Mobile Targets**: React Native and PWA transpilation
+- 📊 **Data Science**: DataFrame, Neural Networks, ML classifiers
+
 ### v0.0.26 (MCP Update)
 - 🔌 **Model Context Protocol (MCP) Server**
   - Native C++ implementation (`synthflow-mcp`)
   - JSON-RPC over stdio communication
   - Tool integration for AI IDEs (VS Code, Claude Desktop)
-- 🔄 **CI/CD Pipeline**
-  - Added `ci.yml` for continuous testing
-  - Updated `release.yml` to package MCP server
-- 📦 **Build System**
-  - Updated `CMakeLists.txt` with `synthflow-mcp` target
-  - Updated `build.bat` for local development
 
 ### v0.0.25 (Quantum Update)
 - ⚛️ **Native Quantum Computing Support**
   - Complex number arithmetic and utilities
   - Qubit state simulation and gate operations
   - Quantum standard library (`stdlib/quantum.sf`)
-- 🔢 **New Math Built-ins**: `sqrt`, `pow`, `abs`, `sin`, `cos`, `exp`, `ln`, `floor`, `ceil`
-- 🛠️ **Language Improvements**:
-  - Logical operators `&&` and `||`
-  - Variadic function arguments support
-  - Fixed `if/else` control flow parsing
-  - Lambda type annotations
-- 🐛 **Critical Fixes**:
-  - Fixed `std::get` runtime variant error in Lexer
-  - Resolved ownership issues in AST construction
-
-### v0.1.0
-- 🤖 **Native Gemini API integration**
-- 🧠 **SADK (SynthFlow Agent Development Kit)**
-- ✨ Map literals and Member access
-- ✨ Lambda functions and String interpolation

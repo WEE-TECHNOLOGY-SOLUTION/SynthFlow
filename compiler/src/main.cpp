@@ -5,6 +5,7 @@
 #include "../include/code_generator.h"
 #include "../include/interpreter.h"
 #include "../include/js_transpiler.h"
+#include "../include/wasm_transpiler.h"
 #include "../include/modules.h"
 #include "../include/CLI11.hpp"
 #include <iostream>
@@ -196,6 +197,12 @@ int transpileProgram(const std::string& source, const std::string& target, const
             output << "        .then(reg => console.log('SW registered'))\n";
             output << "        .catch(err => console.log('SW failed', err));\n";
             output << "}\n";
+            
+        } else if (target == "wasm" || target == "wat") {
+            // WebAssembly Text format
+            WasmTranspiler wasmTranspiler;
+            std::string watCode = wasmTranspiler.transpile(statements);
+            output << watCode;
             
         } else {
             // Default: plain JavaScript
