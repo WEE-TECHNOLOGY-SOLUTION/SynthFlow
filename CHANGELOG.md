@@ -5,11 +5,11 @@ All notable changes to the SynthFlow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.31] - 2025-12-26
+## [0.0.30] - 2025-12-26
 
-### 🚀 WebAssembly Transpilation Support
+### 🎉 Major Release - Python Parity, Ecosystem Expansion & WebAssembly
 
-This release introduces **WebAssembly (Wasm)** as a compilation target, enabling high-performance execution of SynthFlow programs in web browsers and serverless environments.
+This release represents a major milestone bringing SynthFlow closer to Python feature parity with comprehensive additions across CLI, web development, mobile development, enterprise features, and now **WebAssembly transpilation**.
 
 ---
 
@@ -65,11 +65,6 @@ The WebAssembly transpiler generates WAT (WebAssembly Text) format which can be:
 ```
 
 ---
-
-## [0.0.30] - 2025-12-14
-
-### 🎉 Major Release - Python Parity & Ecosystem Expansion
-
 
 ### 🖥️ Python CLI Parity
 - **CLI11 Integration**: Modern command-line argument parsing
