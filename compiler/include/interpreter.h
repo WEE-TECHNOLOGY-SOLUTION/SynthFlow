@@ -127,6 +127,7 @@ public:
     Value get(const std::string& name) const;
     void set(const std::string& name, const Value& value);
     bool exists(const std::string& name) const;
+    const std::map<std::string, Value>& getVariables() const { return variables; }
 };
 
 // User-defined function wrapper
