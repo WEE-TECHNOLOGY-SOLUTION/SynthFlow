@@ -1,4 +1,6 @@
 #include "../../include/interpreter.h"
+#include "../../include/lexer.h"
+#include "../../include/parser.h"
 #include "../../include/http_client.h"
 #include "../../include/http_server.h"
 #include <iostream>
