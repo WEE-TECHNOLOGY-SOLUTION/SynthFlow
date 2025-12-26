@@ -17,9 +17,10 @@
 
 // Platform-specific includes for OS/subprocess functionality
 #ifdef _WIN32
-#include <windows.h>
-#include <winsock2.h>
+#define WIN32_LEAN_AND_MEAN  // Prevent windows.h from including winsock.h
+#include <winsock2.h>        // Must be BEFORE windows.h
 #include <ws2tcpip.h>
+#include <windows.h>         // Now safe after winsock2.h
 #include <direct.h>
 #include <process.h>
 #pragma comment(lib, "ws2_32.lib")
