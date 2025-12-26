@@ -37,6 +37,8 @@
 #include <pwd.h>
 #endif
 
+#include <cstring>  // Required for memset, memcpy on Linux
+
 // Value methods
 std::string Value::toString() const {
     if (isNull()) return "null";
@@ -2588,10 +2590,61 @@ void Interpreter::visit(SelfExpression* node) {
 }
 
 void Interpreter::visit(ImportStatement* node) {
-    // For now, imports are handled at parse time
-    // This is a placeholder that prints a warning if reached at runtime
-    std::cerr << "[SADK] Import statement for '" << node->moduleName 
-              << "' reached at runtime. Module loading not yet fully implemented." << std::endl;
+    std::string moduleName = node->moduleName;
+    std::string modulePath = node->modulePath;
+    
+    // Default path resolution for stdlib
+    if (modulePath.empty()) {
+        modulePath = "stdlib/" + moduleName + ".sf";
+    }
+    
+    // Read module file
+    std::ifstream file(modulePath);
+    if (!file.is_open()) {
+        // Try without stdlib/ prefix if it was implicit
+        file.open(moduleName + ".sf");
+        if (!file.is_open()) {
+            throw std::runtime_error("Could not load module: " + moduleName + " (tried " + modulePath + ")");
+        }
+    }
+    
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string source = buffer.str();
+    
+    // Parse the module
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+    Parser parser(std::move(tokens));
+    auto statements = parser.parse();
+    
+    // Execute module in its own environment
+    auto moduleEnv = std::make_shared<Environment>(globalEnv);
+    auto oldEnv = currentEnv;
+    currentEnv = moduleEnv;
+    
+    try {
+        for (const auto& stmt : statements) {
+            stmt->accept(*this);
+        }
+    } catch (...) {
+        currentEnv = oldEnv;
+        throw;
+    }
+    
+    currentEnv = oldEnv;
+    
+    // Export symbols to a map
+    auto moduleMap = std::make_shared<Value::MapType>();
+    // For now, we export ALL variables from the module environment
+    // In a real system, we'd only export symbols marked with 'export'
+    for (const auto& [name, value] : moduleEnv->getVariables()) {
+        (*moduleMap)[name] = value;
+    }
+    
+    // Define the module object in the current environment
+    std::string alias = node->alias.empty() ? moduleName : node->alias;
+    currentEnv->define(alias, Value(moduleMap));
 }
 
 void Interpreter::visit(StructDeclaration* node) {
