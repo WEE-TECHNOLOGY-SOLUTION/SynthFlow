@@ -7,40 +7,66 @@
 #include <memory>
 #include <vector>
 #include <map>
+#include <set>
 
 /**
  * WasmTranspiler - Generates WebAssembly Text (WAT) format from SynthFlow AST.
- * 
+ *
  * The generated WAT can be compiled to binary .wasm using tools like wat2wasm.
- * This initial implementation uses f64 for all numeric types for simplicity.
+ * This implementation uses:
+ * - f64 for all numeric types
+ * - i32 for pointers (memory addresses)
+ * - Linear memory for strings, arrays, maps, and structs
  */
 class WasmTranspiler : public ASTVisitor {
 private:
     std::ostringstream output;
     int indentLevel = 0;
-    
+
     // Variable management - maps variable names to local indices
     std::map<std::string, int> localVariables;
     int nextLocalIndex = 0;
-    
+
     // Function management
     std::vector<std::string> functionNames;
     bool inFunction = false;
-    
+
+    // Memory management
+    int stringDataOffset = 0;           // Current offset for string literals in data section
+    int heapPointer = 1024;             // Start heap after reserved space (1KB for data)
+    static const int ALIGNMENT = 8;      // 8-byte alignment for all allocations
+
+    // String literal tracking for data section
+    std::vector<std::pair<int, std::string>> stringLiterals;  // (offset, string)
+
+    // Struct tracking
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> structFields;  // name -> [(field, type)]
+    std::map<std::string, int> structSizes;  // name -> size in bytes
+
     // Helper methods
     void indent();
     void emit(const std::string& code);
     void emitLine(const std::string& code);
-    
+
     // Get or create a local variable index
     int getLocalIndex(const std::string& name);
-    
+
+    // Memory management helpers
+    int alignUp(int offset, int alignment);
+    int allocateString(const std::string& str);
+    int allocateHeapBlock(int size);
+    std::string escapeStringForWat(const std::string& str);
+    std::string stringToWatHex(const std::string& str);
+
+    // Type tracking for variables (for struct field access)
+    std::map<std::string, std::string> variableTypes;  // var name -> type name
+
 public:
     WasmTranspiler() = default;
-    
+
     // Main transpile function
     std::string transpile(const std::vector<std::unique_ptr<Statement>>& statements);
-    
+
     // Expression visitors
     void visit(IntegerLiteral* node) override;
     void visit(FloatLiteral* node) override;
@@ -60,12 +86,13 @@ public:
     void visit(CompoundAssignment* node) override;
     void visit(UpdateExpression* node) override;
     void visit(InterpolatedString* node) override;
-    
+
     // SADK Expression visitors
     void visit(MapLiteral* node) override;
     void visit(MemberExpression* node) override;
     void visit(SelfExpression* node) override;
-    
+    void visit(MethodCallExpression* node) override;
+
     // Statement visitors
     void visit(VariableDeclaration* node) override;
     void visit(ExpressionStatement* node) override;
@@ -78,7 +105,7 @@ public:
     void visit(FunctionDeclaration* node) override;
     void visit(ReturnStatement* node) override;
     void visit(TryStatement* node) override;
-    
+
     // SADK Statement visitors
     void visit(ImportStatement* node) override;
     void visit(StructDeclaration* node) override;

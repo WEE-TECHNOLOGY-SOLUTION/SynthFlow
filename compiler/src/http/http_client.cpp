@@ -10,8 +10,7 @@
 #include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
 #else
-// For non-Windows, we'd use libcurl
-// #include <curl/curl.h>
+#include <curl/curl.h>
 #endif
 
 namespace http {
@@ -257,11 +256,120 @@ Response Client::post(const std::string& url, const std::string& body, const std
 
 #else
 
-// Non-Windows placeholder
+// Non-Windows implementation using libcurl
+
+// libcurl callback for writing response body
+static size_t writeCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    size_t totalSize = size * nmemb;
+    std::string* response = static_cast<std::string*>(userp);
+    response->append(static_cast<char*>(contents), totalSize);
+    return totalSize;
+}
+
+// libcurl callback for reading response headers
+static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* userdata) {
+    size_t totalSize = size * nitems;
+    auto* headers = static_cast<std::map<std::string, std::string>*>(userdata);
+
+    std::string header(buffer, totalSize);
+
+    // Find the colon separator
+    size_t colonPos = header.find(':');
+    if (colonPos != std::string::npos) {
+        std::string key = header.substr(0, colonPos);
+        std::string value = header.substr(colonPos + 1);
+
+        // Trim whitespace
+        while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) {
+            key.pop_back();
+        }
+        while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) {
+            value.erase(0, 1);
+        }
+        while (!value.empty() && (value.back() == '\r' || value.back() == '\n' || value.back() == ' ' || value.back() == '\t')) {
+            value.pop_back();
+        }
+
+        (*headers)[key] = value;
+    }
+
+    return totalSize;
+}
+
+// RAII wrapper for CURL easy handle
+class CurlEasyHandle {
+public:
+    CurlEasyHandle() : handle(curl_easy_init()) {}
+    ~CurlEasyHandle() {
+        if (handle) {
+            curl_easy_cleanup(handle);
+        }
+    }
+
+    CURL* get() const { return handle; }
+    operator bool() const { return handle != nullptr; }
+
+private:
+    CURL* handle;
+};
+
 Response Client::get(const std::string& url) {
     Response response;
-    response.statusCode = 501;
-    response.error = "HTTP client not implemented for this platform";
+    response.statusCode = 0;
+
+    CurlEasyHandle curl;
+    if (!curl) {
+        response.error = "Failed to initialize libcurl";
+        return response;
+    }
+
+    // Set URL
+    curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
+
+    // Set callbacks
+    std::string responseBody;
+    std::map<std::string, std::string> responseHeaders;
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, writeCallback);
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &responseBody);
+    curl_easy_setopt(curl.get(), CURLOPT_HEADERFUNCTION, headerCallback);
+    curl_easy_setopt(curl.get(), CURLOPT_HEADERDATA, &responseHeaders);
+
+    // Set timeout
+    curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT_MS, timeout);
+
+    // Follow redirects
+    curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 1L);
+
+    // Set default headers
+    struct curl_slist* headers = nullptr;
+    for (const auto& header : defaultHeaders) {
+        std::string headerLine = header.first + ": " + header.second;
+        headers = curl_slist_append(headers, headerLine.c_str());
+    }
+    if (headers) {
+        curl_easy_setopt(curl.get(), CURLOPT_HTTPHEADER, headers);
+    }
+
+    // Perform request
+    CURLcode res = curl_easy_perform(curl.get());
+
+    // Free headers
+    if (headers) {
+        curl_slist_free_all(headers);
+    }
+
+    if (res != CURLE_OK) {
+        response.error = std::string("curl_easy_perform() failed: ") + curl_easy_strerror(res);
+        return response;
+    }
+
+    // Get status code
+    long httpCode = 0;
+    curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &httpCode);
+    response.statusCode = static_cast<int>(httpCode);
+    response.body = responseBody;
+    response.headers = responseHeaders;
+
     return response;
 }
 
@@ -271,9 +379,88 @@ Response Client::post(const std::string& url, const std::string& body) {
 
 Response Client::post(const std::string& url, const std::string& body, const std::string& contentType) {
     Response response;
-    response.statusCode = 501;
-    response.error = "HTTP client not implemented for this platform";
+    response.statusCode = 0;
+
+    CurlEasyHandle curl;
+    if (!curl) {
+        response.error = "Failed to initialize libcurl";
+        return response;
+    }
+
+    // Set URL
+    curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
+
+    // Set POST method
+    curl_easy_setopt(curl.get(), CURLOPT_POST, 1L);
+    curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDS, body.c_str());
+    curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDSIZE, body.length());
+
+    // Set callbacks
+    std::string responseBody;
+    std::map<std::string, std::string> responseHeaders;
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, writeCallback);
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &responseBody);
+    curl_easy_setopt(curl.get(), CURLOPT_HEADERFUNCTION, headerCallback);
+    curl_easy_setopt(curl.get(), CURLOPT_HEADERDATA, &responseHeaders);
+
+    // Set timeout
+    curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT_MS, timeout);
+
+    // Follow redirects
+    curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 1L);
+
+    // Build headers list
+    struct curl_slist* headers = nullptr;
+
+    // Add default headers
+    for (const auto& header : defaultHeaders) {
+        std::string headerLine = header.first + ": " + header.second;
+        headers = curl_slist_append(headers, headerLine.c_str());
+    }
+
+    // Add content type (override if already present in default headers)
+    std::string ctHeader = "Content-Type: " + contentType;
+    headers = curl_slist_append(headers, ctHeader.c_str());
+
+    if (headers) {
+        curl_easy_setopt(curl.get(), CURLOPT_HTTPHEADER, headers);
+    }
+
+    // Perform request
+    CURLcode res = curl_easy_perform(curl.get());
+
+    // Free headers
+    if (headers) {
+        curl_slist_free_all(headers);
+    }
+
+    if (res != CURLE_OK) {
+        response.error = std::string("curl_easy_perform() failed: ") + curl_easy_strerror(res);
+        return response;
+    }
+
+    // Get status code
+    long httpCode = 0;
+    curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &httpCode);
+    response.statusCode = static_cast<int>(httpCode);
+    response.body = responseBody;
+    response.headers = responseHeaders;
+
     return response;
+}
+
+// Global libcurl initialization/cleanup
+namespace {
+    struct CurlGlobalInit {
+        CurlGlobalInit() {
+            curl_global_init(CURL_GLOBAL_DEFAULT);
+        }
+        ~CurlGlobalInit() {
+            curl_global_cleanup();
+        }
+    };
+
+    static CurlGlobalInit curlInit;
 }
 
 #endif

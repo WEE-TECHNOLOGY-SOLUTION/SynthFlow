@@ -1018,13 +1018,9 @@ std::unique_ptr<Expression> Parser::parseCallOrMemberExpression(std::unique_ptr<
                 if (!match(TokenType::RPAREN)) {
                     throw std::runtime_error("Expected ')' after method arguments");
                 }
-                
-                // Create member access first, then wrap in a call
-                auto memberExpr = std::make_unique<MemberExpression>(std::move(expr), member);
-                // For now, method calls are represented as CallExpression on member name
-                // A proper implementation would need a MethodCallExpression or CallExpression with callee as Expression
-                // Simplified: we'll store the method name and handle in interpreter
-                expr = std::make_unique<MemberExpression>(std::move(memberExpr), "<call>");  // Placeholder
+
+                // Create a method call expression: obj.method(args)
+                expr = std::make_unique<MethodCallExpression>(std::move(expr), member, std::move(arguments));
             } else {
                 expr = std::make_unique<MemberExpression>(std::move(expr), member);
             }

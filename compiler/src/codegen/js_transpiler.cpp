@@ -331,6 +331,16 @@ void JSTranspiler::visit(SelfExpression* node) {
     emit("this");  // JavaScript uses 'this' instead of 'self'
 }
 
+void JSTranspiler::visit(MethodCallExpression* node) {
+    node->object->accept(*this);
+    emit("." + node->method + "(");
+    for (size_t i = 0; i < node->arguments.size(); ++i) {
+        if (i > 0) emit(", ");
+        node->arguments[i]->accept(*this);
+    }
+    emit(")");
+}
+
 void JSTranspiler::visit(ImportStatement* node) {
     // Convert SynthFlow import to JavaScript import
     indent();

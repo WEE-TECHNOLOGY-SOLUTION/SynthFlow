@@ -1,0 +1,32 @@
+#!/bin/bash
+# SynthFlow post-installation script for Debian-based systems
+set -e
+
+# Update ldconfig cache if libraries were installed
+if [ "$1" = "configure" ]; then
+    ldconfig 2>/dev/null || true
+fi
+
+# Add synthflow to PATH if not already present
+if ! grep -q "synthflow" /etc/profile.d/synthflow.sh 2>/dev/null; then
+    echo 'export PATH="/usr/bin:$PATH"' > /etc/profile.d/synthflow.sh
+    chmod 644 /etc/profile.d/synthflow.sh
+fi
+
+# Create man page cache update trigger
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || true
+fi
+
+# Display installation message
+echo ""
+echo "SynthFlow has been successfully installed!"
+echo "  - Binary: /usr/bin/synthflow"
+echo "  - Library: /usr/lib/libsynthflow*"
+echo "  - Headers: /usr/include/synthflow/"
+echo "  - Stdlib: /usr/share/synthflow/stdlib/"
+echo ""
+echo "Run 'synthflow --help' to get started."
+echo ""
+
+exit 0

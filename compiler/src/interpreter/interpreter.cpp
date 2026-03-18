@@ -337,7 +337,7 @@ void Interpreter::registerBuiltins() {
     
     // ===== Array Functions =====
     
-    // append(array, element) - Append element to array, return new array
+    // append(array, element) - Append element to array (mutating), return new length
     globalEnv->define("append", Value(std::make_shared<Value::FunctionType>(
         [](std::vector<Value>& args, Interpreter&) -> Value {
             if (args.size() < 2) {
@@ -346,13 +346,13 @@ void Interpreter::registerBuiltins() {
             if (!args[0].isArray()) {
                 throw std::runtime_error("append() first argument must be an array");
             }
-            auto arr = std::make_shared<Value::ArrayType>(*args[0].asArray());
+            auto arr = args[0].asArray();
             arr->push_back(args[1]);
-            return Value(arr);
+            return Value(static_cast<int64_t>(arr->size()));
         }
     )));
-    
-    // push(array, element) - Alias for append
+
+    // push(array, element) - Push element to end of array (mutating), return new length
     globalEnv->define("push", Value(std::make_shared<Value::FunctionType>(
         [](std::vector<Value>& args, Interpreter&) -> Value {
             if (args.size() < 2) {
@@ -361,12 +361,135 @@ void Interpreter::registerBuiltins() {
             if (!args[0].isArray()) {
                 throw std::runtime_error("push() first argument must be an array");
             }
-            auto arr = std::make_shared<Value::ArrayType>(*args[0].asArray());
+            auto arr = args[0].asArray();
             arr->push_back(args[1]);
-            return Value(arr);
+            return Value(static_cast<int64_t>(arr->size()));
         }
     )));
-    
+
+    // pop(array) - Remove and return last element from array (mutating)
+    globalEnv->define("pop", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) {
+                throw std::runtime_error("pop() requires an array argument");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("pop() argument must be an array");
+            }
+            auto arr = args[0].asArray();
+            if (arr->empty()) {
+                throw std::runtime_error("Cannot pop from empty array");
+            }
+            Value lastItem = arr->back();
+            arr->pop_back();
+            return lastItem;
+        }
+    )));
+
+    // slice(array, start, end) - Return a new array slice (non-mutating)
+    globalEnv->define("slice", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) {
+                throw std::runtime_error("slice() requires at least an array argument");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("slice() first argument must be an array");
+            }
+            auto arr = args[0].asArray();
+            size_t start = 0;
+            size_t end = arr->size();
+            if (args.size() > 1) {
+                start = static_cast<size_t>(args[1].asInt());
+                if (start > arr->size()) start = arr->size();
+            }
+            if (args.size() > 2) {
+                end = static_cast<size_t>(args[2].asInt());
+                if (end > arr->size()) end = arr->size();
+            }
+            auto newArr = std::make_shared<Value::ArrayType>();
+            for (size_t i = start; i < end; ++i) {
+                newArr->push_back((*arr)[i]);
+            }
+            return Value(newArr);
+        }
+    )));
+
+    // shift(array) - Remove and return first element (mutating)
+    globalEnv->define("shift", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.empty()) {
+                throw std::runtime_error("shift() requires an array argument");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("shift() argument must be an array");
+            }
+            auto arr = args[0].asArray();
+            if (arr->empty()) {
+                throw std::runtime_error("Cannot shift from empty array");
+            }
+            Value firstItem = arr->front();
+            arr->erase(arr->begin());
+            return firstItem;
+        }
+    )));
+
+    // unshift(array, element) - Add element to beginning (mutating), return new length
+    globalEnv->define("unshift", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2) {
+                throw std::runtime_error("unshift() requires array and element arguments");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("unshift() first argument must be an array");
+            }
+            auto arr = args[0].asArray();
+            arr->insert(arr->begin(), args[1]);
+            return Value(static_cast<int64_t>(arr->size()));
+        }
+    )));
+
+    // indexOf(array, element) - Return index of element, or -1
+    globalEnv->define("indexOf", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2) {
+                throw std::runtime_error("indexOf() requires array and element arguments");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("indexOf() first argument must be an array");
+            }
+            auto arr = args[0].asArray();
+            int64_t index = -1;
+            for (size_t i = 0; i < arr->size(); ++i) {
+                if ((*arr)[i].toString() == args[1].toString()) {
+                    index = static_cast<int64_t>(i);
+                    break;
+                }
+            }
+            return Value(index);
+        }
+    )));
+
+    // contains(array, element) - Check if element exists in array
+    globalEnv->define("contains", Value(std::make_shared<Value::FunctionType>(
+        [](std::vector<Value>& args, Interpreter&) -> Value {
+            if (args.size() < 2) {
+                throw std::runtime_error("contains() requires array and element arguments");
+            }
+            if (!args[0].isArray()) {
+                throw std::runtime_error("contains() first argument must be an array");
+            }
+            auto arr = args[0].asArray();
+            bool found = false;
+            for (const auto& item : *arr) {
+                if (item.toString() == args[1].toString()) {
+                    found = true;
+                    break;
+                }
+            }
+            return Value(found);
+        }
+    )));
+
     // typeof(value) - Return type of value as string
     globalEnv->define("typeof", Value(std::make_shared<Value::FunctionType>(
         [](std::vector<Value>& args, Interpreter&) -> Value {
@@ -2554,7 +2677,7 @@ void Interpreter::visit(MapLiteral* node) {
 
 void Interpreter::visit(MemberExpression* node) {
     Value obj = evaluate(node->object.get());
-    
+
     if (obj.isMap()) {
         auto map = obj.asMap();
         auto it = map->find(node->member);
@@ -2580,6 +2703,299 @@ void Interpreter::visit(MemberExpression* node) {
     } else {
         throw std::runtime_error("Cannot access member of non-object type");
     }
+}
+
+void Interpreter::visit(MethodCallExpression* node) {
+    // Evaluate the object
+    Value obj = evaluate(node->object.get());
+
+    // Evaluate arguments
+    std::vector<Value> args;
+    for (auto& arg : node->arguments) {
+        args.push_back(evaluate(arg.get()));
+    }
+
+    // Handle array methods
+    if (obj.isArray()) {
+        auto arr = obj.asArray();
+
+        if (node->method == "push") {
+            // arr.push(item) - add item to end, return new length
+            if (args.empty()) {
+                throw std::runtime_error("push() requires an argument");
+            }
+            arr->push_back(args[0]);
+            lastValue = Value(static_cast<int64_t>(arr->size()));
+        } else if (node->method == "pop") {
+            // arr.pop() - remove and return last item
+            if (arr->empty()) {
+                throw std::runtime_error("Cannot pop from empty array");
+            }
+            Value lastItem = arr->back();
+            arr->pop_back();
+            lastValue = lastItem;
+        } else if (node->method == "slice") {
+            // arr.slice(start, end) - return new array slice
+            if (args.empty()) {
+                throw std::runtime_error("slice() requires at least start index");
+            }
+            size_t start = static_cast<size_t>(args[0].asInt());
+            size_t end = arr->size();
+            if (args.size() > 1) {
+                end = static_cast<size_t>(args[1].asInt());
+            }
+            if (start > arr->size()) {
+                start = arr->size();
+            }
+            if (end > arr->size()) {
+                end = arr->size();
+            }
+            auto newArr = std::make_shared<Value::ArrayType>();
+            for (size_t i = start; i < end; ++i) {
+                newArr->push_back((*arr)[i]);
+            }
+            lastValue = Value(newArr);
+        } else if (node->method == "shift") {
+            // arr.shift() - remove and return first item
+            if (arr->empty()) {
+                throw std::runtime_error("Cannot shift from empty array");
+            }
+            Value firstItem = arr->front();
+            arr->erase(arr->begin());
+            lastValue = firstItem;
+        } else if (node->method == "unshift") {
+            // arr.unshift(item) - add item to beginning, return new length
+            if (args.empty()) {
+                throw std::runtime_error("unshift() requires an argument");
+            }
+            arr->insert(arr->begin(), args[0]);
+            lastValue = Value(static_cast<int64_t>(arr->size()));
+        } else if (node->method == "insert") {
+            // arr.insert(index, item) - insert item at index
+            if (args.size() < 2) {
+                throw std::runtime_error("insert() requires index and item arguments");
+            }
+            size_t idx = static_cast<size_t>(args[0].asInt());
+            if (idx > arr->size()) {
+                idx = arr->size();
+            }
+            arr->insert(arr->begin() + idx, args[1]);
+            lastValue = Value(static_cast<int64_t>(arr->size()));
+        } else if (node->method == "remove") {
+            // arr.remove(index) - remove item at index, return removed item
+            if (args.empty()) {
+                throw std::runtime_error("remove() requires an index argument");
+            }
+            size_t idx = static_cast<size_t>(args[0].asInt());
+            if (idx >= arr->size()) {
+                throw std::runtime_error("Index out of bounds for remove()");
+            }
+            Value removed = (*arr)[idx];
+            arr->erase(arr->begin() + idx);
+            lastValue = removed;
+        } else if (node->method == "clear") {
+            // arr.clear() - remove all items
+            arr->clear();
+            lastValue = Value();
+        } else if (node->method == "contains") {
+            // arr.contains(item) - check if item exists
+            if (args.empty()) {
+                throw std::runtime_error("contains() requires an argument");
+            }
+            bool found = false;
+            for (const auto& item : *arr) {
+                if (item.toString() == args[0].toString()) {
+                    found = true;
+                    break;
+                }
+            }
+            lastValue = Value(found);
+        } else if (node->method == "indexOf") {
+            // arr.indexOf(item) - return index of item, or -1
+            if (args.empty()) {
+                throw std::runtime_error("indexOf() requires an argument");
+            }
+            int64_t index = -1;
+            for (size_t i = 0; i < arr->size(); ++i) {
+                if ((*arr)[i].toString() == args[0].toString()) {
+                    index = static_cast<int64_t>(i);
+                    break;
+                }
+            }
+            lastValue = Value(index);
+        } else {
+            throw std::runtime_error("Array does not have method: " + node->method);
+        }
+        return;
+    }
+
+    // Handle string methods
+    if (obj.isString()) {
+        const std::string& str = obj.asString();
+
+        if (node->method == "split") {
+            // str.split(delimiter) - split string into array
+            std::string delimiter = args.empty() ? " " : args[0].asString();
+            auto resultArr = std::make_shared<Value::ArrayType>();
+            if (delimiter.empty()) {
+                // Split into characters
+                for (char c : str) {
+                    resultArr->push_back(Value(std::string(1, c)));
+                }
+            } else {
+                size_t pos = 0;
+                size_t delimLen = delimiter.length();
+                while (true) {
+                    size_t found = str.find(delimiter, pos);
+                    if (found == std::string::npos) {
+                        resultArr->push_back(Value(str.substr(pos)));
+                        break;
+                    }
+                    resultArr->push_back(Value(str.substr(pos, found - pos)));
+                    pos = found + delimLen;
+                }
+            }
+            lastValue = Value(resultArr);
+        } else if (node->method == "contains") {
+            // str.contains(substring) - check if substring exists
+            if (args.empty()) {
+                throw std::runtime_error("contains() requires an argument");
+            }
+            lastValue = Value(str.find(args[0].asString()) != std::string::npos);
+        } else if (node->method == "indexOf") {
+            // str.indexOf(substring) - return index or -1
+            if (args.empty()) {
+                throw std::runtime_error("indexOf() requires an argument");
+            }
+            size_t pos = str.find(args[0].asString());
+            lastValue = Value(pos == std::string::npos ? -1 : static_cast<int64_t>(pos));
+        } else if (node->method == "startsWith") {
+            // str.startsWith(prefix)
+            if (args.empty()) {
+                throw std::runtime_error("startsWith() requires an argument");
+            }
+            lastValue = Value(str.rfind(args[0].asString(), 0) == 0);
+        } else if (node->method == "endsWith") {
+            // str.endsWith(suffix)
+            if (args.empty()) {
+                throw std::runtime_error("endsWith() requires an argument");
+            }
+            const std::string& suffix = args[0].asString();
+            if (suffix.length() > str.length()) {
+                lastValue = Value(false);
+            } else {
+                lastValue = Value(str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0);
+            }
+        } else if (node->method == "trim") {
+            // str.trim() - remove leading/trailing whitespace
+            size_t start = str.find_first_not_of(" \t\n\r");
+            if (start == std::string::npos) {
+                lastValue = Value("");
+            } else {
+                size_t end = str.find_last_not_of(" \t\n\r");
+                lastValue = Value(str.substr(start, end - start + 1));
+            }
+        } else if (node->method == "toUpper") {
+            // str.toUpper() - convert to uppercase
+            std::string result = str;
+            for (char& c : result) {
+                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            }
+            lastValue = Value(result);
+        } else if (node->method == "toLower") {
+            // str.toLower() - convert to lowercase
+            std::string result = str;
+            for (char& c : result) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            lastValue = Value(result);
+        } else if (node->method == "replace") {
+            // str.replace(old, new) - replace all occurrences
+            if (args.size() < 2) {
+                throw std::runtime_error("replace() requires two arguments");
+            }
+            std::string result = str;
+            const std::string& from = args[0].asString();
+            const std::string& to = args[1].asString();
+            if (from.empty()) {
+                lastValue = Value(result);
+            } else {
+                size_t pos = 0;
+                while ((pos = result.find(from, pos)) != std::string::npos) {
+                    result.replace(pos, from.length(), to);
+                    pos += to.length();
+                }
+                lastValue = Value(result);
+            }
+        } else if (node->method == "substring") {
+            // str.substring(start, end)
+            if (args.empty()) {
+                throw std::runtime_error("substring() requires at least start index");
+            }
+            size_t start = static_cast<size_t>(args[0].asInt());
+            size_t end = str.length();
+            if (args.size() > 1) {
+                end = static_cast<size_t>(args[1].asInt());
+            }
+            if (start > str.length()) start = str.length();
+            if (end > str.length()) end = str.length();
+            lastValue = Value(str.substr(start, end - start));
+        } else {
+            throw std::runtime_error("String does not have method: " + node->method);
+        }
+        return;
+    }
+
+    // Handle map/object methods
+    if (obj.isMap()) {
+        auto map = obj.asMap();
+
+        if (node->method == "keys") {
+            // map.keys() - return array of keys
+            auto resultArr = std::make_shared<Value::ArrayType>();
+            for (const auto& [key, val] : *map) {
+                (void)val;  // Unused
+                resultArr->push_back(Value(key));
+            }
+            lastValue = Value(resultArr);
+        } else if (node->method == "values") {
+            // map.values() - return array of values
+            auto resultArr = std::make_shared<Value::ArrayType>();
+            for (const auto& [key, val] : *map) {
+                (void)key;  // Unused
+                resultArr->push_back(val);
+            }
+            lastValue = Value(resultArr);
+        } else if (node->method == "contains") {
+            // map.contains(key) - check if key exists
+            if (args.empty()) {
+                throw std::runtime_error("contains() requires an argument");
+            }
+            lastValue = Value(map->find(args[0].asString()) != map->end());
+        } else if (node->method == "remove") {
+            // map.remove(key) - remove key, return value
+            if (args.empty()) {
+                throw std::runtime_error("remove() requires an argument");
+            }
+            auto it = map->find(args[0].asString());
+            if (it != map->end()) {
+                Value removed = it->second;
+                map->erase(it);
+                lastValue = removed;
+            } else {
+                lastValue = Value();
+            }
+        } else if (node->method == "clear") {
+            // map.clear() - remove all entries
+            map->clear();
+            lastValue = Value();
+        } else {
+            throw std::runtime_error("Map does not have method: " + node->method);
+        }
+        return;
+    }
+
+    throw std::runtime_error("Cannot call method on non-object type");
 }
 
 void Interpreter::visit(SelfExpression* node) {

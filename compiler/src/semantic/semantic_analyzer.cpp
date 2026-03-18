@@ -27,8 +27,8 @@ void SemanticAnalyzer::visit(BooleanLiteral* node) {
 }
 
 void SemanticAnalyzer::visit(Identifier* node) {
-    // Check if identifier is declared
-    if (symbolTable.find(node->name) == symbolTable.end()) {
+    // Check if identifier is declared in any scope
+    if (!lookupSymbol(node->name)) {
         reportError("Use of undeclared identifier '" + node->name + "'");
     }
 }
@@ -36,15 +36,15 @@ void SemanticAnalyzer::visit(Identifier* node) {
 void SemanticAnalyzer::visit(AssignmentExpression* node) {
     // Visit right expression first
     visitExpression(node->right.get());
-    
+
     // Check if left side is an identifier being reassigned
     if (auto* id = dynamic_cast<Identifier*>(node->left.get())) {
-        auto it = symbolTable.find(id->name);
-        if (it != symbolTable.end() && it->second.isConst) {
+        Symbol* sym = lookupSymbol(id->name);
+        if (sym && sym->isConst) {
             reportError("Cannot reassign constant '" + id->name + "'");
         }
     }
-    
+
     visitExpression(node->left.get());
 }
 
@@ -91,10 +91,10 @@ void SemanticAnalyzer::visit(UnaryExpression* node) {
 
 void SemanticAnalyzer::visit(CallExpression* node) {
     // Check if function is declared
-    if (symbolTable.find(node->callee) == symbolTable.end()) {
+    if (!lookupSymbol(node->callee)) {
         reportError("Call to undeclared function '" + node->callee + "'");
     }
-    
+
     for (const auto& arg : node->arguments) {
         visitExpression(arg.get());
     }
@@ -105,20 +105,20 @@ void SemanticAnalyzer::visit(ExpressionStatement* node) {
 }
 
 void SemanticAnalyzer::visit(VariableDeclaration* node) {
-    // Check if variable is already declared
-    if (symbolTable.find(node->name) != symbolTable.end()) {
-        reportError("Redeclaration of variable '" + node->name + "'");
+    // Check if variable is already declared in current scope
+    if (symbolExistsInCurrentScope(node->name)) {
+        reportError("Redeclaration of variable '" + node->name + "' in the same scope");
     }
-    
-    // Add to symbol table with safety tracking
-    symbolTable[node->name] = {
-        node->name, 
+
+    // Add to current scope with safety tracking
+    declareSymbol(node->name, {
+        node->name,
         false,              // isBuiltin
         node->isConst,      // isConst
         node->typeName,     // typeName
         node->isNullable    // isNullable
-    };
-    
+    });
+
     // Visit initializer
     if (node->initializer) {
         visitExpression(node->initializer.get());
@@ -126,43 +126,51 @@ void SemanticAnalyzer::visit(VariableDeclaration* node) {
 }
 
 void SemanticAnalyzer::visit(FunctionDeclaration* node) {
-    // Check if function is already declared
-    if (symbolTable.find(node->name) != symbolTable.end()) {
+    // Check if function is already declared in current scope
+    if (symbolExistsInCurrentScope(node->name)) {
         reportError("Redeclaration of function '" + node->name + "'");
     }
-    
-    // Add function to symbol table
-    symbolTable[node->name] = {node->name};
-    
-    // Add function parameters to symbol table for body analysis
+
+    // Add function to current scope
+    declareSymbol(node->name, {node->name});
+
+    // Push a new scope for the function body
+    pushScope();
+
+    // Add function parameters to the function's scope
     for (const auto& param : node->parameters) {
-        symbolTable[param] = {param};
+        declareSymbol(param, {param});
     }
-    
+
     // Visit body
     if (node->body) {
         visitStatement(node->body.get());
     }
-    
-    // Note: In a proper implementation with scopes, we'd pop the parameters here
-    // For now, the simplified single-scope approach keeps them in the table
+
+    // Pop the function scope
+    popScope();
 }
 
 void SemanticAnalyzer::visit(BlockStatement* node) {
-    // TODO: Handle scope (push/pop)
-    // For now, simpler implementation
+    // Push a new scope for the block
+    pushScope();
+
+    // Visit all statements in the block
     for (const auto& stmt : node->statements) {
         visitStatement(stmt.get());
     }
+
+    // Pop the block scope
+    popScope();
 }
 
 void SemanticAnalyzer::visit(IfStatement* node) {
     // Visit condition
     visitExpression(node->condition.get());
-    
-    // Visit then branch
+
+    // Visit then branch (creates its own scope via BlockStatement)
     visitStatement(node->thenBranch.get());
-    
+
     // Visit else branch if it exists
     if (node->elseBranch) {
         visitStatement(node->elseBranch.get());
@@ -186,26 +194,32 @@ void SemanticAnalyzer::visit(WhileStatement* node) {
 void SemanticAnalyzer::visit(ForStatement* node) {
     // Push loop context
     loopContext.push(true);
-    
+
+    // Push scope for for-loop (for the initializer variable)
+    pushScope();
+
     // Visit initializer
     if (node->initializer) {
         // Initializer is a statement (VariableDeclaration or ExpressionStatement)
         visitStatement(node->initializer.get());
     }
-    
+
     // Visit condition
     if (node->condition) {
         visitExpression(node->condition.get());
     }
-    
+
     // Visit increment
     if (node->increment) {
         visitExpression(node->increment.get());
     }
-    
+
     // Visit body
     visitStatement(node->body.get());
-    
+
+    // Pop for-loop scope
+    popScope();
+
     // Pop loop context
     loopContext.pop();
 }
@@ -240,21 +254,29 @@ void SemanticAnalyzer::visit(TryStatement* node) {
     if (node->tryBlock) {
         visitStatement(node->tryBlock.get());
     }
-    
-    // Add error variable to symbol table for catch block
-    symbolTable[node->errorVariable] = {node->errorVariable, false, false, "error", false};
-    
+
+    // Push scope for catch block with error variable
+    pushScope();
+    declareSymbol(node->errorVariable, {node->errorVariable, false, false, "error", false});
+
     // Visit catch block
     if (node->catchBlock) {
         visitStatement(node->catchBlock.get());
     }
+
+    // Pop catch scope
+    popScope();
 }
 
 void SemanticAnalyzer::visit(LambdaExpression* node) {
-    // Add parameters to symbol table
+    // Push scope for lambda parameters
+    pushScope();
+
+    // Add parameters to lambda's scope
     for (const auto& param : node->parameters) {
-        symbolTable[param] = {param, false, false, "", false};
+        declareSymbol(param, {param, false, false, "", false});
     }
+
     // Visit body
     if (node->body) {
         visitExpression(node->body.get());
@@ -262,6 +284,9 @@ void SemanticAnalyzer::visit(LambdaExpression* node) {
     if (node->blockBody) {
         visitStatement(node->blockBody.get());
     }
+
+    // Pop lambda scope
+    popScope();
 }
 
 void SemanticAnalyzer::visit(MatchExpression* node) {
@@ -330,6 +355,19 @@ void SemanticAnalyzer::visit(MemberExpression* node) {
     // Member name is just a string, no need to check
 }
 
+void SemanticAnalyzer::visit(MethodCallExpression* node) {
+    // Visit object expression
+    if (node->object) {
+        visitExpression(node->object.get());
+    }
+    // Visit arguments
+    for (auto& arg : node->arguments) {
+        if (arg) {
+            visitExpression(arg.get());
+        }
+    }
+}
+
 void SemanticAnalyzer::visit(SelfExpression* node) {
     // 'self' should be available inside struct methods
     // For now, we don't strictly enforce this
@@ -343,19 +381,21 @@ void SemanticAnalyzer::visit(ImportStatement* node) {
 }
 
 void SemanticAnalyzer::visit(StructDeclaration* node) {
-    // Check if struct name is already declared
-    if (symbolTable.find(node->name) != symbolTable.end()) {
+    // Check if struct name is already declared in current scope
+    if (symbolExistsInCurrentScope(node->name)) {
         reportError("Redeclaration of struct '" + node->name + "'");
     }
-    
-    // Add struct to symbol table
-    symbolTable[node->name] = {node->name, false, false, "struct", false};
-    
+
+    // Add struct to current scope
+    declareSymbol(node->name, {node->name, false, false, "struct", false});
+
     // Visit methods
     for (auto& method : node->methods) {
-        // Add 'self' to symbol table for method context
-        symbolTable["self"] = {"self", false, false, node->name, false};
+        // Push scope for method with 'self'
+        pushScope();
+        declareSymbol("self", {"self", false, false, node->name, false});
         visitStatement(method.get());
+        popScope();
     }
 }
 

@@ -1,0 +1,24 @@
+#!/bin/bash
+# SynthFlow post-installation script for RPM-based systems
+set -e
+
+# Update dynamic linker cache
+ldconfig 2>/dev/null || true
+
+# Update man page cache
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || true
+fi
+
+# Display installation message
+echo ""
+echo "SynthFlow has been successfully installed!"
+echo "  - Binary: /usr/bin/synthflow"
+echo "  - Library: /usr/lib/libsynthflow*"
+echo "  - Headers: /usr/include/synthflow/"
+echo "  - Stdlib: /usr/share/synthflow/stdlib/"
+echo ""
+echo "Run 'synthflow --help' to get started."
+echo ""
+
+exit 0

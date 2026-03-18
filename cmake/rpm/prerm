@@ -1,0 +1,13 @@
+#!/bin/bash
+# SynthFlow pre-removal script for RPM-based systems
+set -e
+
+# Clean up any generated files
+if [ -d /usr/share/synthflow/cache ]; then
+    rm -rf /usr/share/synthflow/cache
+fi
+
+# Update dynamic linker cache
+ldconfig 2>/dev/null || true
+
+exit 0

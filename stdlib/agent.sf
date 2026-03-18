@@ -7,6 +7,7 @@
 fn createAgent(config) {
     return {
         name: config.name,
+        provider: config.provider,
         model: config.model,
         description: config.description,
         instruction: config.instruction,
@@ -21,6 +22,7 @@ fn createAgent(config) {
 fn simpleAgent(name, instruction) {
     return createAgent({
         name: name,
+        provider: "gemini",
         model: "gemini-2.0-flash",
         description: name,
         instruction: instruction,
@@ -33,33 +35,37 @@ fn simpleAgent(name, instruction) {
 // Run the agent with input
 fn run(agent, input) {
     print("[Agent:", agent.name, "] Processing:", input)
-    
+
     // Add to message history
     let userMessage = { role: "user", content: input }
-    // agent.messageHistory.push(userMessage)  -- array push not implemented
-    
+    agent.messageHistory.push(userMessage)
+
     // Build prompt with instruction and history
     let systemPrompt = agent.instruction
-    
+
     // Process with AI (placeholder)
     let response = processWithAI(agent, systemPrompt, input)
-    
+
     // Store response
     let assistantMessage = { role: "assistant", content: response }
-    // agent.messageHistory.push(assistantMessage)
-    
+    agent.messageHistory.push(assistantMessage)
+
     return response
 }
 
-// Process input with AI model - Now uses real Gemini API!
+// Process input with AI model - Now supports multiple providers!
 fn processWithAI(agent, systemPrompt, userInput) {
-    // Check if API key is set
-    if (!gemini_has_api_key()) {
-        return "[Error: Gemini API key not set. Call gemini_set_api_key('AIzaSyAk6eGZ6IZqsqIoLHUIIMkVxIu9wr4fdEk') first.]"
-    }
+    import ai
     
-    // Call Gemini API with system instruction and user input
-    let response = gemini_chat(systemPrompt, userInput, agent.model)
+    // Set provider based on agent config
+    let provider = "gemini"
+    if (agent.provider != null) {
+        provider = agent.provider
+    }
+    ai.setProvider(provider)
+    
+    // Call unified chat interface
+    let response = ai.chat(systemPrompt, userInput)
     return response
 }
 
@@ -93,7 +99,7 @@ fn tool(name, description, handler) {
 
 // Add tool to agent
 fn addTool(agent, tool) {
-    // agent.tools.push(tool)  -- array push not implemented
+    agent.tools.push(tool)
     print("[Agent:", agent.name, "] Added tool:", tool.name)
     return agent
 }
@@ -224,7 +230,7 @@ fn broadcast(group, message) {
     for (let i = 0; i < len(group.agents); i = i + 1) {
         let agent = group.agents[i]
         let response = run(agent, message)
-        // responses.push(response)
+        responses.push(response)
     }
     return responses
 }

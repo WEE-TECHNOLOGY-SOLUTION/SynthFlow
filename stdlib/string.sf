@@ -28,22 +28,19 @@ fn contains(s, sub) {
     return false
 }
 
-// Convert string to uppercase (placeholder)
+// Convert string to uppercase
 fn toUpper(s) {
-    // Requires character-level access
-    return s
+    return __builtin_uppercase(s)
 }
 
-// Convert string to lowercase (placeholder)
+// Convert string to lowercase
 fn toLower(s) {
-    // Requires character-level access
-    return s
+    return __builtin_lowercase(s)
 }
 
-// Trim whitespace from both ends (placeholder)
+// Trim whitespace from both ends
 fn trim(s) {
-    // Requires character-level access
-    return s
+    return __builtin_trim(s)
 }
 
 // Trim whitespace from left
@@ -58,22 +55,12 @@ fn trimRight(s) {
 
 // Check if string starts with prefix
 fn startsWith(s, prefix) {
-    let prefixLen = len(prefix)
-    if (prefixLen > len(s)) {
-        return false
-    }
-    // Requires substring functionality
-    return true
+    return __builtin_starts_with(s, prefix)
 }
 
 // Check if string ends with suffix
 fn endsWith(s, suffix) {
-    let suffixLen = len(suffix)
-    if (suffixLen > len(s)) {
-        return false
-    }
-    // Requires substring functionality
-    return true
+    return __builtin_ends_with(s, suffix)
 }
 
 // Repeat a string n times

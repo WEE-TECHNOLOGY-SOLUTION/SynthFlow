@@ -46,6 +46,7 @@ public:
     void visit(MapLiteral* node) override;
     void visit(MemberExpression* node) override;
     void visit(SelfExpression* node) override;
+    void visit(MethodCallExpression* node) override;
     
     // Statement visitors
     void visit(VariableDeclaration* node) override;

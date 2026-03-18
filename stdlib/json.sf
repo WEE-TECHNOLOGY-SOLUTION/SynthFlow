@@ -6,10 +6,7 @@
 // Parse JSON string into SynthFlow value
 // Returns: map or array
 fn parse(jsonString) {
-    print("[JSON] Parsing:", jsonString)
-    // Note: Native JSON parsing requires interpreter support
-    // This is a placeholder implementation
-    return {}
+    return __builtin_json_parse(jsonString)
 }
 
 // Parse JSON with error handling
@@ -33,8 +30,7 @@ fn tryParse(jsonString) {
 
 // Convert SynthFlow value to JSON string
 fn stringify(value) {
-    // Note: Uses Value::toString() internally for maps
-    return str(value)
+    return __builtin_json_stringify(value)
 }
 
 // Convert to pretty-printed JSON
@@ -74,8 +70,7 @@ fn hasPath(obj, path) {
 
 // Get array of keys from object
 fn keys(obj) {
-    // Note: Would require native implementation
-    return []
+    return __builtin_keys(obj)
 }
 
 // Get array of values from object

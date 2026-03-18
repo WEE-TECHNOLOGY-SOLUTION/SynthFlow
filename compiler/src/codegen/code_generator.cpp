@@ -295,3 +295,13 @@ void CodeGenerator::visit(StructDeclaration* node) {
     }
     output += "}\n";
 }
+
+void CodeGenerator::visit(MethodCallExpression* node) {
+    node->object->accept(*this);
+    output += "." + node->method + "(";
+    for (size_t i = 0; i < node->arguments.size(); ++i) {
+        if (i > 0) output += ", ";
+        node->arguments[i]->accept(*this);
+    }
+    output += ")";
+}

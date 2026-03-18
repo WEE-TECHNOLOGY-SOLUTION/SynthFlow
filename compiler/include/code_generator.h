@@ -36,6 +36,7 @@ public:
     // SADK Expression visitors (Agent Development Kit)
     void visit(MapLiteral* node) override;
     void visit(MemberExpression* node) override;
+    void visit(MethodCallExpression* node) override;
     void visit(SelfExpression* node) override;
     
     // Statement visitors

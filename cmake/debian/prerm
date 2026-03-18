@@ -1,0 +1,15 @@
+#!/bin/bash
+# SynthFlow pre-removal script for Debian-based systems
+set -e
+
+# Clean up PATH modifications
+if [ -f /etc/profile.d/synthflow.sh ]; then
+    rm -f /etc/profile.d/synthflow.sh
+fi
+
+# Update ldconfig cache
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    ldconfig 2>/dev/null || true
+fi
+
+exit 0

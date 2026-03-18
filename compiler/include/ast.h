@@ -45,6 +45,7 @@ class InterpolatedString;
 // SADK (Agent Development Kit) AST nodes
 class MapLiteral;
 class MemberExpression;
+class MethodCallExpression;
 class ImportStatement;
 class StructDeclaration;
 class SelfExpression;
@@ -77,6 +78,7 @@ public:
     // SADK Expression visitors (Agent Development Kit)
     virtual void visit(MapLiteral* node) = 0;         // { key: value }
     virtual void visit(MemberExpression* node) = 0;   // obj.field
+    virtual void visit(MethodCallExpression* node) = 0; // obj.method(args)
     virtual void visit(SelfExpression* node) = 0;     // self keyword
     
     // Statement visitors
@@ -515,10 +517,24 @@ public:
     std::unique_ptr<Expression> object;  // The object being accessed
     std::string member;                   // The field or method name
     bool isComputed;                      // true for obj["field"], false for obj.field
-    
+
     MemberExpression(std::unique_ptr<Expression> obj, const std::string& mem, bool computed = false)
         : object(std::move(obj)), member(mem), isComputed(computed) {}
-    
+
+    void accept(ASTVisitor& visitor) override;
+};
+
+// Method call expression: obj.method(arg1, arg2)
+class MethodCallExpression : public Expression {
+public:
+    std::unique_ptr<Expression> object;   // The object being called on
+    std::string method;                    // The method name
+    std::vector<std::unique_ptr<Expression>> arguments;  // Method arguments
+
+    MethodCallExpression(std::unique_ptr<Expression> obj, const std::string& meth,
+                         std::vector<std::unique_ptr<Expression>> args)
+        : object(std::move(obj)), method(meth), arguments(std::move(args)) {}
+
     void accept(ASTVisitor& visitor) override;
 };
 

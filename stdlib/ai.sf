@@ -6,10 +6,12 @@
 
 // Default AI configuration
 let AI_CONFIG = {
+    provider: "gemini", // "gemini" or "openai"
     model: "gemini-2.0-flash",
     temperature: 0.7,
     maxTokens: 4096,
-    topP: 0.9
+    topP: 0.9,
+    apiKey: ""
 }
 
 // Set the Gemini API key (required before making API calls)
@@ -27,6 +29,17 @@ fn setModel(modelName) {
     AI_CONFIG.model = modelName
 }
 
+// Set the AI provider
+fn setProvider(providerName) {
+    AI_CONFIG.provider = providerName
+    // Set default models for providers if needed
+    if (providerName == "openai") {
+        AI_CONFIG.model = "gpt-4o"
+    } else if (providerName == "gemini") {
+        AI_CONFIG.model = "gemini-2.0-flash"
+    }
+}
+
 // Set temperature for generation
 fn setTemperature(temp) {
     AI_CONFIG.temperature = temp
@@ -35,13 +48,20 @@ fn setTemperature(temp) {
 // ===== Text Generation =====
 
 // Generate text completion from a prompt
-// Returns: string response from Gemini
 fn complete(prompt) {
+    if (AI_CONFIG.provider == "openai") {
+        import openai
+        return openai.complete(prompt, AI_CONFIG.model)
+    }
     return gemini_complete(prompt, AI_CONFIG.model)
 }
 
 // Generate text with custom model
 fn completeWithModel(prompt, model) {
+    if (AI_CONFIG.provider == "openai") {
+        import openai
+        return openai.complete(prompt, model)
+    }
     return gemini_complete(prompt, model)
 }
 
@@ -69,7 +89,12 @@ fn assistantMessage(content) {
 
 // Generate chat completion with system instruction
 // This is the main chat function - uses gemini_chat native binding
+// Generate chat completion with system instruction
 fn chat(systemPrompt, userMessage) {
+    if (AI_CONFIG.provider == "openai") {
+        import openai
+        return openai.chat(systemPrompt, userMessage, AI_CONFIG.model)
+    }
     return gemini_chat(systemPrompt, userMessage, AI_CONFIG.model)
 }
 
@@ -93,7 +118,7 @@ fn embedBatch(texts) {
     let embeddings = []
     for (let i = 0; i < len(texts); i = i + 1) {
         let emb = embed(texts[i])
-        // embeddings.push(emb) -- array push not yet implemented
+        embeddings.push(emb)
     }
     return embeddings
 }

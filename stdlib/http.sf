@@ -43,12 +43,12 @@ fn get(url) {
 
 // GET with custom headers
 fn getWithHeaders(url, headers) {
-    print("[HTTP] GET", url)
-    // Note: Actual HTTP implementation requires native binding
+    let response = http_get(url)
     return {
-        status: 200,
+        status: response.status,
         headers: {},
-        body: "[HTTP Response - Implementation pending]"
+        body: response.body,
+        error: response.error
     }
 }
 
@@ -61,11 +61,12 @@ fn post(url, body) {
 
 // POST with custom headers
 fn postWithHeaders(url, body, headers) {
-    print("[HTTP] POST", url)
+    let response = http_post(url, body)
     return {
-        status: 200,
+        status: response.status,
         headers: {},
-        body: "[HTTP Response - Implementation pending]"
+        body: response.body,
+        error: response.error
     }
 }
 
@@ -114,15 +115,14 @@ fn head(url) {
 fn getJson(url) {
     let response = get(url)
     if (response.status == 200) {
-        // Would use json.parse(response.body)
-        return response.body
+        return __builtin_json_parse(response.body)
     }
     return null
 }
 
 // POST JSON data
 fn postJson(url, data) {
-    let body = str(data)  // Would use json.stringify(data)
+    let body = __builtin_json_stringify(data)
     return postWithHeaders(url, body, {
         contentType: "application/json"
     })

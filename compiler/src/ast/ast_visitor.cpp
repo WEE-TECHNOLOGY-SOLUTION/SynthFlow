@@ -127,6 +127,10 @@ void MemberExpression::accept(ASTVisitor& visitor) {
     visitor.visit(this);
 }
 
+void MethodCallExpression::accept(ASTVisitor& visitor) {
+    visitor.visit(this);
+}
+
 void SelfExpression::accept(ASTVisitor& visitor) {
     visitor.visit(this);
 }
