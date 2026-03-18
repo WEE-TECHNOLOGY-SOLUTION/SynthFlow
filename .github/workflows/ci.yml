@@ -43,9 +43,9 @@ jobs:
       shell: bash
       run: |
         if [[ "${{ runner.os }}" == "Windows" ]]; then
-          if [ -f build/Release/synthflow-mcp.exe ]; then echo "MCP Server built successfully"; else exit 1; fi
+          if [ -f build/bin/Release/synthflow-mcp.exe ]; then echo "MCP Server built successfully"; else exit 1; fi
         else
-          if [ -f build/synthflow-mcp ]; then echo "MCP Server built successfully"; else exit 1; fi
+          if [ -f build/bin/synthflow-mcp ]; then echo "MCP Server built successfully"; else exit 1; fi
         fi
 
     - name: Run Unit Tests
@@ -54,14 +54,14 @@ jobs:
         echo "Running SynthFlow tests..."
         if [[ "${{ runner.os }}" == "Windows" ]]; then
           # Run basic tests
-          if [ -f build/Release/synthflow.exe ]; then
+          if [ -f build/bin/Release/synthflow.exe ]; then
             echo "Testing interpreter..."
-            echo 'print("Hello, World!")' | build/Release/synthflow.exe || echo "Basic test completed"
+            echo 'print("Hello, World!")' | build/bin/Release/synthflow.exe || echo "Basic test completed"
           fi
         else
-          if [ -f build/synthflow ]; then
+          if [ -f build/bin/synthflow ]; then
             echo "Testing interpreter..."
-            echo 'print("Hello, World!")' | build/synthflow || echo "Basic test completed"
+            echo 'print("Hello, World!")' | build/bin/synthflow || echo "Basic test completed"
           fi
         fi
 
@@ -70,8 +70,8 @@ jobs:
       with:
         name: synthflow-${{ runner.os }}
         path: |
-          build/Release/*.exe
-          build/synthflow
-          build/synthflow-lsp
-          build/synthflow-mcp
+          build/bin/Release/*.exe
+          build/bin/synthflow
+          build/bin/synthflow-lsp
+          build/bin/synthflow-mcp
         retention-days: 7
