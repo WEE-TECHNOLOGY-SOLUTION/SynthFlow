@@ -84,11 +84,11 @@ function(synthflow_create_macos_bundle target)
         MACOSX_BUNDLE_EXECUTABLE_NAME "${target}"
     )
 
-    # Add frameworks
+    # Add frameworks (using plain signature for consistency)
     foreach(fw ${SYNTHFLOW_MACOS_FRAMEWORKS})
         find_library(${fw}_FW ${fw})
         if(${fw}_FW)
-            target_link_libraries(${target} PRIVATE ${${fw}_FW})
+            target_link_libraries(${target} ${${fw}_FW})
         endif()
     endforeach()
 
@@ -118,11 +118,11 @@ function(synthflow_create_macos_cli_tool target)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
 
-    # Link frameworks
+    # Link frameworks (using plain signature for consistency)
     foreach(fw ${SYNTHFLOW_MACOS_FRAMEWORKS})
         find_library(${fw}_FW ${fw})
         if(${fw}_FW)
-            target_link_libraries(${target} PRIVATE ${${fw}_FW})
+            target_link_libraries(${target} ${${fw}_FW})
         endif()
     endforeach()
 endfunction()
@@ -209,11 +209,11 @@ function(synthflow_apply_macos_settings target)
         return()
     endif()
 
-    # Link frameworks
+    # Link frameworks (using plain signature for consistency with main CMakeLists.txt)
     foreach(fw ${SYNTHFLOW_MACOS_FRAMEWORKS})
         find_library(${fw}_FW ${fw})
         if(${fw}_FW)
-            target_link_libraries(${target} PRIVATE ${${fw}_FW})
+            target_link_libraries(${target} ${${fw}_FW})
         endif()
     endforeach()
 

@@ -256,8 +256,8 @@ function(synthflow_apply_linux_settings target)
         return()
     endif()
 
-    # Link Linux libraries
-    target_link_libraries(${target} PRIVATE ${SYNTHFLOW_LINUX_LIBS})
+    # Link Linux libraries (using plain signature for consistency)
+    target_link_libraries(${target} ${SYNTHFLOW_LINUX_LIBS})
 
     # Set output directory
     set_target_properties(${target} PROPERTIES

@@ -143,8 +143,8 @@ set(CPACK_NSIS_DELETE_ICONS_EXTRA
 # ------------------------------------------------------------------------------
 function(synthflow_apply_windows_settings target)
     if(WIN32)
-        # Link Windows libraries
-        target_link_libraries(${target} PRIVATE ${SYNTHFLOW_WINDOWS_LIBS})
+        # Link Windows libraries (using plain signature for consistency)
+        target_link_libraries(${target} ${SYNTHFLOW_WINDOWS_LIBS})
 
         # Set output directory
         set_target_properties(${target} PROPERTIES
