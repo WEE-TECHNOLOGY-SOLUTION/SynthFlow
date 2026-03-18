@@ -201,8 +201,16 @@ elseif(APPLE)
     find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
     find_library(SECURITY_FRAMEWORK Security)
     target_link_libraries(http_client ${COREFOUNDATION_FRAMEWORK} ${SECURITY_FRAMEWORK})
+    # Link libcurl on macOS
+    if(Libcurl_FOUND)
+        target_link_libraries(http_client ${Libcurl_LIBRARIES})
+    endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(http_client pthread dl)
+    # Link libcurl on Linux
+    if(Libcurl_FOUND)
+        target_link_libraries(http_client ${Libcurl_LIBRARIES})
+    endif()
 endif()
 
 # HTTP Server
