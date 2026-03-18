@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.14)
 # Project Configuration
 # ------------------------------------------------------------------------------
 project(SynthFlow
-    VERSION 0.0.30
+    VERSION 0.2.0
     DESCRIPTION "SynthFlow Programming Language Compiler"
     HOMEPAGE_URL "https://synthflow.dev"
     LANGUAGES CXX

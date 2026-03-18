@@ -7,7 +7,7 @@
 **An AI-Native Programming Language for the Future**
 
 [![Build Status](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/actions)
-[![Version](https://img.shields.io/badge/version-0.0.30-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/WEE-TECHNOLOGY-SOLUTION/SynthFlow/releases)
 
@@ -183,7 +183,7 @@ export PATH="$PWD/build/bin:$PATH"
 
 ```bash
 synthflow --version
-# Output: SynthFlow v0.0.30
+# Output: SynthFlow v0.2.0
 
 synthflow --help
 # Display available commands
@@ -428,14 +428,22 @@ cd build && ctest
 
 ## Roadmap
 
-### v0.1.0 (Upcoming)
+### v0.2.0 (Current Release)
+
+- [x] Cross-platform HTTP client (WinHTTP/libcurl)
+- [x] WebAssembly transpilation
+- [x] Array mutation methods
+- [x] Semantic analyzer improvements
+- [x] CI/CD pipeline for all platforms
+
+### v0.3.0 (Upcoming)
 
 - [ ] Garbage collection
 - [ ] Async/await support
 - [ ] Native threading
 - [ ] Package manager
 
-### v0.2.0 (Planned)
+### v0.4.0 (Planned)
 
 - [ ] JIT compilation
 - [ ] LLVM backend
