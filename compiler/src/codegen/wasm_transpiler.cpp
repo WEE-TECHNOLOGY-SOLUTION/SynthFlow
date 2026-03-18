@@ -221,29 +221,6 @@ std::string WasmTranspiler::transpile(const std::vector<std::unique_ptr<Statemen
         }
     }
 
-    // Generate data section for string literals
-    if (!stringLiterals.empty()) {
-        emitLine("");
-        emitLine(";; String literal data section");
-        for (const auto& [offset, str] : stringLiterals) {
-            std::ostringstream dataLine;
-            dataLine << "(data (i32.const " << offset << ") \"";
-            // Store length as little-endian 32-bit integer
-            uint32_t len = static_cast<uint32_t>(str.length());
-            dataLine << "\\"
-                     << std::setfill('0') << std::setw(2) << std::hex << (len & 0xFF)
-                     << "\\"
-                     << std::setw(2) << std::hex << ((len >> 8) & 0xFF)
-                     << "\\"
-                     << std::setw(2) << std::hex << ((len >> 16) & 0xFF)
-                     << "\\"
-                     << std::setw(2) << std::hex << ((len >> 24) & 0xFF);
-            dataLine << stringToWatHex(str);
-            dataLine << "\")";
-            emitLine(dataLine.str());
-        }
-    }
-
     // Generate $main function that contains all top-level code
     emitLine("");
     emitLine(";; Main entry point - contains all top-level code");
@@ -269,22 +246,33 @@ std::string WasmTranspiler::transpile(const std::vector<std::unique_ptr<Statemen
 
     indentLevel--;
     emitLine(")");
-        }
-    }
-    if (hasStart) {
-        for (const auto& name : functionNames) {
-            if (name == "_start" || name == "main") {
-                emitLine("(call $" + name + ") drop");
-                break;
-            }
+
+    // Generate data section for string literals (after all code is generated)
+    if (!stringLiterals.empty()) {
+        emitLine("");
+        emitLine(";; String literal data section");
+        for (const auto& [offset, str] : stringLiterals) {
+            std::ostringstream dataLine;
+            dataLine << "(data (i32.const " << offset << ") \"";
+            // Store length as little-endian 32-bit integer
+            uint32_t len = static_cast<uint32_t>(str.length());
+            dataLine << "\\"
+                     << std::setfill('0') << std::setw(2) << std::hex << (len & 0xFF)
+                     << "\\"
+                     << std::setw(2) << std::hex << ((len >> 8) & 0xFF)
+                     << "\\"
+                     << std::setw(2) << std::hex << ((len >> 16) & 0xFF)
+                     << "\\"
+                     << std::setw(2) << std::hex << ((len >> 24) & 0xFF);
+            dataLine << stringToWatHex(str);
+            dataLine << "\")";
+            emitLine(dataLine.str());
         }
     }
 
+    // Close the module
     indentLevel--;
-    emitLine(")");
-
-    indentLevel--;
-    output << ")\n";
+    output << ") ;; end module\n";
 
     return output.str();
 }
@@ -397,7 +385,7 @@ void WasmTranspiler::visit(AssignmentExpression* node) {
     if (auto* id = dynamic_cast<Identifier*>(node->left.get())) {
         node->right->accept(*this);
         emit(" (local.set $" + id->name + ")");
-    } else if (auto* memberExpr = dynamic_cast<MemberExpression*>(node->left.get())) {
+    } else if (dynamic_cast<MemberExpression*>(node->left.get())) {
         // Handle member assignment: obj.field = value
         // For now, simplified - proper implementation needs to track struct offsets
         node->right->accept(*this);
@@ -851,7 +839,7 @@ void WasmTranspiler::visit(MethodCallExpression* node) {
 // ========================================
 
 void WasmTranspiler::visit(VariableDeclaration* node) {
-    int idx = getLocalIndex(node->name);
+    (void)getLocalIndex(node->name);  // Ensure local is registered
 
     // Track type for struct variables
     if (!node->typeName.empty()) {
